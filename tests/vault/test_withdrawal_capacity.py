@@ -103,6 +103,31 @@ def test_corrupt_numeric_observation_stays_unknown():
     assert result.capacity_warning is None and result.current_capacity is None
 
 
+@pytest.mark.parametrize("capacity", [None, "200", "0"])
+def test_export_morpho_low_liquidity_sets_capacity_warning(capacity: str | None) -> None:
+    """Provider warnings supplement measured capacity and clear on refresh."""
+    spec = VaultSpec(137, "0x" + "a" * 40)
+    row = {"id": spec.as_string_id()}
+    morpho_data = {"vault_warnings": [{"type": "low_liquidity", "level": "YELLOW"}]}
+    source = {"_morpho_offchain_data": morpho_data}
+    if capacity is not None:
+        source["_withdrawal_capacity_observation"] = observation(capacity)
+    database = SimpleNamespace(rows={spec: source})
+
+    enrich_withdrawal_capacity([row], database, now=NOW)
+    limit = row["withdrawal_capacity_limit"]
+    assert limit["capacity_warning"] is True
+    assert limit["current_capacity"] == capacity
+    assert "Morpho reports low vault liquidity" in limit["capacity_reason"]
+    assert row["withdrawal_capacity_observation"]["capacity_warning_source"] == ("measured" if capacity == "0" else "morpho")
+    assert row["withdrawal_capacity_observation"]["morpho_low_liquidity"] is True
+
+    morpho_data["vault_warnings"] = [{"type": "not_whitelisted", "level": "YELLOW"}]
+    enrich_withdrawal_capacity([row], database, now=NOW)
+    assert row["withdrawal_capacity_limit"]["capacity_warning"] is (None if capacity is None else capacity == "0")
+    assert "morpho_low_liquidity" not in row["withdrawal_capacity_observation"]
+
+
 @pytest.mark.parametrize("missing_field", ["chain_id", "address", "both"])
 @pytest.mark.parametrize("uppercase", [False, True])
 def test_export_resolves_legacy_id(missing_field: str, uppercase: bool) -> None:

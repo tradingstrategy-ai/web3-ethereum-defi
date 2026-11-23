@@ -30,6 +30,14 @@ capacity measurement uses direct cash, capped by total asset entitlement.
 Morpho V1 reads the withdrawal queue, supplied market positions and available
 market cash, with stored-interest conservative rounding. Morpho V2 includes only
 the configured ordinary withdrawal route; optional paid recovery is excluded.
+Both catalogue JSON exports also set `capacity_warning` from the latest retained
+[Morpho vault-level `low_liquidity` warning](https://docs.morpho.org/get-started/resources/app-ecosystem/#morpho-warnings).
+The observation records this signal as `morpho_low_liquidity`.
+`capacity_warning_source` is `measured`, `structural`, or `both` for the
+existing checks, `morpho` when Morpho is the sole trigger, and `null` when no
+warning applies. Transient API errors may retain the last
+Morpho warning until another definitive response arrives. The local refresh
+report includes this signal when its input contains the stored Morpho metadata.
 
 IPOR with no instant-withdrawal fuses uses idle assets; configured fuses currently
 produce an explicit partial result because idle cash alone cannot describe their
@@ -91,8 +99,8 @@ Warnings are assessed when the export is generated. Daily observations expire
 after 26 hours and weekly observations after seven days plus two hours. Legacy
 observations without a recorded interval use 26 hours. Older observations become
 unknown; consumers reusing an exported file must also check its observation
-timestamp. Old rows without an observation remain unknown until the loop reads
-them. No one-off catalogue migration is needed. Trade-executor consumption
+timestamp. For old rows, the measured capacity remains unknown until the loop
+reads them. No one-off catalogue migration is needed. Trade-executor consumption
 remains separate.
 
 Euler EVK vaults use `cash()` (accounted unborrowed assets), bounded by total
