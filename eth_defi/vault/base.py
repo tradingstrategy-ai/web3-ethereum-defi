@@ -641,18 +641,19 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: the validation function that accepts all these formats.
     address: str
 
-    #: Block number of the on-chain read.
-    #: For native protocols without blocks this is a synthetic sequence number.
+    #: Block number of the onchain read. Native protocols may use a synthetic
+    #: sequence number or a placeholder. ApeX writes zero for every price.
     block_number: int
 
-    #: Naive UTC timestamp of the real source observation, with one-second
-    #: EVM block precision. This, not ``written_at``, determines freshness.
+    #: Naive UTC observation time, stored to milliseconds and used for freshness.
     #:
-    #: Modern high-throughput chains, including Monad, can produce multiple
-    #: blocks in the same second. This value may therefore repeat for the
-    #: same vault; raw-row identity is ``(chain, address, block_number)``, not
-    #: ``timestamp``. The Parquet millisecond logical type is used only for
-    #: compatibility, as one-second precision is sufficient for price scans.
+    #: EVM reads use ``(chain, address, block_number)`` as their key. Distinct
+    #: blocks can share a timestamp for the same vault. Preserve both observations.
+    #:
+    #: Within the ApeX partition, the key is the lower-case vault address and
+    #: stored millisecond. A source observation at ``12:00:00.999500`` replays
+    #: onto ``12:00:00.999``. A match between fresh and stored inputs is a
+    #: correction. Repeated keys within either input make the merge ambiguous.
     timestamp: "pd.Timestamp"
 
     #: Optional original NAV publication time, distinct from the chain read.
@@ -782,10 +783,10 @@ class VaultHistoricalRead:
     #: Vault for this result is
     vault: "VaultBase"
 
-    #: block number of the reade
+    #: EVM block at which the vault was read.
     block_number: int
 
-    #: Naive datetime in UTC
+    #: Naive UTC block time. Several blocks may share the same second.
     timestamp: datetime.datetime
 
     #: What was the share price in vault denomination token
@@ -950,10 +951,13 @@ class VaultHistoricalRead:
 
     @classmethod
     def to_pyarrow_schema(cls) -> "pyarrow.Schema":
-        """Get parquet schema for writing this data.
+        """Return the shared raw price schema for EVM and native observations.
 
-        - Write multiple chains, multiple vaults, to a single Parquet file
-        - Column semantics are documented in :py:class:`RawVaultPriceRow`
+        :py:class:`RawVaultPriceRow` documents the protocol-specific row keys.
+        Native merges that use the stored timestamp for identity must compare
+        it at this field's precision before deciding which rows to retain.
+
+        :return: Arrow schema for the combined raw price Parquet.
         """
         import pyarrow as pa
 
@@ -962,7 +966,8 @@ class VaultHistoricalRead:
                 ("chain", pa.uint32()),
                 ("address", pa.string()),  # Lowercase
                 ("block_number", pa.uint64()),
-                ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
+                # ApeX uses this precision to match replays. EVM blocks may share this value.
+                ("timestamp", pa.timestamp("ms")),
                 ("nav_timestamp", pa.timestamp("ms")),
                 ("share_price", pa.float64()),
                 ("total_assets", pa.float64()),
@@ -1069,10 +1074,11 @@ class VaultHistoricalRead:
     ) -> None:
         """Write a DataFrame to the uncleaned parquet using proper PyArrow types.
 
-        Native protocol merge functions (Hyperliquid, GRVT, Lighter) must use
-        this instead of ``pandas.DataFrame.to_parquet()`` to avoid type
-        promotion (e.g. ``timestamp[ms]`` → ``timestamp[us]``) that breaks
-        :py:meth:`migrate_parquet_schema` on the next EVM scan run.
+        This DataFrame writer and the native Arrow merge both use the canonical
+        Parquet types. Casting timestamps to milliseconds can give distinct source
+        times the same stored value. Callers that merge by timestamp must resolve
+        replays and reject ambiguous keys before writing. EVM block observations
+        may share the resulting timestamp.
 
         Columns present in the canonical schema are cast to their canonical
         types. Extra columns (from native protocols) are kept with their

@@ -11,7 +11,8 @@ NAV and TVL history into DuckDB. The all-chain scanner can also export the
 data into the shared vault metadata and price pipeline, including a direct
 ApeX vault link for each exported vault. The shared raw price file stores
 timestamps at millisecond precision. Replaying a ranking observation updates
-the row for that vault and millisecond.
+the row for that vault and millisecond. If two source observations for that vault
+map to the same stored millisecond, the ApeX merge rejects the ambiguous key.
 
 See the `ApeX public API documentation
 <https://api-docs.pro.apex.exchange/>`__ for the platform API.

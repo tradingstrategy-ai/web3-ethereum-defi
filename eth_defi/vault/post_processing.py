@@ -749,6 +749,10 @@ def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd
     vault's history. Preserve existing rows unless the export supplies the
     same vault address and timestamp, in which case the new value wins.
 
+    For ApeX, both inputs use the lower-case address and the timestamp
+    truncated to the raw Parquet millisecond. Each input must contain at most
+    one row per key. A match across inputs is a replay or correction.
+
     Only the selected synthetic chain partition is read into Pandas. The
     complete Parquet file stays in Arrow form for the later atomic write.
 
@@ -781,6 +785,8 @@ def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd
     temporary_columns = ["_canonical_address"]
     existing_rows = len(existing_df) if existing_df is not None else 0
     if chain_id == APEX_CHAIN_ID:
+        # Comparing source microseconds directly to a stored millisecond would append
+        # a replay as a new price. The subsequent Arrow cast would give both the same key.
         combined["_stored_timestamp"] = apex_price_timestamps(combined["timestamp"])
         keys = ["_canonical_address", "_stored_timestamp"]
         temporary_columns.append("_stored_timestamp")
@@ -829,7 +835,9 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
     the result is written once. For ApeX and Derive, new rows replace only matching
-    vault addresses and timestamps; all other stored prices are retained.
+    vault addresses and timestamps. ApeX matches at the raw Parquet's millisecond
+    precision and rejects duplicate keys within either input. Both protocols retain
+    unmatched stored prices.
     This preserves history when an API response or rebuilt DuckDB contains
     fewer observations than the existing Parquet file.
 

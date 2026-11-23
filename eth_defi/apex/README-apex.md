@@ -290,7 +290,7 @@ The default database path is:
 | Table | Logical key | Purpose |
 |-------|-------------|---------|
 | `vault_metadata` | `vault_id` | Current source metadata and lifecycle |
-| `vault_prices` | `(vault_id, timestamp)` | Historical and ranking values |
+| `vault_prices` | `(vault_id, timestamp)` at DuckDB microsecond precision | Historical and ranking values. The shared raw Parquet matches by lower-case synthetic address and truncated millisecond. |
 | `history_sync` | `vault_id` | Attempt, retained-range and finalisation state |
 
 The tables deliberately have no `PRIMARY KEY` or `UNIQUE` constraints. DuckDB
