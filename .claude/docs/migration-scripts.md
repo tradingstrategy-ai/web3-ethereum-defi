@@ -118,6 +118,25 @@ script or edit a successful script; add a new numbered correction instead.
 When changing accessory functions whose results are persisted, add another
 migration even if an earlier script called the same helper.
 
+The runner validates the entire packaged inventory before it starts a batch.
+Every script must include all seven literal labels in its module docstring:
+`Purpose:`, `Scope:`, `Branch:`, `PR title:`, `PR:`, `Preserves:` and
+`Expected:`. A missing label in any script blocks both preview and apply.
+
+Before pushing a new migration, run the discovery check from the worktree:
+
+```shell
+PYTHONPATH="$PWD" poetry run python -m eth_defi.vault_protocols.migration list
+```
+
+Check that the command exits successfully and lists the new filename. Have
+the migration's focused test resolve it through `discover_migrations()` so
+the test also exercises the packaged inventory. Calling `migrate(context)`
+directly bypasses discovery. Then preview through the runner on disposable
+data. To rehearse one script in isolation, copy it into a temporary scripts
+directory and call `run_pending_migrations(dry_run=True, data_dir=...,
+scripts_dir=...)` with the matching data copy.
+
 LLM-generated scripts require human review. Freeze exact reviewed address
 inventories, or explicitly describe a database-wide field transformation.
 Use shared protocol resolvers rather than copying business rules.

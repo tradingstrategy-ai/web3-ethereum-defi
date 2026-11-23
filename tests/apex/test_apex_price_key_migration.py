@@ -14,9 +14,9 @@ from eth_defi.apex.constants import APEX_CHAIN_ID, APEX_METRICS_DATABASE
 from eth_defi.apex.metrics import ApexMetricsDatabase
 from eth_defi.perp_dex import parquet
 from eth_defi.vault.publication_state import NATIVE_REVISIONS_KEY
-from eth_defi.vault_protocols.migration import MigrationContext
+from eth_defi.vault_protocols.migration import MigrationContext, discover_migrations
 
-SCRIPT = Path(__file__).resolve().parents[2] / "migration/scripts/106-apex-price-key-collisions.py"
+SCRIPT_NAME = "106-apex-price-key-collisions.py"
 
 
 @pytest.fixture
@@ -46,7 +46,8 @@ def migrate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Callable[[Migrat
         )
     )
     monkeypatch.setattr(parquet, "derive_perp_vault_metric_snapshots", lambda *_: snapshots)
-    repair = runpy.run_path(str(SCRIPT))["migrate"]
+    script = next(spec for spec in discover_migrations() if spec.name == SCRIPT_NAME)
+    repair = runpy.run_path(str(script.path))["migrate"]
     # Exercise different input and output row-group boundaries on a small fixture.
     monkeypatch.setitem(repair.__globals__, "BATCH_ROWS", 2)
     return repair
@@ -76,12 +77,12 @@ def raw_prices(tmp_path: Path) -> Path:
 def test_apex_price_key_migration_preserves_history(tmp_path: Path, raw_prices: Path, migrate: Callable[[MigrationContext], None]) -> None:
     """Preview, repair and rerun without selecting a later snapshot for old prices."""
     original = raw_prices.read_bytes()
-    preview = MigrationContext(tmp_path, True, SCRIPT.name)
+    preview = MigrationContext(tmp_path, True, SCRIPT_NAME)
     migrate(preview)
     assert preview.other_data["changed_rows"] == 1
     assert raw_prices.read_bytes() == original
 
-    apply = MigrationContext(tmp_path, False, SCRIPT.name)
+    apply = MigrationContext(tmp_path, False, SCRIPT_NAME)
     migrate(apply)
     result = pq.read_table(raw_prices)
     assert result["block_number"].to_pylist() == [0, 101, 102, 0]
@@ -93,7 +94,7 @@ def test_apex_price_key_migration_preserves_history(tmp_path: Path, raw_prices: 
     assert Path(apply.other_data["backup_paths"][0]).read_bytes() == original
 
     repaired = raw_prices.read_bytes()
-    repeat = MigrationContext(tmp_path, False, SCRIPT.name)
+    repeat = MigrationContext(tmp_path, False, SCRIPT_NAME)
     migrate(repeat)
     assert repeat.other_data["changed_rows"] == 0
     assert repeat.modified_files == []
@@ -108,7 +109,7 @@ def test_apex_price_key_migration_rejects_colliding_source(tmp_path: Path, raw_p
     finally:
         database.close()
     original = raw_prices.read_bytes()
-    context = MigrationContext(tmp_path, False, SCRIPT.name)
+    context = MigrationContext(tmp_path, False, SCRIPT_NAME)
     with pytest.raises(ValueError, match="source has colliding observations"):
         migrate(context)
     assert raw_prices.read_bytes() == original
@@ -142,7 +143,7 @@ def test_apex_price_key_migration_preserves_file_on_conflict(tmp_path: Path, raw
     pq.write_table(rows, raw_prices)
     original = raw_prices.read_bytes()
     with pytest.raises(ValueError, match=message):
-        migrate(MigrationContext(tmp_path, False, SCRIPT.name))
+        migrate(MigrationContext(tmp_path, False, SCRIPT_NAME))
     assert raw_prices.read_bytes() == original
 
 
@@ -151,5 +152,5 @@ def test_apex_price_key_migration_collapses_identical_raw_only_pair(tmp_path: Pa
     rows = pq.read_table(raw_prices)
     unique = rows.take([1, 3, 4])
     pq.write_table(pa.concat_tables([unique, unique.slice(2, 1)]), raw_prices)
-    migrate(MigrationContext(tmp_path, False, SCRIPT.name))
+    migrate(MigrationContext(tmp_path, False, SCRIPT_NAME))
     assert pq.read_table(raw_prices).equals(unique)
