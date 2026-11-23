@@ -1,623 +1,83 @@
-# Instructions to work with the code base
-
-## Reference docs for Claude
-
-Repo-local reference docs that Claude should consult when the task
-touches the relevant area:
-
-- [.claude/docs/agent-tricks-and-troubleshooting.md](.claude/docs/agent-tricks-and-troubleshooting.md) — Claude, Codex, Grok and
-  Kimi CLI usage patterns, cross-agent review commands, streaming output,
-  timeouts, and common failure modes. See **Agents** below for when this
-  file is mandatory.
-- [.claude/docs/vault-integration.md](.claude/docs/vault-integration.md) — read before changing ERC-4626-style
-  vault adapters, their guard deployment or executor integration; defines
-  existing ownership, descriptor handling and checks against unnecessary layers.
-- [docs/README-lighter-core-execution.md](docs/README-lighter-core-execution.md) — read before changing Lighter pool
-  execution or multichain activation scripts; covers script defaults, custody
-  boundaries, recovery and the remaining funded verification requirements.
+# Repository instructions
 
 ## Agents
 
-Before invoking any external agent CLI (`claude`, `claude -p`,
-`claude ultrareview`, `codex`, `codex exec`, `grok`, or equivalent), **read
-`.claude/docs/agent-tricks-and-troubleshooting.md` in the current session**
-and follow its instructions. Do not run any of those CLIs until you have
-checked that guidance. Detailed review patterns and failure modes live only
-in that file — do not restate them here.
+- Before invoking an external agent CLI (Claude, Codex, Grok, Kimi or an equivalent wrapper), read and follow [agent CLI instructions](.claude/docs/agent-tricks-and-troubleshooting.md) in the current session.
+- When the user names a skill or the task matches a directory in [.claude/skills](.claude/skills), read its `SKILL.md` first. Use its scripts, templates and checklists. Open additional references as needed.
+- After a feature, bug fix or maintained content change, run [clean-up-for-pr](.claude/skills/clean-up-for-pr/SKILL.md) once before review handoff. Delegated reviewers must not start another cleanup review.
+- Use the [repository guide](.claude/docs/README.md) to find component READMEs, runbooks and research. If a web fetch returns HTTP 403, retry in Chrome when the browser integration is available.
 
-## Skills
+## Writing and documentation
 
-Repo-local skills live as folders under `.claude/skills`.
+- Use British English, spell `onchain` as one word, and use sentence case for headings and chart titles.
+- Apply the [description writing style guide](.claude/docs/description-writing-style.md) to public website and data text, including descriptions, notes and fees. Engineering documentation and PR descriptions follow the English rules above.
+- Link a source page at its first relevant mention. Give each API module a Sphinx stub under `docs/source/api/` and include it in the [API contents](docs/source/api/index.rst). See the [Lagoon index](docs/source/api/lagoon/index.rst) for an example.
+- Do not build Sphinx locally or edit generated `_autosummary*` files.
 
-When a task matches one of the folder names, open the corresponding `SKILL.md` first and follow it before doing ad hoc exploration.
+## Development and worktrees
 
-Skill discovery rules:
+- Use Python 3.14. Install dependencies with `poetry install -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb`. Run scripts with `poetry run python path/to/script.py`.
+- In a worktree, use the parent Poetry environment unless changing dependencies. Check that `.venv` resolves to it and that this checkout's `.claude/docs` and `.claude/skills` are accessible.
+- Copy the gitignored `.local-test.env` from the main checkout into the worktree. Use `git worktree list` to locate it. If it is missing from both, ask the user to prepare it before running tests. Never edit or commit it. Keep credentials out of commits, test commands and output.
+- Format only changed Python files, including new ones, with `poetry run ruff format path/to/changed.py`. Explain each added or updated dependency in a `pyproject.toml` comment.
 
-- If the user mentions a skill by name, use it.
-- If the task clearly matches one of the skill directory names above, use that skill even if the user did not mention it explicitly.
-- Start by reading only `.claude/skills/<skill-name>/SKILL.md`.
-- If the skill references extra files, open only the files needed for the current task.
-- Prefer scripts, templates and checklists referenced by the skill over re-creating the workflow manually.
+## Python and scripts
 
-After completing a feature, bug fix or maintained content change, use
-[clean-up-for-pr](.claude/skills/clean-up-for-pr/SKILL.md) before the review
-handoff. It covers code simplification, factual copy, documentation, repository
-conformance and an independent review with the opposite agent. Run it once for
-the completed change; delegated reviewers must not start another cleanup review.
+- Type all function arguments and return values. Use `HexAddress` for blockchain addresses, `eth_defi.types.Percent` for percentages, and `dataclass(slots=True)` for data records where appropriate. Use snake_case for string enum members and values.
+- Use module-level imports where possible. Use `import datetime`, naive UTC datetimes and `eth_defi.compat.native_datetime_utc_now()`. Assertions may check invariants and configuration. Run Python without optimisation so these checks execute.
+- Prefix network reads with `fetch_`. Prefer iterators for streamed results, `any()` or `all()` for membership predicates, and Pandas operations for tabular data.
+- Use threads for concurrent reads. For batches of API calls, use `joblib.Parallel` with the threading backend unless otherwise specified. Accept `max_workers` and expose `MAX_WORKERS` in scripts.
+- Write Sphinx docstrings with a one-line summary, rationale, mechanism, parameters and return value. Document units, ownership, side effects, failure conditions and DataFrame or Series columns and types where relevant. Link canonical API documentation for integrations.
+- Write comments for maintainers who know Python but may be new to the protocol. Explain unfamiliar terms on first use and give the reason for non-obvious decisions. Use Sphinx function or method references to explain a non-obvious caller. Document dataclass and enum members with `#:` above the member. Omit an override's docstring if the inherited one suffices.
+- Use a module logger from `logging.getLogger(__name__)` and pass format arguments separately. Catch specific exceptions and report failures. For retries, log a concise warning identifying the operation. Log an error with traceback on the final failure.
+- Show progress at least once a minute so the operator can tell whether a long-running script or scan has stalled. Use `tqdm_loggable.auto` for loops.
+- Configure scripts through environment variables. Add a command-line parser only when requested. Require credentials and user-supplied RPC URLs when needed. Default routine settings, document overrides, and validate inputs before sending transactions.
+- Use [scan-vaults.py](scripts/erc-4626/scan-vaults.py) for a script example. Use `tabulate.tabulate()` for terminal tables, DataFrames for notebook tables and Plotly for charts.
 
-## English
+## Tests
 
-- Use UK/British English instead of US English
-- Say things like `visualise` instead of `visualize`
-- Always spell `onchain` without a hyphen; correct `on-chain` to `onchain`
-- For headings, only capitalise the first letter of heading, do not use title case
+- Run only the relevant tests with `source .local-test.env && poetry run pytest <test-path-or-node-id>`. Allow at least 180 seconds. Add `--log-cli-level=info` for diagnostics.
+- Use pytest functions and fixtures. Put shared helpers under `eth_defi/testing/`. Avoid test classes, stdout prints and imports from `tests`. Use `pytest.approx()` for float comparisons. Close DuckDB connections with a fixture or `finally`.
+- Test repository behaviour with representative raw inputs and explicit expected results. Cover calculations, fees, NAV, filtering, pagination, resume, persistence, exports and permissions. Exercise public dispatch contracts when callers rely on them.
+- Avoid adding tests that only confirm provider responses, network timing, dataclass mechanics, private imports, literal registry sizes or precomputed fixture arithmetic. An integration change alone does not require an authenticated smoke test or PR comment.
+- Keep representative registry cases for distinct outcomes, chain-specific mappings, overrides and edge cases. Preserve unique assertions before removing duplicate tests. Use unique function names and remove unused fixtures. When reporting reductions, give the suite scope and collection environment and distinguish functions from parametrised cases. See [PR #1767](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1767) and [PR #1769](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1769).
+- Before writing an Anvil mainnet-fork test, read the [shared fork module docstring](eth_defi/testing/anvil_fork_pool.py). Use the session pool, canonical chain block, matching xdist group and snapshot/revert isolation. Deploy expensive fixtures once per session. Assert exact outcomes at fixed blocks. On Monad, use current-state or state-relative assertions.
+- Mark new multi-minute Hypersync scan tests with `skip_hypersync_scan_on_ci`. They still run locally. Follow [Hypersync CI instructions](docs/README-hypersync-tests.md) when changing discovery code.
 
-## Writing style for user-facing website and data text
+### Flaky CI tests
 
-Read and follow the [description writing style guide](.claude/docs/description-writing-style.md)
-when writing or editing manually maintained public descriptions and notes
-shown on the website or in published data, including vault, protocol, curator,
-stablecoin and fee descriptions in YAML, Python or Markdown files. Repository
-engineering documentation, such as READMEs, Sphinx pages, `.claude` docs,
-docstrings, code comments, `CHANGELOG.md` entries and pull request
-descriptions, follows only the English rules above.
-
-## Installing dependencies
-
-Install dependencies with all required extras:
-
-```shell
-poetry install -E data -E test -E docs -E hypersync -E ccxt -E cloudflare_r2 -E duckdb
-```
-
-## Running Python scripts
-
-When running a Python script use `poetry run python` command instead of plain `python` command, so that the virtual environment is activated.
-
-```shell
-poetry run python scripts/logos/post-process-logo.py
-```
-
-## Production
-
-For database repairs and persisted accessor refreshes, follow
-[numbered migration scripts](.claude/docs/migration-scripts.md). Add a new
-numbered script and a PR run reminder. Standalone `migrate-*.py`, `fix-*.py`
-and one-off backfill entrypoints are **legacy format and must not be used**
-for these tasks. Port a required legacy repair into a new numbered script;
-existing commands in old runbooks are historical references, not templates.
-Do not edit or rerun a successful initial migration for a later accessor change.
-When a newly discovered, repaired or reclassified vault lacks early price
-history, add a fixed-scope price backfill to the numbered migration; see
-[historical price backfills](.claude/docs/migration-scripts.md#historical-price-backfills).
-Both preview and apply require the looped scanner to be stopped; use the direct
-Compose command in the production runbook, preserving the
-lifetime-guard-before-writer-lock order. The host launcher is optional for
-Docker preflight and automatic image pinning. Migration provenance comes from
-the git commit stamped inside the image; no host Docker hash is required.
-
-Production vault scanning runs from `~/vault-scanner/web3-ethereum-defi` with
-environment variables loaded from `~/vault-scanner/vault-rpc.env`. The Compose
-configuration is `docker-compose.yml`; inspect it before running production
-maintenance because its service entrypoint and mounted state determine the
-effect of a command.
-
-- `vault-scanner-oneshot` is a profile-only, single-run service. It inherits
-  the image entrypoint from `Dockerfile.vault-scanner`, which runs
-  `scripts/erc-4626/scan-vaults-all-chains.py` once. Use it for an intentional
-  scan or override its entrypoint for production maintenance, e.g.
-  `source ~/vault-scanner/vault-rpc.env && (cd ~/vault-scanner/web3-ethereum-defi && docker compose run --entrypoint /bin/bash vault-scanner-oneshot)`.
-- `vault-scanner-looped` is the persistent scanner started by
-  `docker compose up -d`. It explicitly runs
-  `python scripts/erc-4626/scan-vaults-all-chains.py` and uses
-  `LOOP_INTERVAL_SECONDS`, `SCAN_CYCLES` and `DEFAULT_CYCLE` to schedule work.
-- `post-scanner` is the persistent feed collector. Its entrypoint is
-  `python scripts/erc-4626/scan-vault-posts.py`.
-
-All three services mount `${HOME}/.tradingstrategy` from the production host
-at `/root/.tradingstrategy` in the container. This is persistent production
-state, including the vault metadata pickle, price Parquet files, reader state
-and dense per-chain timestamp caches under
-`/root/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`.
-One-shot containers therefore share the same state as the looped scanner; do
-not change `HOME`, use an unmounted container, or delete/recreate this directory
-while performing a migration. The Compose services also mount host `.cache`,
-repository `logs`, and the mutable stablecoin/feed data directories where
-applicable.
-
-For metadata-only repairs, explicitly disable historical price scanning (for
-example `UPSHIFT_SCAN_PRICES=false`). Price scans require the dense timestamp
-cache to be available inside the container; restore or prepopulate that cache
-on the host before a historical backfill rather than allowing a one-shot repair
-to bootstrap it with sparse timestamp requests.
-
-## Chain quirks
-
-### Monad
-
-Monad (chain ID 143) does not provide archive-complete historical state. Its
-full nodes retain all historical blocks, transactions, receipts, events and
-traces, but expose only a provider- and disk-dependent recent window of
-contract state. No provider offers arbitrary-depth historical state; see the
-[Monad historical data documentation](https://docs.monad.xyz/developer-essentials/historical-data).
-
-- Do not describe `JSON_RPC_MONAD` as an archive node, retry failed old
-  `eth_call` requests, or attempt a genesis-to-head state backfill. Once a
-  state trie has been evicted, those operations cannot succeed.
-- Use Hypersync for historical Monad events and timestamps. For historical
-  vault values, `scan_historical_prices_to_parquet()` probes Multicall and
-  begins at the oldest state block the configured provider can execute.
-  Backfill a Monad price gap soon after finding it, while the state is still
-  readable; see the [Monad backfill rules](.claude/docs/migration-scripts.md#monad).
-- Preserve existing Monad price rows before that dynamically detected boundary:
-  the current provider cannot reconstruct them. Monad fork and historical tests
-  must use current-state or state-relative assertions.
-
-### HyperEVM
-
-HyperEVM (chain IDs 999 and 998) interleaves small and large blocks with
-independent mempools and base fees, see the
-[dual-block architecture documentation](https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/hyperevm/dual-block-architecture).
-The sender's `usingBigBlocks` flag selects the mempool, not the gas limit.
-
-- Check the block type before pricing from `latest`: it can be a large block
-  in a different fee market. Use `estimate_gas_price()`, which takes the block
-  type as `block_type`. web3.py's default fee filler does not make this check.
-- Do not rely on `eth_gasPrice`, as its meaning depends on the provider. See
-  the measurements in `estimate_gas_price()`.
-- Anvil forks keep chain ID 999 but have one fee market, and their blocks can
-  have a 30M gas limit, so do not apply these rules to a fork.
-- Use the block `gasLimit` to tell the two apart: 30M for large blocks. On
-  5 November 2026 small blocks had a 3M limit.
-
-## Running tests
-
-If we have not run tests before make sure the user has created a gitignored file `.local-test.env` in the repository root. This will use `source` shell command to include the actual test secrets which lie outside the repository structure. Note: this file does not contain actual environment variables, just a `source` command to get them from elsewhere. **Never edit this file**.
-
-If `.local-test.env` is missing in a git worktree when pytest needs to be run, do not give up. First follow the git worktree instructions below and copy `.local-test.env` from the main repository checkout into the current worktree root. Only ask the user to prepare `.local-test.env` if it is also missing from the main repository checkout or cannot be found.
-
-To run tests you need to use the installed Poetry environment, with given environment secrets file.
-
-To run tests use the `pytest` wrapper command:
-
-```shell
-source .local-test.env && poetry run pytest {test case name or pattern here}
-```
-
-Always prefix pytest command with relevant source command,
-otherwise the test cannot find environment variables.
-
-Avoid running the whole test suite as it takes several minutes. Only run specific test cases.
-
-Never print, commit or include API credentials in test commands or their output.
-If a provider rate-limits a bulk migration, record the response and a safe retry
-plan instead of repeatedly retrying the same request burst.
-
-Hypersync block scan tests (`tests/erc_4626/test_scan.py`) are disabled on CI by
-default because they dominated the CI critical path; they still run locally. To
-run them on CI (e.g. when touching Hypersync discovery code), see
-`docs/README-hypersync-tests.md`. Apply the same `skip_hypersync_scan_on_ci`
-marker pattern to any new multi-minute Hypersync scan test.
-
-When writing a new Anvil mainnet-fork test, you **must** use the shared Anvil
-fork + fixed fork-block + warm RPC-cache pattern rather than launching a
-per-file `fork_network_anvil` at `latest` or an ad-hoc block. The canonical,
-authoritative description of this pattern — why it matters (warm CI RPC cache)
-and exactly how to apply it (shared `anvil_fork_pool` fixture, chain
-`*_MIDNIGHT_BLOCK` constant, `xdist_group` marker, read-only vs mutating
-caveat, copy-paste skeleton) — is the **module docstring of
-`eth_defi/testing/anvil_fork_pool.py`**. Read it first. Use `evm_snapshot_revert`
-for per-test isolation and deploy expensive Safe/vault fixtures once per session.
-Reference tests: `tests/erc_4626/vault_protocol/test_goat.py` (read-only pooled)
-and `tests/lagoon/conftest.py` (shared fork + once-per-session deployment).
-
-When running pytest or any test commands, always use an extended timeout
-by specifying `timeout: 180000` (3 minutes) in the bash tool parameters.
-
-If you need extra output pass `--log-cli-level=info` argument to `pytest`.
-
-### Environment variable configuration and RPC URL format
-
-We use environment variables like `JSON_RPC_ETHEREUM`, `JSON_RPC_ARBITRUM` to interact with various EVM-based blockchains.
-
-In the environment file, the RPC URLs are provided in the project-specific space-separated fallback format, as described in `mev-blocker.rst`.
-
-- If there is a space in RPC URL given by a environment variable like `JSON_RPC_ETHEREUM`, it can be only used with Python call `create_multi_provider_web3()`
-- If you are going to use this RPC URL with other commands, like `curl`, you need to parse the RPC environment variable by splitting it by spaces and taking the first entry
-- Scanner RPC variables should point to archive-capable EVM nodes, except
-  `JSON_RPC_MONAD`, which can only serve its provider-dependent recent
-  historical-state window.
-
-Common scanner variables include the following.
-
-- `JSON_RPC_ETHEREUM` - Ethereum mainnet
-- `JSON_RPC_ARBITRUM` - Arbitrum One
-- `JSON_RPC_BASE` - Base
-- `JSON_RPC_POLYGON` - Polygon
-- `JSON_RPC_BINANCE` - BNB Smart Chain a.k.a. Binance a.k.a. BNB chain
-- `JSON_RPC_HYPERLIQUID` - HyperEVM
-
-You can find these in `CHAIN_NAMES` and in `eth_defi.provider.env`
-
-## Formatting code
-
-Run Ruff through Poetry on the Python files changed for the task. Pass the
-reviewed paths explicitly, including new files, so unrelated work is preserved:
-
-```shell
-poetry run ruff format path/to/changed.py path/to/new.py
-```
-
-## Logging retries
-
-For a failure that is expected to be retried, log a concise `WARNING` without
-a traceback. Include enough context to identify the deferred operation. Log an
-`ERROR` with its traceback only after the final retry has failed and no further
-retry will be attempted.
-
-## Git worktrees
-
-- For git worktrees, copy `.local-test.env` from the main repository checkout root into the current worktree root.
-- If unsure where the main checkout is, use `git worktree list` and copy from the non-`.omnara/worktrees` checkout that already has `.local-test.env`.
-- Example: `cp /path/to/main/repo/.local-test.env .local-test.env`
-- For worktrees, unless you are changing package dependencies, use `poetry run` from the parent repo virtualenv
-- When starting work in a new worktree, check that `.venv` and `.claude` folders are symlinked into the worktree so that skills and `.claude/docs` can be found, and the poetry command runs with already installed packages from the parent.
-
-## Commentary format
-
-Pull request description must have sections:
-
-- Why: the reason for the change
-- Lessons learnt: memory
-- Summary: what was changed
-- Related issues and PRs: if the new PR continues other PRs and issues
-- Unrelated CI and test fixes: if we clean up misc CI integration tests 
-
-No test plan or verification section. Use Markdown formatting, headings.
+- Read the full traceback, record the failing test and symptom, compare the code with `master`, and run the focused test locally. Fix reproducible failures. Move resource-heavy tests to the slow workflow when contention causes failures and install their dependencies there.
+- Use `@flaky.flaky` only for a demonstrated intermittent failure. Immediately above it, record the first observation date, CI symptom and evidence of a passing run. Keep the test enabled.
+- Use a dated `@pytest.mark.skipif(CI, reason=...)` only if the marked test still fails on at least two distinct CI runs, passes locally and the external cause cannot be fixed here. Describe the symptom in the comment and reason. Keep local coverage. Never turn assertion or programming errors into skips.
+- Revisit CI skips when the cause is fixed. Re-enable the test, run it locally and verify a green CI run before removing its history comment.
 
 ## Pull requests
 
-- GitHub plugins are not needed for pull-request work. Prefer the local `git`
-  and `gh` command-line tools to create, inspect, update, cancel CI for, and
-  merge pull requests.
-- Only push changes to remote when asked, never update pull requests automatically.
-- Never push directly to a master if not told explicitly
-- If the user ask to open a pull request as feature then start the PR title with "feat:" prefix and also add one line about the feature into `CHANGELOG.md`
-- Each changelog entry should follow the date of the PR in YYYY-MM-DD format. Example: Something was updated (2026-01-01).
-- Before opening or updating a pull request, format the code
-- If a pull request adds or changes user-facing website or data text, such as
-  vault, protocol, curator, stablecoin or fee descriptions and vault notes,
-  check the affected text against the [description writing style guide](.claude/docs/description-writing-style.md)
-  before opening or updating it, unless that version of the text was already
-  checked earlier. Reuse the earlier review for unchanged text and check any
-  subsequent substantive edits. Record completion or the earlier review in the
-  PR checklist; mark it not applicable when there are no such changes.
-  Engineering documentation is outside the guide's scope.
-- When merging pull request, squash and merge commits and use the PR description as the commit message
-- When watching CI for pull request merge readiness, never wait for documentation-only workflows like `Build documentation`; merge once non-documentation required checks are green, unless the user explicitly asks to wait for docs.
-- If continuous integration (CI) tests fail on your PR, and they are marked flaky, run tests locally to repeat the issue if it is real flakiness or regression
-
-### Healing flaky CI tests
-
-Use this escalation process for tests that fail nondeterministically because of
-RPC providers, Anvil forks, live APIs, indexed data services, timing or shared
-CI resources. A deterministic product or test regression must be fixed and
-must never be hidden behind retries or a CI skip.
-
-1. **Identify and reproduce the issue.** Read the complete failed-job traceback,
-   record the exact failing test and symptom, and check whether the affected
-   code differs from `master`. Run the focused test locally with
-   `.local-test.env`. Attempt a bounded root-cause fix first, such as pinning a
-   fork block, correcting an assertion, reducing cross-test contention or
-   installing a missing workflow dependency.
-2. **Mark a genuinely nondeterministic test flaky.** Add `@flaky.flaky` and a
-   source line comment immediately above it. The comment must state when the
-   problem was first observed, the concrete CI symptom, and the evidence that
-   the test passes locally, on retry or in a later CI run. Keep the test enabled
-   in CI; a flaky marker is a temporary diagnostic and retry mechanism, not a
-   substitute for fixing a reproducible defect. Move resource-heavy live or
-   fork tests to the slow workflow when reduced contention is the appropriate
-   fix, and ensure that workflow installs all required dependencies.
-3. **Disable an endemic test on CI only as a last resort.** If a flaky test
-   continues to fail on at least two distinct CI runs, still passes locally,
-   and the external or runner-specific cause cannot be fixed in this
-   repository, add a dated `@pytest.mark.skipif(CI, reason=...)`. The line
-   comment and skip reason must describe the recurring symptom. Keep the test
-   runnable locally; never add an unconditional skip. Retain or create focused
-   local coverage so the disabled integration does not silently disappear.
-
-Periodically audit CI-disabled tests. Re-enable one when the provider, workflow
-or fixture has been healed, run it locally, and require a green CI run before
-removing its flaky history comment.
-
-## Pushing to master
-
-- If you push directly to master, the commit message most follow *Commentary format* section
-
-## Specific rules
-
-### Python rules
-
-- Write docstrings and comments in clear, grammatical English and follow sound software
-  engineering practice. Explain why the code is needed and how the approach works; avoid
-  merely restating what each statement does. Document parameters and return values,
-  including units, ownership, side effects and failure conditions where relevant.
-
-- When a function’s purpose is not obvious from its local context, cross-reference
-  relevant callers in the rationale with Sphinx roles such as
-  :py:func:`package.function` or :py:meth:`package.Class.method`. Include a one-line
-  explanation of why each caller uses the function. Use real or explicitly documented
-  intended call sites; avoid speculative links and obvious boilerplate.
-
-- We use Python 3.14
-- Using `assert` for invariant and configuration checks is acceptable. We never run CPython with optimisation enabled (`python -O` or `PYTHONOPTIMIZE`), so assertions are not stripped at runtime.
-- For data structures, prefer `dataclass(slots=True)`
-- Use threaded instead of async Python code
-- Always type hint function arguments and return values
-- Try to use Python and Pandas `apply()` and other functional helpers instead of slow for and while loops
-- Use `any()` and `all()` with generators and list comprehension when checking if a collection member has one or more matches, instead of using slow for loops
-- All functions that do network reads to get data should be prefixed with `fetch_` instead of `get_`
-- Always try to return `Iterator` instead of `list` from a function call to make functions faster
-- Observability required: All long-running actions must be observable in the run, through logging or terminal output. For long-running loops, scanners, scripts, use the `tqdm` and `tqdm_loggable.auto` module for a progress bar. Make sure no script runs without producing output for more than 1 minute. As an example, see `lead_scan_core.py`. If agent runs long-running scripts or processes, it must be done in a way the agent can tell whether the process is making work or hung.
-- For visualisations, use Plotly. For chart titles, use heading case as explained above.
-- Use module level imports, not function level lazy imports, whenever possible
-- Never write generic `Exception e:` catch but always catch a specific exception if we can
-- Never silently swallow exceptions.
-
-### DuckDB and Python 3.14
-
-DuckDB 1.5.0 file-backed databases have caused native heap corruption in this
-repository under Python 3.14 when large tables use ART-backed `PRIMARY KEY` or
-`UNIQUE` constraints. The process can abort with allocator errors such as
-`free(): chunks in smallbin corrupted`, so Python cannot catch or recover from
-the failure. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/18190).
-
-- Do not add `PRIMARY KEY` or `UNIQUE` constraints to large, file-backed bulk
-  ingestion tables. Use an unconstrained staging table and hash joins for
-  conflict detection and application-level deduplication.
-- Migrate existing ART-backed tables transactionally, preserving every row,
-  before continuing a backfill. Inspect `duckdb_constraints()` to detect the
-  old schema.
-- For bulk ingestion, set `wal_autocheckpoint = '1TB'` to avoid automatic
-  checkpoints during writes. This is an additional safeguard, not a substitute
-  for removing ART indexes.
-- Test the migration and duplicate-ingestion path with a file-backed database
-  containing production-scale row counts. A small in-memory test does not
-  reproduce this class of crash.
-- Rerunning an unchanged backfill is not a fix: it can reach the same native
-  corruption threshold and abort again.
-
-### Code comments
-
-- Write docstrings and comments for a maintainer who knows Python but may not know the protocol. Give the context needed to understand the decision.
-- Explain why the code exists and how it addresses the problem. Describe assumptions, units, ownership, timing, side effects and failure behaviour where they affect correct use. Do not merely narrate the statements below a comment.
-- Use plain language. Replace jargon and unexplained abbreviations with concrete descriptions; retain exact API names and explain unfamiliar protocol terms on first use.
-- Keep explanations proportionate: a concise summary and relevant rationale are more useful than padding. Keep comments accurate when behaviour changes, and link to authoritative sources for non-obvious protocol constraints.
-- Use Sphinx reStructuredText for Python docstrings.
-- For documenting dataclass and Enum members, use Sphinx `#: comment here` line comment above variable, not `:param:` or `:ivar:` blocks
-- If a method overrides a function inherited from the parent, and there is nothing to comment, do not repeat the code comment and leave it empty instead
-- Each function should *minimum* have 1) one liner summary description 2) one paragraph longer description 3) arguments and return values documented 4) for APIs and integrations, links to authoritative and canonical documentation 5) for dataframes and series expectations of columns and value types
-
-### Type hinting
-
-- Use `HexAddress` instead of `str` for blockchain addresses
-- For percent like numbers, do not use raw float, but use `eth_defi.types.Percent` type alias
-
-### Logging
-
-- For logging, use the module level `logger = logging.getLogger(__name__)` pattern
-- When logging using `logger.info()`, `logging.debug()` or similar,
-  prefer %s and %f unexpanded string syntax instead of Python string interpolation, because of performance reasons
-
-### datetime
-
-- Use naive UTC datetimes everywhere
-- When using datetime class use `import datetime.datetime` and use `datetime.datetime` and `datetime.timedelta` as type hints
-- Instead of `datetime.datetime.utcnow()` use `native_datetime_utc_now()` that is compatible across Python versions
-
-### Enum
-
-- For string enums, both members and values must in snake_case
-
-### Pytest
-
-The test culling decisions and case inventories are recorded in
-[PR #1767](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1767)
-and [PR #1769](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1769).
-Apply the following rules when adding tests or reviewing existing coverage.
-
-- We assume external APIs we integrate are safe and honour their documented
-  contracts; otherwise we would not integrate them.
-- Do not add unit or integration tests of those provider APIs themselves.
-  This includes fabricated malformed or oversized responses, adversarial API
-  scenarios, exhaustive provider-schema rejection tests and repeated live calls
-  that merely confirm the provider behaves as documented.
-- Test our code where it adds meaningful behaviour: calculations, fee and NAV
-  handling, mapping provider data, pagination and resume logic, persistence and
-  exports. Use small, representative fixtures.
-- Adding or changing an API integration does not itself require a live or
-  authenticated provider check or a PR comment recording one.
-- Prefer tests of observable behaviour or a concrete regression. Avoid tests
-  solely of attribute existence, basic inheritance/MRO, private helper import
-  identity, or constructor attributes already exercised by behavioural tests.
-  Retain checks of documented public type or dispatch contracts.
-- Do not test standard dataclass mechanics such as storing supplied fields,
-  generated equality, or the lengths of supplied literal strings. Retain tests
-  for custom behaviour, meaningful defaults, validation, immutability or a real
-  public contract.
-- Exercise production calculations and conversions with representative raw
-  inputs and explicit expected outputs. Do not compute an aggregate only in
-  the test and assert elementary arithmetic properties, or normalise fixtures
-  beforehand and claim to test our normalisation code.
-- Avoid arbitrary registry-size floors such as "at least 20 entries". Verify
-  required entries and their behaviour instead.
-- Do not use uncontrolled API/network response times as unit-test performance
-  assertions. Do not catch assertion failures or programming errors and turn
-  them into skips; use explicit, documented environment or provider conditions
-  for skips.
-- Keep one canonical test for duplicated behaviour. Use unique test function
-  names within each module so a later definition cannot overwrite an earlier
-  test; remove shadowed duplicate definitions when cleaning up.
-- Do not add live endpoint smoke tests whose only assertions are HTTP success,
-  response keys/types, non-empty results or an empty account having no orders
-  or positions. Retain tests of our mapping, filtering, caching, fixed-point
-  conversions and configuration validation with explicit expected results.
-- A test claiming to verify a calculation must check a calculated result;
-  merely asserting that fees, prices or TVL are non-null or positive does not
-  verify arithmetic.
-- Avoid exhaustive address-by-address snapshots of static strategy, curator
-  and flag registries when many entries exercise the same behaviour. Select
-  representative cases for distinct expected outcomes, chain-scoped versus
-  global lookup, overrides, unmapped fallbacks and matching edge cases such as
-  Unicode names. For flags, preserve distinct protocol/flag/note combinations.
-  Keep individual entries when they protect a concrete regression or public
-  contract; reducing snapshots deliberately gives up checks of omitted entries.
-- Do not add tests solely to attest which checkout supplied an imported module.
-  Configure the test environment correctly and test observable behaviour.
-- Assess the assertions before deleting a low-value test: move any unique,
-  meaningful assertion into the canonical retained test. Remove fixtures and
-  constants left unused by deletions, but retain shared fixtures still in use.
-- Do not cull by test count alone. Preserve distinct fee/NAV calculations,
-  liquidation and permission checks, persistence, exports and migration data
-  preservation, even when these require many cases. When reporting reductions,
-  distinguish function definitions from collected parametrised cases and state
-  the collection environment and suite scope; parameter IDs may be renumbered
-  when rows are removed.
-- `pytest` tests should not have stdout output like `print`
-- Instead of manual float fuzzy comparison like `assert abs(aave_total_pnl - 96.6087) < 0.01` use `pytest.approx()`
-- For DuckDB testing, make sure the database is always closed using finally clause or fixtures
-- Always use fixture and test functions, never use test classes
-- For Anvil mainnet fork based tests, which use a fixed block number, in asserts check for absolute number values instead of relative values like above zero, because values never change.
-  Exception: Monad retains only a moving recent historical-state window, so use
-  latest-head or state-relative assertions instead of fixed historical blocks.
-- For reusable testing code, use `testing` modules under `eth_defi` - do not try to import "tests" as it does not work with pytest
-
-### pyproject.toml
-
-- When adding or updating dependencies in `pyproject.toml`, always add a comment why this dependency is needed for this project
-
-## Python notebooks
-
-- Whenever possible, prefer table output instead of print(). Use Pandas DataFrame and notebook's built-in display() function to render tabular data.
-
-## Command line scripts
-
-- Scripts must use sane defaults and run without additional environment inputs wherever possible. Require an environment variable only when its value cannot be safely defaulted or inferred, such as private keys, API credentials or the user's RPC connections. Do not invent credentials or RPC URLs.
-- Routine settings such as amounts, fee allowances, chain selections, timeouts, output paths and logging levels must have sensible defaults appropriate to the script's purpose. Keep environment overrides optional; do not make users supply routine settings merely to acknowledge a default.
-- Document the default behaviour and clearly distinguish genuinely required inputs from optional overrides. Example commands should use the defaults after the private environment has been loaded, rather than require a list of routine environment assignments. Validate defaults and overrides before sending transactions or doing other irreversible work.
-- Use scripts/erc-4626/scan-vaults.py as an example how to set up logger and read any needed environment variables as input.
-- When configuration is needed, use environment variables. Do not attempt to create command line parsers unless explicitly asked.
-- For tabular output, do not use `print()` loops but use `tabulate.tabulate()` function, see `whitelist-vaults.py` as an example
-
-## Parallelisation and optimising long running data reading pipelines
-
-- Uses `joblib.Parallel` to parallelise API reading of multiple entries
-- Use threading backend unless explicitly specified otherwise
-- For example, see `lead_scan_core.py`
-- All functions using `joblib.Parallel` must take `max_workers` argument. This must be exposed to command line scripts as `MAX_WORKERS` environment variable, see `scripts/erc-4626/scan-vaults.py` as an example.
-
-## Working with RPC and blockchain explorers
-
-- Prefer a blockchain explorer like Etherscan over Python and Curl when trying to read proxy contract address
-- Prefer Python snippets instead of `curl` when trying to read data directly from a blockchain explorer
-- To get the latest block number, use given JSON-RPC URL and Python's Web3.py `web3.eth.block_number` call
-- Never try to figure out RPC URL yourself - always use environment variables from the local environment given by the user. See `eth_defi.chain.CHAIN_NAMES` for aliases like chain id 999 -> JSON_RPC_HYPERLIQUID. Stop and ask user if you cannot figure out.
-
-### Contract ABIs
-
-Read the [ABI guide](eth_defi/abi/README.md) before fetching or loading an ABI. It covers shared and protocol-specific interfaces, verified implementations, deployment, encoded calls and event decoding. Follow the [ABI requirements](#abis) when adding or updating files.
-
-### Event logs
-
-- **Never use JSON-RPC `eth_getLogs` for event discovery, bulk event reads or historical event reads.** Always use Hypersync, which avoids provider range limits and provides indexed event streaming.
-- Create clients through `eth_defi.hypersync.utils.configure_hypersync_from_env()` and open streams through `eth_defi.hypersync.session.open_hypersync_stream()`. These wrappers apply the repository's configured endpoint, rate limiting and stream tuning.
-- For vault lead discovery, use `eth_defi.erc_4626.hypersync_discovery.HypersyncVaultDiscover`. For a targeted event query, build a `hypersync.Query` with `hypersync.LogSelection` and consume it through `open_hypersync_stream()`; see `eth_defi.vault.flow_events.fetch_vault_flow_logs_hypersync_async()` for the canonical pattern.
-
-### Block timestamps
-
-- For all bulk or historical blockchain timestamp operations, use the cache-aware
-  Hypersync API: `fetch_block_timestamps_using_hypersync_cached()` or the
-  `fetch_block_timestamps_multiprocess_auto_backend()` wrapper with a Hypersync
-  client. Do not stream timestamps through `get_block_timestamps_using_hypersync*()`
-  directly unless explicitly repairing known cache gaps.
-- Preserve and reuse the per-chain DuckDB cache at
-  `~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`. Do not use
-  the legacy `~/.tradingstrategy/block-timestamps.*` location.
-- Do not use these cached readers, or code that calls them, in unit or
-  integration tests. They fill every block between the first and last
-  requested block, and a test's empty cache turns a wide event range into
-  millions of header downloads. Only the cache's own internal tests may call
-  them, with at most 100 blocks per test, and even that should be avoided in
-  favour of recorded timestamps or a seeded cache. See *Testing* in
-  `docs/README-dense-timestamps.md`.
-
-## Building integrated smart contracts
-
-Run `make guard safe-integration` to rebuild the guard and Safe integration contracts.
-
-### ABIs
-
-- **Read `eth_defi/abi/README.md` first** — it is the canonical reference for
-  fetching, storing, loading and using ABI files.
-- Store contract ABIs in ``eth_defi/abi/<protocol>/`` as JSON files and load them through the shared ABI helpers.
-- Always use ABI-backed contract proxies when the required functions are available
-  in a stored ABI. Prefer `contract.functions.method(...).call()` and the shared
-  transaction/encoding helpers over handcrafted selectors, argument padding and
-  return decoding for readability and maintainability. For multicalls, use
-  `EncodedCall.from_contract_call()`. Reserve ABI-less probes for interfaces
-  without an available ABI and explain that reason in the code.
-- **Do not generate stub, minimal, hand-written or selectively reduced ABI JSON files.** Do not assemble an ABI from manually declared functions or merge fragments to replace an unavailable verified interface.
-- For external contracts, fetch and store the **complete verified ABI** from **Sourcify (preferred)** or **Etherscan**. Preserve every function, event, error and tuple component from the returned ABI. Resolve proxies to their verified implementations and record both addresses. If neither source has a verified ABI, report the gap instead of inventing one.
-- Every ABI folder must include a `README.md` inventory with a Markdown table containing **Filename**, **Source**, **Fetched at (UTC)** and **Reason to fetch**. Add one row per ABI JSON file. Link the exact verified source and record the chain, deployment/implementation addresses and actual retrieval timestamp. For pre-existing files with missing provenance, mark the source or fetch time as unrecorded rather than inventing it.
-- Regenerate complete ABI/compiler artifacts for this repository's integrated smart contracts with the compiler/Makefile; never hand-edit them. Record the build source in the folder inventory.
-
-## Documentation
-
-API and narrative documentation lives under `docs/source/` and uses Sphinx 4.5. Give each API module a stub under `docs/source/api/` and include it in the [API table of contents](docs/source/api/index.rst). The [Lagoon index](docs/source/api/lagoon/index.rst) shows the layout. Link each source page once, at its first relevant mention.
-
-Ignore Sphinx documentation builds during development. Agents must not attempt
-to build the Sphinx documentation locally; documentation builds and their
-failures are outside the development verification workflow.
-
-Never directly edit auto-generated sphinx files in `_autosummary*` folders.
-
-## Parquet schema migrations
-
-The vault price pipeline accumulates months of historical data in `vault-prices-1h.parquet`. Losing this data requires days of re-scanning from archive nodes and may make older Monad data unrecoverable, because Monad does not provide archive-complete historical state.
-
-- **Never silently discard existing data.** If a schema migration (`migrate_parquet_schema()`, `cast()`) fails, the pipeline must abort with a hard error — never fall back to `existing_table = None`. Silent data loss is worse than a crash.
-- **Never catch `ArrowInvalid` and reset to empty.** If the existing parquet cannot be read or migrated, raise the exception so the operator can restore from a backup.
-- **New columns must have null defaults.** Add them via `migrate_parquet_schema()` with `pa.nulls()`. Never require a value in existing rows.
-- **Type changes need explicit migration.** If changing a column's type (e.g. `uint32` → `uint64`), verify `cast()` works on production data before merging — test with a copy of the real parquet, not just synthetic test data.
-- **Always test schema changes against the production parquet.** Download the current file and verify the migration path locally before deploying.
-- **Reader state loss causes full data wipe.** The scanner deletes existing chain rows from `start_block` onwards. If `reader-state.pickle` is lost, `start_block` falls back to the earliest vault block, deleting all historical data for that chain. Treat reader state files as critical production state.
-- **Preserve old Monad rows.** A Monad rescan can replace rows only at or after the dynamically probed provider boundary. Never reset its reader state or delete older rows in an attempt to rebuild unavailable state history.
-
-## ERC-20
-
-- Don't do hardcoded token decimal multiply, use `TokenDetails.convert_to_raw()`
-- Use `TokenDetails.transfer()` and similar - do not do raw ERC-20 contract calls unless needed
-- Use `eth_defi.hotwallet.HotWallet` for deployer accounts and signing transactions when possible
-
-## Web Fetching and 403
-
-When fetching web pages, if `web_fetch` returns a 403 error, retry the request using the Chrome MCP tool to load the page in a real browser instead.
-
-Prerequisites:
-
-1. **Claude in Chrome extension** (v1.0.36+) - [Chrome Web Store](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn)
-2. **Google Chrome** running
-3. **Direct Anthropic plan** (Pro, Max, Team, or Enterprise)
-
-
-Browser tools are automatically available when the Chrome extension is connected. Use `@browser` in your Visual Studio Code prompt to activate the connection.
-
-When using browser tools, Claude may ask for permission to visit specific domains. **Approve these prompts** to allow browser automation. You can also pre-approve domains in the Chrome extension settings.
-
-## README files in the repository
-
-The [repository guide](.claude/docs/README.md) indexes component READMEs, runbooks and research notes.
-
-For timestamp cache ordering, compaction, WAL recovery and maintenance exclusion,
-read [block timestamp storage](docs/README-block-timestamp-storage.md) before
-changing the cache writer or running numbered migration 065.
+- Use local `git` and `gh`. Push or update a PR only when asked. Direct pushes to `master` require explicit instructions.
+- Format changed code before opening or updating a PR. For a feature PR, prefix the title with `feat:` and add a one-line `CHANGELOG.md` entry dated with the PR date (`YYYY-MM-DD`).
+- Use the headings **Why**, **Lessons learnt** and **Summary** in PR descriptions and direct-to-master commit messages. Add **Related issues and PRs** for follow-ups and **Unrelated CI and test fixes** when applicable. Omit test plan and verification sections.
+- Record the public description style check in the PR checklist. Reuse the review for unchanged copy, review substantive edits again, and mark it N/A for engineering-only changes.
+- Squash-merge using the PR description as the commit message. Merge once required non-documentation checks pass. Wait for documentation-only workflows only if the user asks.
+
+## RPC, contracts and chain data
+
+- Use RPC URLs supplied through the user's environment. Check [provider environment settings](eth_defi/provider/env.py) and `eth_defi.chain.CHAIN_NAMES` for names. Ask if the connection cannot be identified. Pass space-separated fallback URLs to `create_multi_provider_web3()`. For single-URL tools, use the first entry.
+- Use `web3.eth.block_number` for the head block. Prefer explorers for proxy addresses and Python for explorer queries.
+- Before fetching, storing or using an ABI, read the [ABI guide](eth_defi/abi/README.md). Fetch complete verified external ABIs and record their provenance in the folder inventory. Report unavailable verified interfaces. Regenerate integrated contract artefacts with the compiler and record the build source in the inventory. Use `make guard safe-integration` for the guard and Safe contracts.
+- Use ABI-backed calls and `EncodedCall.from_contract_call()` for multicalls. Explain any probe for an interface without an available ABI. For ERC-20 amounts and transfers, use `TokenDetails.convert_to_raw()` and `TokenDetails.transfer()`. Prefer `HotWallet` for signing and deployer accounts.
+- Read [vault integration](.claude/docs/vault-integration.md) before changing ERC-4626-style adapters, guards or executor integration. Read [Lighter execution](docs/README-lighter-core-execution.md) before changing pool execution or multichain activation scripts.
+- Use Hypersync for event discovery and bulk or historical logs. Never use `eth_getLogs` for these reads. Create clients with `configure_hypersync_from_env()` and streams with `open_hypersync_stream()`. For vault discovery use `HypersyncVaultDiscover`. For a targeted query, build a `hypersync.Query` with `LogSelection` as in [vault flow events](eth_defi/vault/flow_events.py).
+- Use `fetch_block_timestamps_using_hypersync_cached()` or `fetch_block_timestamps_multiprocess_auto_backend()` with Hypersync for bulk or historical timestamps. Use direct streams only to repair known cache gaps. Preserve `~/.tradingstrategy/block-timestamp/{chain_id}-timestamps.duckdb`. Avoid the retired `~/.tradingstrategy/block-timestamps.*` path.
+- Cached readers fill every block in the requested range. Use recorded timestamps or a seeded cache in tests. Only cache-internal tests may call these readers, directly or indirectly, with at most 100 blocks per test. See [dense timestamps](docs/README-dense-timestamps.md). Read [block timestamp storage](docs/README-block-timestamp-storage.md) before changing the writer or running migration 065.
+- Scanner RPCs need archive state except on Monad (143), where providers retain a moving window. Use Hypersync for historical events and timestamps. Backfill price gaps promptly from the oldest readable state and preserve older rows. Never retry evicted state or attempt a genesis-to-head state scan. See [Monad backfills](.claude/docs/migration-scripts.md#monad).
+- On HyperEVM (999 and 998), the sender's `usingBigBlocks` flag selects the fee market. On live chains, identify large blocks by the [30 million gas limit](eth_defi/hyperliquid/block.py) and price the intended block type with [estimate_gas_price()](eth_defi/gas.py). Avoid raw `eth_gasPrice`, which varies by provider. Skip block-type detection on Anvil forks, which have a single fee market.
+
+## Production data
+
+- For database repairs and persisted accessor changes, add a new [numbered migration](.claude/docs/migration-scripts.md) and include a run reminder in the PR. Port any needed legacy standalone repair to a numbered script. Never run the legacy command or rerun a successful initial migration for a later change. Include a fixed-scope price backfill when discovery, repair or reclassification leaves early history missing.
+- Follow the [production runbook](.claude/docs/migration-scripts.md#production-runbook). Inspect [docker-compose.yml](docker-compose.yml) before maintenance. Stop the looped scanner and other writers before preview or apply. Use the direct Compose command and the image's stamped git commit. Acquire the lifetime guard before the writer lock.
+- One-shot and looped scanners share the host's `~/.tradingstrategy` state. Preserve the mount and `HOME`, including metadata, prices, reader state and timestamp caches. Disable historical price scanning for metadata-only repairs. Restore or prepopulate dense timestamps before a historical backfill. If rate-limited, record the response and retry plan before repeating a bulk request.
+- Abort on an unreadable or incompatible price Parquet file. Never replace existing data with an empty table. Add nullable columns with `migrate_parquet_schema()` and `pa.nulls()`. Verify schema migrations, including type casts, on a copy of the current production Parquet before merge or deployment.
+- Protect `reader-state.pickle`. Losing it moves the scanner's start block backwards and can delete a chain's price history. Preserve Monad rows older than the provider can reconstruct.
+- With DuckDB 1.5.0 and Python 3.14, ART-backed `PRIMARY KEY` and `UNIQUE` constraints on large file-backed tables can cause native heap corruption. Use unconstrained staging tables, hash joins and application-level deduplication. Set `wal_autocheckpoint = '1TB'` during bulk writes. See [DuckDB issue #18190](https://github.com/duckdb/duckdb/issues/18190).
+- Detect old constraints with `duckdb_constraints()`. Migrate transactionally, preserve every row, and test migration and duplicate ingestion on a production-sized file-backed database before resuming a backfill.

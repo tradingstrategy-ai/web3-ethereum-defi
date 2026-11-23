@@ -113,22 +113,25 @@ class ApexMetricsDatabase:
     affected Python 3.14/macOS ARM64 environments.
 
     ``vault_metadata`` columns contain one current record per ``vault_id``.
-    ``vault_prices`` contains actual naive UTC timestamps, source ``DOUBLE``
-    values and the source discriminator. ``history_sync`` tracks response and
-    canonical retained-history bounds separately.
+    ``vault_prices`` is keyed by vault ID and naive UTC observation time.
+    DuckDB retains microseconds for ranking observations. The shared raw
+    Parquet identifies a price for the same vault at millisecond precision.
+    Each price row also records the source and its ``DOUBLE`` values.
+    ``history_sync`` tracks response and retained-history bounds separately.
 
     :param path:
         File-backed DuckDB path.
     """
 
-    def __init__(self, path: Path = APEX_METRICS_DATABASE) -> None:
+    def __init__(self, path: Path = APEX_METRICS_DATABASE, *, read_only: bool = False) -> None:
         """Open or create an owner-thread ApeX metrics database.
 
         The parent directory is created as needed, automatic WAL checkpoints
-        are disabled and the forward-compatible schema is initialised.
+        are disabled and the forward-compatible schema is initialised for writers.
 
         :param path:
             File-backed DuckDB path.
+        :param read_only: Open an existing schema for export without running writer setup.
         """
         if not isinstance(path, Path):
             raise TypeError(f"Expected Path, got {type(path)}")
@@ -137,7 +140,9 @@ class ApexMetricsDatabase:
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
         self._owner_thread_id = threading.get_ident()
-        self.con: duckdb.DuckDBPyConnection | None = duckdb.connect(str(path))
+        self.con: duckdb.DuckDBPyConnection | None = duckdb.connect(str(path), read_only=read_only)
+        if read_only:
+            return
         self.con.execute("SET wal_autocheckpoint = '1TB'")
         self._init_schema()
 
@@ -196,6 +201,7 @@ class ApexMetricsDatabase:
             CREATE TABLE IF NOT EXISTS vault_prices (
                 vault_id VARCHAR NOT NULL,
                 synthetic_address VARCHAR NOT NULL,
+                -- Keep microseconds for metric joins. The Parquet merge derives its millisecond key from this value.
                 timestamp TIMESTAMP NOT NULL,
                 share_price DOUBLE,
                 total_assets DOUBLE,

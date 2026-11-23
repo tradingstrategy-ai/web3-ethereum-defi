@@ -5,7 +5,10 @@ from decimal import Decimal
 
 import pytest
 
-from eth_defi.erc_4626.classification import create_vault_instance_autodetect
+from eth_defi.erc_4626.classification import create_vault_instance, create_vault_instance_autodetect
+from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
+from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import get_midnight_block
 
 # Preserve the November states rather than replacing these with moving heads.
@@ -77,6 +80,33 @@ def test_capacity_source(anvil_fork_pool, chain, block, address, kind):
         elif kind == "fluid":
             assert result.current_capacity == Decimal(0)
             assert result.capacity_warning is True
+
+
+@pytest.mark.xdist_group("fork:ethereum:midnight")
+def test_fluid_lite_preserves_tvl_and_idle_usdc(anvil_fork_pool: AnvilForkPool) -> None:
+    """Fluid Lite retains observable assets with an unmeasured withdrawal route."""
+    rpc = os.environ.get("JSON_RPC_ETHEREUM")
+    if not rpc:
+        pytest.skip("JSON_RPC_ETHEREUM archive provider needed")
+    block = get_midnight_block(1)
+    web3 = anvil_fork_pool.get_web3(rpc, block)
+    vault = create_vault_instance(
+        web3,
+        "0x273DA948ACa9261043fbdb2a857bc255ECC29012",
+        features={ERC4626Feature.fluid_like},
+        default_block_identifier=block,
+    )
+    assert isinstance(vault, FluidVault)
+
+    result = vault.fetch_withdrawal_capacity_limit(block)
+
+    assert result.observation["status"] == "partial"
+    assert result.observation["denomination_symbol"] == "USDC"
+    assert "Fluid Lite withdrawal route" in result.observation["reason"]
+    assert result.current_tvl == Decimal("36833943.425030")
+    assert Decimal(result.observation["idle_assets"]) == Decimal("0.002383")
+    assert result.current_capacity is None
+    assert result.capacity_warning is None
 
 
 @pytest.mark.xdist_group("fork:ethereum:midnight")

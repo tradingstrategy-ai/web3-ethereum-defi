@@ -1,3 +1,5 @@
+# Compose resolves relative paths in this included file from .compose/.
+# The build context and checkout bind mounts use .. to reach the repository root.
 services:
   # One-shot: runs the ERC-4626 vault scan once and exits.
   # Skipped by `docker compose up -d` because of the `oneshot` profile.
@@ -76,6 +78,8 @@ services:
       JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
       JSON_RPC_MEGAETH: ${JSON_RPC_MEGAETH:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      INCREMENTAL_POST_PROCESSING: ${INCREMENTAL_POST_PROCESSING:-true}
+      INCREMENTAL_CLEANING: ${INCREMENTAL_CLEANING:-true}
       # Recurring reviewed tokenised-fund NAV feeds. These remain separate
       # from generic chain price scans to preserve address-scoped history.
       SKIP_TOKENISED_FUNDS: ${SKIP_TOKENISED_FUNDS:-false}
@@ -279,6 +283,8 @@ services:
       JSON_RPC_MONAD: ${JSON_RPC_MONAD:-}
       JSON_RPC_MEGAETH: ${JSON_RPC_MEGAETH:-}
       SCAN_PRICES: ${SCAN_PRICES:-true}
+      INCREMENTAL_POST_PROCESSING: ${INCREMENTAL_POST_PROCESSING:-true}
+      INCREMENTAL_CLEANING: ${INCREMENTAL_CLEANING:-true}
       # Recurring reviewed tokenised-fund NAV feeds. These remain separate
       # from generic chain price scans to preserve address-scoped history.
       SKIP_TOKENISED_FUNDS: ${SKIP_TOKENISED_FUNDS:-false}

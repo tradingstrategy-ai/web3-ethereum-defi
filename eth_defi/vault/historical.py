@@ -55,8 +55,10 @@ from eth_defi.rpc_url import redact_rpc_urls
 from eth_defi.token import NATIVE_ASSET_ADDRESS, TokenDetailError, TokenDetails, TokenDiskCache, fetch_erc20_details
 from eth_defi.utils import chunked
 from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, VAULT_PRICE_REFRESH_INTERVAL, VaultBase, VaultHistoricalRead, VaultHistoricalReader, VaultSpec, is_meaningful_usd_tvl, verify_parquet_file
+from eth_defi.vault.publication_state import NATIVE_REVISIONS_KEY
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault.rpc_scan_state import save_reader_publication_journal
+from eth_defi.vault.scan_timing import ScanTimings
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
 logger = logging.getLogger(__name__)
@@ -104,6 +106,9 @@ class ParquetScanResult(TypedDict):
     chunks_done: int
     start_block: int
     end_block: int
+
+    #: Addresses of raw histories whose existing rows were replaced.
+    replaced_vault_addresses: set[str]
 
     #: Newly emitted rows keyed by lower-case vault address.
     rows_written_by_vault: dict[str, int]
@@ -988,13 +993,13 @@ def preserve_unreplaced_greylist_rows(
     The caller passes only this chain's protected rows in the replaced range,
     so memory use is bounded by the reviewed targets rather than the full file.
 
-    :param history: Saved price table with lower-case string ``address`` and
+    :param history: Saved price table with EVM ``address`` and
         integer ``block_number`` columns; other columns and metadata are retained.
     :param replacements: ``(lower_case_address, source_block_number)`` keys of
         complete successful new observations for the current chain.
     :return: Original rows whose source keys were not successfully replaced.
     """
-    retained = [(address, block) not in replacements for address, block in zip(history["address"].to_pylist(), history["block_number"].to_pylist())]
+    retained = [(address.lower(), block) not in replacements for address, block in zip(history["address"].to_pylist(), history["block_number"].to_pylist())]
     return history.filter(pa.array(retained, type=pa.bool_()))
 
 
@@ -1143,6 +1148,7 @@ def scan_historical_prices_to_parquet(
         Scan report.
     """
 
+    timings = ScanTimings()
     stateful = reader_states is not None
 
     assert isinstance(output_fname, Path)
@@ -1306,6 +1312,7 @@ def scan_historical_prices_to_parquet(
         horizon_block = web3.eth.get_block(max(0, end_block - 1))
         freshness_horizon = datetime.datetime.fromtimestamp(horizon_block["timestamp"], tz=datetime.UTC).replace(tzinfo=None)
 
+    timings.finish("setup")
     if output_fname.exists():
         logger.info("Reading existing Parquet file %s", output_fname)
         existing_table = pq.read_table(output_fname)
@@ -1314,43 +1321,48 @@ def scan_historical_prices_to_parquet(
         logger.info("Creating Parquet from the scratch %s", output_fname)
         existing_table = None
 
+    # Predicates and reader-state dictionaries use the same EVM keys. Keep
+    # the original Arrow buffers for publication, including other chains'
+    # case-sensitive native addresses and the original casing of saved rows.
     source_table = existing_table
+    if existing_table is not None and (enforce_live_freshness or chain_id == HYPEREVM_CHAIN_ID or preserved_addresses or vault_addresses is not None):
+        source_table = existing_table.set_column(existing_table.schema.get_field_index("address"), "address", pc.utf8_lower(existing_table["address"]))
 
     latest_saved_blocks: dict[str, int] = {}
     latest_mask = None
-    if chain_id == HYPEREVM_CHAIN_ID and existing_table is not None:
+    if chain_id == HYPEREVM_CHAIN_ID and source_table is not None:
         # A chain-wide archive repair may omit a current-state vault entirely.
         # Preserve its recorded observations because an archive cannot replay them.
-        live_rows = pc.fill_null(pc.equal(existing_table["vault_poll_frequency"], "latest"), False)
+        live_rows = pc.fill_null(pc.equal(source_table["vault_poll_frequency"], "latest"), False)
         # The initial deployments can also have pre-integration rows without
         # the marker. Future deployments receive the marker on their first read.
         protected_addresses = latest_addresses | HYPEREVM_LATEST_NAV_ADDRESSES
-        live_rows = pc.or_(live_rows, pc.is_in(existing_table["address"], value_set=pa.array(sorted(protected_addresses))))
-        latest_mask = pc.and_(pc.equal(existing_table["chain"], chain_id), live_rows)
+        live_rows = pc.or_(live_rows, pc.is_in(source_table["address"], value_set=pa.array(sorted(protected_addresses))))
+        latest_mask = pc.and_(pc.equal(source_table["chain"], chain_id), live_rows)
         if include_latest and latest_addresses:
-            saved = existing_table.select(["address", "block_number"]).filter(latest_mask)
+            saved = source_table.select(["address", "block_number"]).filter(latest_mask)
             grouped = saved.group_by("address").aggregate([("block_number", "max")])
             latest_saved_blocks = dict(zip(grouped["address"].to_pylist(), grouped["block_number_max"].to_pylist()))
 
-    if enforce_live_freshness and existing_table is not None:
+    if enforce_live_freshness and source_table is not None:
         selected_addresses = pa.array([vault.address.lower() for vault in vaults])
         previous_mask = pc.and_(
-            pc.equal(existing_table["chain"], chain_id),
-            pc.less(existing_table["block_number"], start_block),
+            pc.equal(source_table["chain"], chain_id),
+            pc.less(source_table["block_number"], start_block),
         )
         if latest_mask is not None:
             previous_mask = pc.or_(previous_mask, latest_mask)
-        previous_mask = pc.and_(previous_mask, pc.is_in(existing_table["address"], value_set=selected_addresses))
-        previous_mask = pc.and_(previous_mask, pc.is_finite(existing_table["share_price"]))
-        prior = existing_table.select(["address", "timestamp", "nav_timestamp"]).filter(previous_mask)
+        previous_mask = pc.and_(previous_mask, pc.is_in(source_table["address"], value_set=selected_addresses))
+        previous_mask = pc.and_(previous_mask, pc.is_finite(source_table["share_price"]))
+        prior = source_table.select(["address", "timestamp", "nav_timestamp"]).filter(previous_mask)
         effective_time = pc.min_element_wise(prior["timestamp"], pc.coalesce(prior["nav_timestamp"], prior["timestamp"]))
         prior = prior.set_column(prior.schema.get_field_index("timestamp"), "timestamp", effective_time).select(["address", "timestamp"])
         if len(prior):
             grouped = prior.group_by("address").aggregate([("timestamp", "max")])
             reader.last_retained_at = dict(zip(grouped["address"].to_pylist(), grouped["timestamp_max"].to_pylist()))
-        assets_mask = pc.and_(pc.equal(existing_table["chain"], chain_id), pc.is_in(existing_table["address"], value_set=selected_addresses))
-        assets_mask = pc.and_(assets_mask, pc.is_finite(existing_table["total_assets"]))
-        assets = existing_table.select(["address", "total_assets"]).filter(assets_mask)
+        assets_mask = pc.and_(pc.equal(source_table["chain"], chain_id), pc.is_in(source_table["address"], value_set=selected_addresses))
+        assets_mask = pc.and_(assets_mask, pc.is_finite(source_table["total_assets"]))
+        assets = source_table.select(["address", "total_assets"]).filter(assets_mask)
         if len(assets):
             grouped = assets.group_by("address").aggregate([("total_assets", "max")])
             reader.prior_max_assets = {address: Decimal(str(value)) for address, value in zip(grouped["address"].to_pylist(), grouped["total_assets_max"].to_pylist())}
@@ -1369,6 +1381,7 @@ def scan_historical_prices_to_parquet(
     converted_iter = converter(entries_iter)
 
     protected_history = None
+    replaced_vault_addresses = set()
     if existing_table is not None:
         logger.info(
             "Detected existing file %s with %d rows",
@@ -1384,7 +1397,7 @@ def scan_historical_prices_to_parquet(
         )
         mask = pc.and_(mask, pc.less(existing_table["block_number"], end_block))
         if vault_addresses is not None:
-            address_mask = pc.is_in(existing_table["address"], pa.array(list(vault_addresses)))
+            address_mask = pc.is_in(source_table["address"], pa.array(sorted(address.lower() for address in vault_addresses)))
             mask = pc.and_(mask, address_mask)
         elif latest_addresses and not range_vaults:
             # A point-in-time-only scan has no numbered-block range to replace.
@@ -1396,10 +1409,12 @@ def scan_historical_prices_to_parquet(
             # publication we retain keys not replaced by a complete successful
             # observation. This avoids a full-file merge, duplicates and loss
             # when a contract cannot supply a valid replacement.
-            grey_mask = pc.and_(mask, pc.is_in(existing_table["address"], value_set=pa.array(sorted(preserved_addresses))))
+            grey_mask = pc.and_(mask, pc.is_in(source_table["address"], value_set=pa.array(sorted(preserved_addresses))))
             protected_history = existing_table.filter(grey_mask)
         all_row_count = len(existing_table)
         rows_deleted = pc.sum(mask).as_py() or 0
+        if rows_deleted:
+            replaced_vault_addresses.update(pc.unique(pc.utf8_lower(existing_table["address"].filter(mask))).to_pylist())
         existing_table = existing_table.filter(pc.invert(mask))
         existing_row_count = existing_table.num_rows
         logger.info(
@@ -1423,7 +1438,10 @@ def scan_historical_prices_to_parquet(
     if existing_table is not None:
         canonical_names = set(canonical_schema.names)
         extra_fields = [f for f in existing_table.schema if f.name not in canonical_names]
-        writer_schema = canonical_schema
+        metadata = existing_table.schema.metadata or {}
+        # EVM writes retain native rows and their committed source revisions.
+        native_metadata = {key: value for key, value in metadata.items() if key == NATIVE_REVISIONS_KEY or key.startswith(b"perp_dex.")}
+        writer_schema = canonical_schema.with_metadata((canonical_schema.metadata or {}) | native_metadata)
         for field in extra_fields:
             writer_schema = writer_schema.append(field)
     else:
@@ -1452,9 +1470,11 @@ def scan_historical_prices_to_parquet(
 
     try:
         # Initialize ParquetWriter with the unified schema
+        timings.finish("read_and_prepare_raw")
         writer = pq.ParquetWriter(temp_fname, writer_schema, compression=compression)
         if existing_table is not None:
             writer.write_table(existing_table)
+        timings.finish("copy_retained")
 
         rows_written = 0
 
@@ -1474,6 +1494,8 @@ def scan_historical_prices_to_parquet(
         chunks_done = 0
         written_at = native_datetime_utc_now()
         for chunk in chunked(converted_iter, chunk_size):
+            # Advancing the lazy iterator performs the historical reads.
+            timings.finish("collect_samples")
             logger.debug(f"Processing Parquet chunk {chunks_done:,}, rows written so far {rows_written:,}")
             table = pa.Table.from_pylist(chunk, schema=canonical_schema)
             # Stamp all rows in this batch with the same write timestamp
@@ -1490,7 +1512,9 @@ def scan_historical_prices_to_parquet(
             writer.write_table(table)
             rows_written += len(chunk)
             chunks_done += 1
+            timings.finish("write_new_rows")
 
+        timings.finish("collect_samples")
         if protected_history is not None and protected_history.num_rows:
             preserved = preserve_unreplaced_greylist_rows(protected_history, successful_replacements)
             if preserved.num_rows:
@@ -1504,7 +1528,7 @@ def scan_historical_prices_to_parquet(
                     finite_history = preserved.filter(pc.and_(pc.is_finite(preserved["share_price"]), pc.is_finite(preserved["total_assets"])))
                     effective_time = pc.min_element_wise(finite_history["timestamp"], pc.coalesce(finite_history["nav_timestamp"], finite_history["timestamp"]))
                     for address, timestamp in zip(finite_history["address"].to_pylist(), effective_time.to_pylist()):
-                        reader.last_retained_at[address] = max(reader.last_retained_at.get(address, timestamp), timestamp)
+                        reader.last_retained_at[address.lower()] = max(reader.last_retained_at.get(address.lower(), timestamp), timestamp)
                 logger.info("Preserved %d unavailable or unsampled vault source rows", preserved.num_rows)
 
         # Close the writer to finalise the file, then flush to disk
@@ -1640,6 +1664,17 @@ def scan_historical_prices_to_parquet(
             os.unlink(temp_fname)
         raise
 
+    timings.finish("preserve_verify_publish")
+    logger.info(
+        "Raw price writer timing chain=%d vaults=%d retained_rows=%d removed_rows=%d new_rows=%d batches=%d %s",
+        chain_id,
+        len(vaults),
+        existing_row_count,
+        rows_deleted,
+        rows_written,
+        chunks_done,
+        timings,
+    )
     return ParquetScanResult(
         rows_written=rows_written,
         unavailable_observations=reader.unavailable_observations,
@@ -1653,6 +1688,7 @@ def scan_historical_prices_to_parquet(
         reader_states=reader_states,
         start_block=start_block,
         end_block=end_block,
+        replaced_vault_addresses=replaced_vault_addresses,
         rows_written_by_vault=dict(rows_written_by_vault),
         price_rows_written_by_vault=dict(price_rows_written_by_vault),
         freshness_rows_written=reader.freshness_rows_written,

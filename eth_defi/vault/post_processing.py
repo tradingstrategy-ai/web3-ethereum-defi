@@ -11,6 +11,7 @@ Used by both :py:mod:`scan-vaults-all-chains` and
 import collections
 import datetime
 import importlib.util
+import json
 import logging
 import os
 import pickle  # noqa: S403 - VaultDatabase already uses trusted local pickle state.
@@ -63,7 +64,7 @@ from eth_defi.perp_dex.storage import read_perp_vault_observations
 from eth_defi.research.sparkline_export import run_sparkline_export
 from eth_defi.research.wrangle_vault_prices import generate_cleaned_vault_datasets
 from eth_defi.vault import top_vaults_json
-from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, MIN_MEANINGFUL_TVL_EXIT_USD, MIN_MEANINGFUL_TVL_USD, VaultHistoricalRead
+from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, MIN_MEANINGFUL_TVL_EXIT_USD, MIN_MEANINGFUL_TVL_USD, VaultHistoricalRead, VaultSpec
 from eth_defi.vault.crypto_vault_export import publish_crypto_vault_bundle
 from eth_defi.vault.crypto_vaults import CryptoVaultPaths, build_crypto_vault_metadata, build_crypto_vault_prices, resolve_crypto_vault_paths
 from eth_defi.vault.data_file_export import (
@@ -71,9 +72,13 @@ from eth_defi.vault.data_file_export import (
     resolve_exchange_rate_database_path,
     resolve_exchange_rate_parquet_path,
 )
+from eth_defi.vault.incremental_cleaning import changed_histories, cleaning_inputs, cleaning_snapshot, replace_changed_histories
+from eth_defi.vault.publication_state import NATIVE_REVISIONS_KEY, duckdb_revision, file_revision, read_publication_state, write_publication_state
 from eth_defi.vault.sample_export import export_sample_files_to_r2
 from eth_defi.vault.scan_manifest import publish_hypercore_permission_manifest, publish_vault_scan_manifest
-from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, get_pipeline_data_dir
+from eth_defi.vault.scan_timing import ScanTimings
+from eth_defi.vault.settlement_data import get_default_vault_settlement_database_path
+from eth_defi.vault.vaultdb import DEFAULT_UNCLEANED_PRICE_DATABASE, VaultDatabase, get_pipeline_data_dir
 
 #: Required env vars for the top-vaults JSON R2 upload.
 #: See :py:func:`validate_top_vaults_config`.
@@ -103,17 +108,18 @@ PERP_DEX_CAPABILITY_REGISTRY = PerpDexCapabilityRegistry(
 )
 
 
-def _append_perp_metric_snapshots(database: object, target: list[pd.DataFrame]) -> None:
+def _append_perp_metric_snapshots(database: object, target: list[pd.DataFrame], deployment: str | None = None) -> None:
     """Append shared observation snapshots when a native database supports them.
 
     Lightweight test doubles and pre-migration third-party database wrappers
     may not expose a DuckDB connection.  Their price merge must retain its
-    previous behaviour; a missing shared table simply means no metrics attach.
+    previous behaviour. A live connection must have the expected observation schema.
 
     :param database:
         Native metrics database object.
     :param target:
         Mutable snapshot list used by the current native merge.
+    :param deployment: Restrict observations to one native deployment.
     :return:
         ``None``.
     """
@@ -121,7 +127,7 @@ def _append_perp_metric_snapshots(database: object, target: list[pd.DataFrame]) 
     if connection is None:
         return
     read_started_at = time.perf_counter()
-    accounts, positions = read_perp_vault_observations(connection)
+    accounts, positions = read_perp_vault_observations(connection, deployment=deployment)
     logger.info("Perp observation read: %d account rows, %d position rows in %.2f seconds", len(accounts), len(positions), time.perf_counter() - read_started_at)
     derive_started_at = time.perf_counter()
     snapshots = derive_perp_vault_metric_snapshots(accounts, positions)
@@ -472,12 +478,133 @@ def audit_native_price_freshness(
     return result
 
 
+#: Bump when a native builder's output changes for identical source data.
+NATIVE_MERGE_VERSION = 1
+
+
+def _read_native_revisions(path: Path) -> dict[str, Any]:
+    """Read the native revision vector bound to the published raw prices.
+
+    :param path: Combined raw Parquet.
+    :return: Revisions previously written by the incremental merger.
+    """
+    if not path.is_file():
+        return {}
+    metadata = pq.read_schema(path).metadata or {}
+    try:
+        revisions = json.loads(metadata.get(NATIVE_REVISIONS_KEY, b"{}"))
+    except ValueError:
+        return {}
+    return revisions if isinstance(revisions, dict) else {}
+
+
+def _lighter_revisions(path: Path) -> dict[str, Any]:
+    """Fingerprint Lighter's independently replaceable source deployments.
+
+    The stores share a file, so the file generation alone would unnecessarily
+    invalidate the other deployment. The flow builder also treats a day's
+    counters as provisional until that UTC day has ended.
+
+    :param path: Lighter DuckDB source.
+    :return: Per-deployment revisions or an empty mapping for a legacy schema.
+    """
+    if not path.is_file():
+        return {}
+    scopes = {deployment.slug: [] for deployment in LIGHTER_DEPLOYMENTS}
+    today = native_datetime_utc_now().date()
+    with duckdb.connect(str(path), read_only=True) as connection:
+        for table in ("pool_daily_prices", "pool_metadata", "perp_vault_account_observations"):
+            expected_column = "deployment_slug" if table == "perp_vault_account_observations" else "deployment"
+            columns = {row[1] for row in connection.execute(f"PRAGMA table_info('{table}')").fetchall()}
+            if expected_column not in columns:
+                return {}
+            date_projection = ", max(date)" if table == "pool_daily_prices" else ", NULL"
+            rows = connection.execute(
+                f"SELECT {expected_column}, count(*), sum(hash(t)::HUGEINT), bit_xor(hash(t)) {date_projection} FROM {table} t GROUP BY {expected_column}"  # noqa: S608
+            ).fetchall()
+            by_scope = {slug: [count, total, xor, min(last_date + datetime.timedelta(days=1), today).isoformat() if last_date else None] for slug, count, total, xor, last_date in rows}
+            for slug, revision in scopes.items():
+                revision.append(by_scope.get(slug))
+        position_rows = connection.execute(
+            """
+            SELECT a.deployment_slug, count(*), sum(hash(p)::HUGEINT), bit_xor(hash(p))
+            FROM perp_vault_position_observations p
+            JOIN perp_vault_account_observations a USING (snapshot_id)
+            GROUP BY a.deployment_slug
+            """
+        ).fetchall()
+        positions_by_scope = {slug: [count, total, xor] for slug, count, total, xor in position_rows}
+        for slug, revision in scopes.items():
+            revision.append(positions_by_scope.get(slug))
+
+    return scopes
+
+
+def _native_address_keys(chain: pa.ChunkedArray, addresses: pa.ChunkedArray) -> pa.ChunkedArray:
+    """Canonicalise merge keys without modifying retained Parquet values.
+
+    :param chain: Raw chain IDs.
+    :param addresses: Raw vault addresses, including legacy aliases.
+    :return: Case-normalised keys that preserve case-sensitive Solana accounts.
+    """
+    keys = pc.utf8_lower(addresses)
+    solana = pc.equal(chain, SOLANA_DATASET_CHAIN_ID)
+    if pc.any(solana).as_py():
+        unique = pc.unique(addresses.filter(solana))
+        canonical = pa.array([VaultSpec(SOLANA_DATASET_CHAIN_ID, address).vault_address if address is not None else None for address in unique.to_pylist()], type=keys.type)
+        if not canonical.equals(pc.utf8_lower(unique)):
+            indices = pc.index_in(addresses, value_set=unique)
+            keys = pc.if_else(solana, canonical.take(indices), keys)
+    return keys
+
+
+def _assert_native_keys(table: pa.Table) -> None:
+    """Reject null or repeated logical keys in the sorted replacement rows.
+
+    :param table: Replacement keys ordered by chain, canonical address and time.
+    """
+    columns = [table["chain"], table["address"], table["timestamp"]]
+    if any(column.null_count for column in columns):
+        raise ValueError("Native merge produced a null price identity")
+    if len(table) > 1:
+        same_chain, same_address, same_timestamp = (pc.equal(column.slice(0, len(table) - 1), column.slice(1)) for column in columns)
+        if pc.any(pc.and_(pc.and_(same_chain, same_address), same_timestamp)).as_py():
+            raise ValueError("Native merge produced duplicate canonical price keys")
+
+
+def _assert_native_coverage(previous: pa.Table, replacement: pa.Table) -> None:
+    """Reject a shortened source archive before it replaces published history.
+
+    Internal point corrections can change the set of timestamps. A lost vault
+    or a contracted time range calls for a reviewed repair with explicit
+    ownership, especially when a restored DuckDB is only partly populated.
+
+    :param previous: Keys from the owned scope, excluding explicit retirements.
+    :param replacement: Keys supplied for those scopes by the source builders.
+    """
+    if not previous.num_rows:
+        return
+    coverage = []
+    for table in (previous, replacement):
+        table = table.select(["chain", "address", "timestamp"])
+        table = table.set_column(1, "address", _native_address_keys(table["chain"], table["address"]))
+        bounds = table.group_by(["chain", "address"]).aggregate([("timestamp", "min"), ("timestamp", "max")])
+        coverage.append({(row["chain"], row["address"]): (row["timestamp_min"], row["timestamp_max"]) for row in bounds.to_pylist()})
+    existing, incoming = coverage
+    for key, (first, last) in existing.items():
+        bounds = incoming.get(key)
+        if bounds is None or bounds[0] is None or bounds[1] is None or (first is not None and bounds[0] > first) or (last is not None and bounds[1] < last):
+            message = f"Native replacement would shrink published history for {key}. Restore the complete source or apply a verified repair."
+            raise ValueError(message)
+
+
 def _write_native_partitions_to_uncleaned_parquet(
     parquet_path: Path,
     replacements: dict[int, pd.DataFrame],
     remove_chain_ids: set[int] | None = None,
     replacement_address_patterns: dict[int, set[str]] | None = None,
     capability_registry: PerpDexCapabilityRegistry | None = None,
+    revisions: dict[str, Any] | None = None,
 ) -> int:
     """Replace native chain partitions using PyArrow without full pandas conversion.
 
@@ -499,6 +626,8 @@ def _write_native_partitions_to_uncleaned_parquet(
         within a shared synthetic chain. Currently used by Lighter so an
         independently successful Ethereum or Robinhood scan replaces only its
         own addresses within chain 9998.
+    :param capability_registry: Perpetual futures metric definitions to embed in this output.
+    :param revisions: Native source revisions committed with this output.
     :return:
         Total row count in the new raw parquet.
     """
@@ -508,27 +637,30 @@ def _write_native_partitions_to_uncleaned_parquet(
 
     existing_table = pq.read_table(parquet_path) if parquet_path.exists() else None
     schema = _create_native_merge_schema(existing_table.schema if existing_table is not None else None, replacements)
-    replacement_tables = [_align_native_merge_table(pa.Table.from_pandas(frame, preserve_index=False), schema) for frame in replacements.values()]
+    ownership_patterns = {chain_id: "|".join(f"(?:{pattern})" for pattern in sorted(patterns)) for chain_id, patterns in replacement_address_patterns.items()}
+    replacement_tables = []
+    for chain_id, frame in replacements.items():
+        table = _align_native_merge_table(pa.Table.from_pandas(frame, preserve_index=False), schema)
+        if revisions is not None:
+            owned = pc.equal(table["chain"], chain_id)
+            if pattern := ownership_patterns.get(chain_id):
+                address_in_scope = pc.match_substring_regex(pc.utf8_lower(table["address"]), pattern=pattern)
+                owned = pc.and_(owned, address_in_scope)
+            if not table.num_rows or pc.any(pc.invert(pc.fill_null(owned, False))).as_py():
+                raise ValueError(f"Native replacement contains rows outside its scope on chain {chain_id}")
+        replacement_tables.append(table)
     native_table = pa.concat_tables(replacement_tables)
 
+    retained_rows = 0
     if existing_table is not None:
         # Most native protocols own a whole synthetic chain partition. Lighter
         # is different: Ethereum and Robinhood now share chain 9998 and scan
         # independently, so its replacement mask is narrowed by synthetic
         # address namespace below.
         whole_chain_ids = (set(replacements) - set(replacement_address_patterns)) | (remove_chain_ids or set())
-        if whole_chain_ids:
-            chain_mask = pc.is_in(
-                existing_table["chain"],
-                value_set=pa.array(list(whole_chain_ids), type=existing_table["chain"].type),
-            )
-        else:
-            chain_mask = pa.array([False] * len(existing_table))
-
-        for chain_id, address_patterns in replacement_address_patterns.items():
-            address_mask = pa.array([False] * len(existing_table))
-            for pattern in address_patterns:
-                address_mask = pc.or_(address_mask, pc.match_substring_regex(existing_table["address"], pattern=pattern))
+        chain_mask = pc.is_in(existing_table["chain"], value_set=pa.array(sorted(whole_chain_ids), type=existing_table["chain"].type))
+        for chain_id, pattern in ownership_patterns.items():
+            address_mask = pc.match_substring_regex(pc.utf8_lower(existing_table["address"]), pattern=pattern)
             scoped_chain_mask = pc.and_(
                 pc.equal(existing_table["chain"], pa.scalar(chain_id, type=existing_table["chain"].type)),
                 address_mask,
@@ -536,15 +668,22 @@ def _write_native_partitions_to_uncleaned_parquet(
             chain_mask = pc.or_(chain_mask, scoped_chain_mask)
 
         retained_table = _align_native_merge_table(existing_table.filter(pc.invert(chain_mask)), schema)
+        removed_rows = pc.sum(chain_mask).as_py() or 0
+        retained_rows = retained_table.num_rows
+        if retained_rows + removed_rows != existing_table.num_rows:
+            raise ValueError("Native merge did not account for all committed raw rows")
+        if revisions is not None and removed_rows:
+            replacements_only = pc.and_(chain_mask, pc.is_in(existing_table["chain"], value_set=pa.array(sorted(replacements), type=existing_table["chain"].type)))
+            _assert_native_coverage(existing_table.select(["chain", "address", "timestamp"]).filter(replacements_only), native_table)
         combined_table = pa.concat_tables([retained_table, native_table])
+        logger.info("Native merge row accounting: %d removed, %d retained, %d replacement rows", removed_rows, retained_table.num_rows, native_table.num_rows)
     else:
         parquet_path.parent.mkdir(parents=True, exist_ok=True)
         combined_table = native_table
 
-    sort_indices = pc.sort_indices(
-        combined_table,
-        sort_keys=[("chain", "ascending"), ("address", "ascending"), ("timestamp", "ascending")],
-    )
+    keys = combined_table.select(["chain", "address", "timestamp"])
+    keys = keys.set_column(1, "address", _native_address_keys(keys["chain"], keys["address"]))
+    sort_indices = pc.sort_indices(keys, sort_keys=[("chain", "ascending"), ("address", "ascending"), ("timestamp", "ascending")])
     combined_table = combined_table.take(sort_indices)
 
     if capability_registry is not None:
@@ -555,20 +694,64 @@ def _write_native_partitions_to_uncleaned_parquet(
         metadata = {key: value for key, value in (existing_table.schema.metadata or {}).items() if key.startswith(b"perp_dex.")}
         combined_table = combined_table.replace_schema_metadata(metadata or None)
 
+    if revisions is not None:
+        # The sort already orders the owned rows. EVM rows can legitimately
+        # share a vault and timestamp when they were read at different blocks.
+        replacement_indices = pc.filter(sort_indices, pc.greater_equal(sort_indices, retained_rows)) if retained_rows else sort_indices
+        _assert_native_keys(keys.take(replacement_indices))
+        metadata = (combined_table.schema.metadata or {}) | {NATIVE_REVISIONS_KEY: json.dumps(revisions, sort_keys=True).encode()}
+        combined_table = combined_table.replace_schema_metadata(metadata)
+
     if "total_assets" in combined_table.column_names:
         audit_native_price_freshness(combined_table, native_datetime_utc_now())
 
+    write_started_at = time.perf_counter()
     VaultHistoricalRead.write_uncleaned_arrow_table(combined_table, parquet_path)
+    logger.info("Native raw Parquet write: %d rows, %d bytes in %.2fs", len(combined_table), parquet_path.stat().st_size, time.perf_counter() - write_started_at)
 
     return len(combined_table)
 
 
-def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd.DataFrame, chain_id: int) -> pd.DataFrame:
-    """Merge new ApeX or Derive prices without discarding stored history.
+def apex_price_timestamps(timestamps: pd.Series) -> pd.Series:
+    """Project source timestamps onto the raw Parquet identity.
+
+    Use Arrow's exact cast semantics so the merge and write agree at the
+    sub-millisecond boundary. The caller retains the original timestamps for
+    metric attachment and diagnostics.
+
+    :param timestamps: Naive UTC timestamps from the ApeX archive or raw file.
+    :return: Timestamps at the canonical raw price precision.
+    """
+    target_type = VaultHistoricalRead.to_pyarrow_schema().field("timestamp").type
+    values = pa.Array.from_pandas(timestamps).cast(target_type, safe=False)
+    return pd.Series(values.to_numpy(zero_copy_only=False), index=timestamps.index)
+
+
+def _check_apex_price_keys(frame: pd.DataFrame, keys: list[str], source: str) -> None:
+    """Reject missing or ambiguous ApeX identities before choosing a winner.
+
+    :param frame: One input to the merge with canonical comparison columns.
+    :param keys: Address and stored timestamp comparison columns.
+    :param source: Name of the input for diagnostics.
+    :raises ValueError: Missing or repeated identities.
+    """
+    duplicates = frame.duplicated(keys, keep=False)
+    invalid = duplicates | frame[keys[0]].isna() | frame[keys[1]].isna()
+    if invalid.any():
+        sample = frame.loc[invalid, ["address", "timestamp", keys[1]]].head(8).to_dict("records")
+        raise ValueError(f"Invalid or duplicate canonical ApeX prices in {source}: {sample}")
+
+
+def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd.DataFrame, chain_id: int, *, validate_keys: bool = True) -> pd.DataFrame:
+    """Merge ApeX, Derive or Neutral Trade prices with their stored history.
 
     A rebuilt DuckDB or shorter API response may contain only part of a
     vault's history. Preserve existing rows unless the export supplies the
     same vault address and timestamp, in which case the new value wins.
+
+    For ApeX, both inputs use the lower-case address and the timestamp
+    truncated to the raw Parquet millisecond. Each input must contain at most
+    one row per key. A match across inputs is a replay or correction.
 
     Only the selected synthetic chain partition is read into Pandas. The
     complete Parquet file stays in Arrow form for the later atomic write.
@@ -577,21 +760,46 @@ def _merge_native_history_with_existing_parquet(parquet_path: Path, fresh_df: pd
     :param fresh_df: Non-empty frame with the shared raw price columns,
         including string ``address`` and naive UTC ``timestamp``.
     :param chain_id: Synthetic chain partition to read.
+    :param validate_keys: Check for ambiguous Derive and Solana inputs in incremental mode.
+        ApeX always checks both inputs at the stored timestamp precision.
     :return: Combined rows for the native partition.
     """
     assert not fresh_df.empty, "A non-empty native frame is required"
-    if not parquet_path.exists():
+    if parquet_path.exists():
+        existing_table = pq.read_table(parquet_path, filters=[("chain", "=", chain_id)])
+        existing_df = existing_table.to_pandas() if existing_table.num_rows else None
+    else:
+        existing_df = None
+
+    if existing_df is None and chain_id != APEX_CHAIN_ID:
         return fresh_df
 
-    existing_table = pq.read_table(
-        parquet_path,
-        filters=[("chain", "=", chain_id)],
-    )
-    if len(existing_table) == 0:
-        return fresh_df
+    combined = pd.concat([existing_df, fresh_df], ignore_index=True) if existing_df is not None else fresh_df.copy()
+    if chain_id == SOLANA_DATASET_CHAIN_ID:
+        address_keys = {address: VaultSpec(chain_id, address).vault_address for address in combined["address"].unique()}
+        combined["_canonical_address"] = combined["address"].map(address_keys)
+    else:
+        combined["_canonical_address"] = combined["address"].str.lower()
 
-    existing_df = existing_table.to_pandas()
-    return pd.concat([existing_df, fresh_df], ignore_index=True).drop_duplicates(subset=["address", "timestamp"], keep="last").reset_index(drop=True)
+    keys = ["_canonical_address", "timestamp"]
+    temporary_columns = ["_canonical_address"]
+    existing_rows = len(existing_df) if existing_df is not None else 0
+    if chain_id == APEX_CHAIN_ID:
+        # Comparing source microseconds directly to a stored millisecond would append
+        # a replay as a new price. The subsequent Arrow cast would give both the same key.
+        combined["_stored_timestamp"] = apex_price_timestamps(combined["timestamp"])
+        keys = ["_canonical_address", "_stored_timestamp"]
+        temporary_columns.append("_stored_timestamp")
+        _check_apex_price_keys(combined.iloc[existing_rows:], keys, "ApeX source")
+        if existing_rows:
+            _check_apex_price_keys(combined.iloc[:existing_rows], keys, "stored history")
+    elif validate_keys:
+        # Overlap across the two inputs is a correction. Duplicates within
+        # either input make the result depend on physical row order.
+        for source in (combined.iloc[:existing_rows], combined.iloc[existing_rows:]):
+            if source.duplicated(keys).any():
+                raise ValueError(f"Duplicate canonical native prices on chain {chain_id}")
+    return combined.drop_duplicates(subset=keys, keep="last").drop(columns=temporary_columns).reset_index(drop=True)
 
 
 def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns all native inputs
@@ -615,6 +823,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     apex_db_path: Path | None = None,
     derive_v3_db_path: Path | None = None,
     neutral_trade_db_path: Path | None = None,
+    incremental: bool = False,
 ) -> dict[str, bool]:
     """Merge native protocol price data into the uncleaned parquet in one pass.
 
@@ -626,7 +835,9 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     historical data. All enabled native sources are collected before the
     existing parquet is read, then their chain partitions are replaced and
     the result is written once. For ApeX and Derive, new rows replace only matching
-    vault addresses and timestamps; all other stored prices are retained.
+    vault addresses and timestamps. ApeX matches at the raw Parquet's millisecond
+    precision and rejects duplicate keys within either input. Both protocols retain
+    unmatched stored prices.
     This preserves history when an API response or rebuilt DuckDB contains
     fewer observations than the existing Parquet file.
 
@@ -660,6 +871,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     :param apex_db_path: Override for the ApeX DuckDB path
     :param neutral_trade_db_path: Private Neutral Trade archive override.
     :param derive_v3_db_path: Override for the Derive v3 mainnet DuckDB path
+    :param incremental: Skip scopes whose published source revision matches. The scanner enables this by default. Direct migration callers can bootstrap a raw file with a full merge.
     :return: Dictionary mapping step name to success boolean
     """
     parquet_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
@@ -670,26 +882,114 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
     replacement_address_patterns: dict[int, set[str]] = {}
     perp_snapshots: list[pd.DataFrame] = []
 
-    if merge_hypercore:
+    enabled = {
+        "hypercore": merge_hypercore,
+        "grvt": merge_grvt,
+        "lighter": merge_lighter,
+        "hibachi": merge_hibachi,
+        "apex": merge_apex,
+        "derive-v3": merge_derive_v3,
+        "neutral-trade": merge_neutral_trade,
+    }
+    source_paths = {
+        "hypercore": (hyperliquid_db_path or HYPERLIQUID_DAILY_METRICS_DATABASE, hyperliquid_hf_db_path or HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE),
+        "grvt": (grvt_db_path or GRVT_DAILY_METRICS_DATABASE,),
+        "lighter": (lighter_db_path or LIGHTER_DAILY_METRICS_DATABASE,),
+        "hibachi": (hibachi_db_path or HIBACHI_DAILY_METRICS_DATABASE,),
+        "apex": (apex_db_path or APEX_METRICS_DATABASE,),
+        "derive-v3": (derive_v3_db_path or DERIVE_V3_MAINNET_DATABASE,),
+        "neutral-trade": (neutral_trade_db_path or NEUTRAL_TRADE_DATABASE,),
+    }
+    if incremental and any(enabled.values()) and not parquet_path.is_file():
+        logger.warning("Native merge deferred: restore the combined raw Parquet or run EVM price collection first. For a new native-only dataset, initialise it once with INCREMENTAL_POST_PROCESSING=false.")
+        return {f"{protocol}-price-merge": False for protocol, active in enabled.items() if active}
+    applied = _read_native_revisions(parquet_path) if incremental and any(enabled.values()) else {}
+    registry = embed_perp_capability_registry(pa.schema([]), PERP_DEX_CAPABILITY_REGISTRY).metadata
+    registry_version = sorted((key.decode(), value.decode()) for key, value in registry.items())
+    registry_version = [list(item) for item in registry_version]
+    revisions = {}
+    captured_files = {}
+    catalogue_path = vault_db_path or parquet_path.parent / "vault-metadata-db.pickle"
+    permissions_path = permission_history_path or parquet_path.parent / PERMISSION_FILENAME
+    lighter_scopes = None
+    skipped = 0
+    for protocol, active in enabled.items():
+        if not incremental or not active:
+            continue
+        paths = source_paths[protocol]
+        captured_files[protocol] = [duckdb_revision(path) for path in paths]
+        previous = applied.get(protocol)
+        previous_files = previous[2] if isinstance(previous, list) and len(previous) >= 3 else []
+        missing_committed_source = any(before[0] is not None and after[0] is None for before, after in zip(previous_files, captured_files[protocol]))
+        if missing_committed_source or not any(path.is_file() for path in paths):
+            enabled[protocol] = False
+            steps[f"{protocol}-price-merge"] = not missing_committed_source and not (protocol == "lighter" and any(key.startswith("lighter/") for key in applied))
+            logger.log(logging.INFO if steps[f"{protocol}-price-merge"] else logging.WARNING, "Native merge source missing for %s; retained its existing rows", protocol)
+            continue
+        if protocol == "lighter":
+            try:
+                scoped = _lighter_revisions(paths[0])
+            except duckdb.Error:
+                logger.warning("Could not read Lighter source revisions; retrying the full source")
+                scoped = {}
+            if scoped:
+                lighter_scopes = []
+                for deployment in LIGHTER_DEPLOYMENTS:
+                    key = f"lighter/{deployment.slug}"
+                    revision = [NATIVE_MERGE_VERSION, registry_version, str(paths[0].resolve()), duckdb.__version__, scoped[deployment.slug]]
+                    revisions[key] = revision
+                    if revision != applied.get(key):
+                        lighter_scopes.append(deployment)
+                    else:
+                        skipped += 1
+                if not lighter_scopes:
+                    enabled[protocol] = False
+                    steps["lighter-price-merge"] = True
+                continue
+        revision = [NATIVE_MERGE_VERSION, registry_version, captured_files[protocol]]
+        revisions[protocol] = revision
+        # A fixed inventory is used by standalone onboarding. Include it when
+        # the caller explicitly enables revision checks for that invocation.
+        if protocol == "neutral-trade":
+            revision.append(sorted(neutral_trade_vault_ids) if neutral_trade_vault_ids is not None else None)
+        if protocol == "hypercore" and isinstance(previous, list) and len(previous) == 4 and revision == previous[:3] and isinstance(previous[3], dict):
+            side = previous[3]
+            if catalogue_path.is_file() and permissions_path.is_file() and file_revision(permissions_path) == side.get("permissions"):
+                try:
+                    catalogue_matches = file_revision(catalogue_path) == side["catalogue"] or set(side["vaults"]).issubset(spec.vault_address for spec in VaultDatabase.read(catalogue_path).rows if spec.chain_id == HYPERCORE_CHAIN_ID)
+                except (OSError, EOFError, pickle.UnpicklingError):
+                    catalogue_matches = False
+                if catalogue_matches:
+                    revision.append(side)
+        if revision == applied.get(protocol) and (protocol != "hypercore" or len(revision) == 4):
+            enabled[protocol] = False
+            steps[f"{protocol}-price-merge"] = True
+            skipped += 1
+
+    logger.info("Native merge revision checks: %d unchanged scopes skipped", skipped)
+    published_scopes = set()
+
+    if enabled["hypercore"]:
         try:
             logger.info("Merging Hypercore prices into uncleaned parquet")
-            daily_path = hyperliquid_db_path or HYPERLIQUID_DAILY_METRICS_DATABASE
-            hf_path = hyperliquid_hf_db_path or HYPERLIQUID_HIGH_FREQ_METRICS_DATABASE
+            daily_path, hf_path = source_paths["hypercore"]
             daily_db = None
             hf_db = None
             try:
                 if daily_path.exists():
-                    daily_db = HyperliquidDailyMetricsDatabase(daily_path)
+                    daily_db = HyperliquidDailyMetricsDatabase(daily_path, read_only=incremental)
                 if hf_path.exists():
-                    hf_db = HyperliquidHighFreqMetricsDatabase(hf_path)
+                    hf_db = HyperliquidHighFreqMetricsDatabase(hf_path, read_only=incremental)
                 if daily_db is None and hf_db is None:
                     logger.warning("No Hyperliquid DuckDB databases found")
                     hypercore_df = pd.DataFrame()
                 else:
                     hypercore_df = build_hypercore_prices_dataframe(daily_db=daily_db, hf_db=hf_db)
                     for owner in (db for db in (daily_db, hf_db) if db is not None):
-                        merge_into_vault_database(owner, vault_db_path or parquet_path.parent / "vault-metadata-db.pickle", only_missing=True)
-                    export_hypercore_permission_history(permission_history_path or parquet_path.parent / PERMISSION_FILENAME, daily_db=daily_db, hf_db=hf_db)
+                        catalogue = merge_into_vault_database(owner, catalogue_path, only_missing=True)
+                    export_hypercore_permission_history(permissions_path, daily_db=daily_db, hf_db=hf_db)
+                    if incremental:
+                        revisions["hypercore"].append({"permissions": file_revision(permissions_path), "catalogue": file_revision(catalogue_path), "vaults": sorted(spec.vault_address for spec in catalogue.rows if spec.chain_id == HYPERCORE_CHAIN_ID)})
                     if daily_db is not None:
                         _append_perp_metric_snapshots(daily_db, perp_snapshots)
                     if hf_db is not None:
@@ -710,11 +1010,10 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             logger.exception("Hypercore price merge failed")
             steps["hypercore-price-merge"] = False
 
-    if merge_grvt:
+    if enabled["grvt"]:
         try:
             logger.info("Merging GRVT prices into uncleaned parquet")
-            g_db_path = grvt_db_path or GRVT_DAILY_METRICS_DATABASE
-            db = GRVTDailyMetricsDatabase(g_db_path)
+            db = GRVTDailyMetricsDatabase(source_paths["grvt"][0], read_only=incremental)
             try:
                 grvt_df = build_grvt_prices_dataframe(db)
                 _append_perp_metric_snapshots(db, perp_snapshots)
@@ -730,20 +1029,29 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             logger.exception("GRVT price merge failed")
             steps["grvt-price-merge"] = False
 
-    if merge_lighter:
+    if enabled["lighter"]:
         try:
             logger.info("Merging Lighter prices into uncleaned parquet")
-            l_db_path = lighter_db_path or LIGHTER_DAILY_METRICS_DATABASE
-            db = LighterDailyMetricsDatabase(l_db_path)
+            db = LighterDailyMetricsDatabase(source_paths["lighter"][0], read_only=incremental and lighter_scopes is not None)
             try:
-                lighter_df = build_lighter_prices_dataframe(db)
-                _append_perp_metric_snapshots(db, perp_snapshots)
+                if lighter_scopes is None:
+                    lighter_df = build_lighter_prices_dataframe(db)
+                    _append_perp_metric_snapshots(db, perp_snapshots)
+                else:
+                    frames = []
+                    for deployment in lighter_scopes:
+                        frame = build_lighter_prices_dataframe(db, deployment=deployment.slug)
+                        if not frame.empty:
+                            frames.append(frame)
+                            _append_perp_metric_snapshots(db, perp_snapshots, deployment=deployment.slug)
+                    lighter_df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
             finally:
                 db.close()
             if lighter_df.empty:
                 logger.warning("No Lighter data to merge")
             else:
                 fresh_deployments = get_lighter_price_deployments(lighter_df)
+                published_scopes.update(f"lighter/{deployment.slug}" for deployment in fresh_deployments)
                 for chain_id, deployment_df in lighter_df.groupby("chain"):
                     replacements[int(chain_id)] = deployment_df
                     # Both Lighter deployments share chain 9998 but are scanned
@@ -762,11 +1070,10 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             logger.exception("Lighter price merge failed")
             steps["lighter-price-merge"] = False
 
-    if merge_hibachi:
+    if enabled["hibachi"]:
         try:
             logger.info("Merging Hibachi prices into uncleaned parquet")
-            h_db_path = hibachi_db_path or HIBACHI_DAILY_METRICS_DATABASE
-            db = HibachiDailyMetricsDatabase(h_db_path)
+            db = HibachiDailyMetricsDatabase(source_paths["hibachi"][0], read_only=incremental)
             try:
                 hibachi_df = build_hibachi_prices_dataframe(db)
                 _append_perp_metric_snapshots(db, perp_snapshots)
@@ -782,11 +1089,10 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             logger.exception("Hibachi price merge failed")
             steps["hibachi-price-merge"] = False
 
-    if merge_apex:
+    if enabled["apex"]:
         try:
             logger.info("Merging ApeX prices into uncleaned parquet")
-            a_db_path = apex_db_path or APEX_METRICS_DATABASE
-            db = ApexMetricsDatabase(a_db_path)
+            db = ApexMetricsDatabase(source_paths["apex"][0], read_only=incremental)
             try:
                 apex_df = build_apex_prices_dataframe(db)
                 _append_perp_metric_snapshots(db, perp_snapshots)
@@ -795,48 +1101,77 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             if apex_df.empty:
                 logger.warning("No ApeX data to merge")
             else:
-                replacements[APEX_CHAIN_ID] = _merge_native_history_with_existing_parquet(parquet_path, apex_df, APEX_CHAIN_ID)
+                replacements[APEX_CHAIN_ID] = _merge_native_history_with_existing_parquet(parquet_path, apex_df, APEX_CHAIN_ID, validate_keys=incremental)
             logger.info("ApeX price merge: %d fresh ApeX price entries", len(apex_df))
             steps["apex-price-merge"] = True
         except Exception:
             logger.exception("ApeX price merge failed")
             steps["apex-price-merge"] = False
 
-    if merge_derive_v3:
+    if enabled["derive-v3"]:
         try:
-            d_db_path = derive_v3_db_path or DERIVE_V3_MAINNET_DATABASE
+            d_db_path = source_paths["derive-v3"][0]
             if not d_db_path.exists():
                 logger.info("No Derive v3 mainnet DuckDB to merge at %s", d_db_path)
             else:
-                db = DeriveV3VaultDatabase(d_db_path)
+                db = DeriveV3VaultDatabase(d_db_path, read_only=incremental)
                 try:
                     derive_df = build_derive_v3_prices_dataframe(db)
                     _append_perp_metric_snapshots(db, perp_snapshots)
                 finally:
                     db.close()
                 if not derive_df.empty:
-                    replacements[DERIVE_V3_CHAIN_ID] = _merge_native_history_with_existing_parquet(parquet_path, derive_df, DERIVE_V3_CHAIN_ID)
+                    replacements[DERIVE_V3_CHAIN_ID] = _merge_native_history_with_existing_parquet(parquet_path, derive_df, DERIVE_V3_CHAIN_ID, validate_keys=incremental)
                 logger.info("Derive v3 price merge: %d fresh mainnet rows", len(derive_df))
             steps["derive-v3-price-merge"] = True
         except Exception:
             logger.exception("Derive v3 price merge failed")
             steps["derive-v3-price-merge"] = False
 
-    if merge_neutral_trade:
-        source_path = neutral_trade_db_path or NEUTRAL_TRADE_DATABASE
-        if source_path.exists():
-            with NeutralTradeDatabase(source_path) as source:
-                fresh = build_neutral_trade_prices(source, vault_ids=neutral_trade_vault_ids)
-            if not fresh.empty:
-                merged = _merge_native_history_with_existing_parquet(parquet_path, fresh, SOLANA_DATASET_CHAIN_ID)
-            elif parquet_path.exists():
-                merged = pq.read_table(parquet_path, filters=[("chain", "=", SOLANA_DATASET_CHAIN_ID)]).to_pandas()
+    if enabled["neutral-trade"]:
+        source_path = source_paths["neutral-trade"][0]
+        try:
+            if source_path.exists():
+                with NeutralTradeDatabase(source_path, read_only=incremental) as source:
+                    fresh = build_neutral_trade_prices(source, vault_ids=neutral_trade_vault_ids)
+                if not fresh.empty:
+                    merged = _merge_native_history_with_existing_parquet(parquet_path, fresh, SOLANA_DATASET_CHAIN_ID, validate_keys=incremental)
+                    replacements[SOLANA_DATASET_CHAIN_ID] = merged
             else:
-                merged = pd.DataFrame()
-            replacements[SOLANA_DATASET_CHAIN_ID] = merged
-        else:
-            logger.info("No Neutral Trade source database; merge is a no-op")
-        steps["neutral-trade-price-merge"] = True
+                logger.info("No Neutral Trade source database; merge is a no-op")
+            steps["neutral-trade-price-merge"] = True
+        except (duckdb.Error, OSError, ValueError, pa.ArrowException) as exc:
+            if not incremental:
+                raise
+            logger.warning("Neutral Trade price merge deferred: %s", exc)
+            steps["neutral-trade-price-merge"] = False
+
+    scope_chains = {
+        "hypercore": HYPERCORE_CHAIN_ID,
+        "grvt": GRVT_CHAIN_ID,
+        "lighter": LIGHTER_CHAIN_ID,
+        "hibachi": HIBACHI_CHAIN_ID,
+        "apex": APEX_CHAIN_ID,
+        "derive-v3": DERIVE_V3_CHAIN_ID,
+        "neutral-trade": SOLANA_DATASET_CHAIN_ID,
+    }
+    if incremental:
+        # An empty builder cannot retire previously published history. Keep
+        # its revision pending even if another protocol can publish this tick.
+        # Append-style archives (ApeX, Derive and Neutral Trade) can have
+        # zero fresh observations, for example after directory revocation.
+        for protocol in ("hypercore", "grvt", "hibachi"):
+            if enabled[protocol] and protocol in applied and scope_chains[protocol] not in replacements:
+                steps[f"{protocol}-price-merge"] = False
+        for deployment in lighter_scopes or ():
+            key = f"lighter/{deployment.slug}"
+            if key in applied and key not in published_scopes:
+                steps["lighter-price-merge"] = False
+
+    if incremental and lighter_scopes is None and enabled["lighter"]:
+        # A legacy schema was upgraded by its writer. Re-read the now
+        # deployment-aware source on the next tick before recording a receipt.
+        steps["lighter-price-merge"] = False
 
     if not replacements:
         logger.info("Native protocol merge stage complete: 0 replacement rows in %.2f seconds", time.perf_counter() - started_at)
@@ -855,6 +1190,18 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             logger.info("Perp price attachment chain %s: %d rows in %.2f seconds", chain_id, attach_input_rows, time.perf_counter() - attach_started_at)
             attach_started_at = time.perf_counter()
 
+    published_scopes.update(protocol for protocol, chain_id in scope_chains.items() if enabled[protocol] and chain_id in replacements)
+    next_revisions = None
+    if incremental:
+        # The scanner's writer lock covers source discovery, reads and rename.
+        # If an independent writer or a schema upgrade changed a source, retry
+        # from that new generation instead of acknowledging a mixed snapshot.
+        for protocol in published_scopes & captured_files.keys():
+            if [duckdb_revision(path) for path in source_paths[protocol]] != captured_files[protocol]:
+                logger.warning("Native source %s changed during merge; retrying publication on the next tick", protocol)
+                steps[f"{protocol}-price-merge"] = False
+                return {key: False if key.removesuffix("-price-merge") in published_scopes else value for key, value in steps.items()}
+        next_revisions = applied | {key: revisions[key] for key in published_scopes if key in revisions}
     try:
         total_rows = _write_native_partitions_to_uncleaned_parquet(
             parquet_path,
@@ -862,6 +1209,7 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
             remove_chain_ids=remove_chain_ids,
             replacement_address_patterns=replacement_address_patterns,
             capability_registry=PERP_DEX_CAPABILITY_REGISTRY,
+            revisions=next_revisions,
         )
         logger.info(
             "Merged %d native protocol chain partitions (%d fresh rows, %d total rows) into uncleaned %s in one PyArrow parquet write in %.2f seconds",
@@ -873,18 +1221,9 @@ def merge_native_protocols(  # noqa: PLR0914 - one established coordinator owns 
         )
     except Exception:
         logger.exception("Native protocol batch price merge failed")
-        for step_name, chain_id in (
-            ("hypercore-price-merge", HYPERCORE_CHAIN_ID),
-            ("grvt-price-merge", GRVT_CHAIN_ID),
-            ("hibachi-price-merge", HIBACHI_CHAIN_ID),
-            ("apex-price-merge", APEX_CHAIN_ID),
-            ("derive-v3-price-merge", DERIVE_V3_CHAIN_ID),
-            ("neutral-trade-price-merge", SOLANA_DATASET_CHAIN_ID),
-        ):
+        for protocol, chain_id in scope_chains.items():
             if chain_id in replacements:
-                steps[step_name] = False
-        if any(deployment.chain_id in replacements for deployment in LIGHTER_DEPLOYMENTS):
-            steps["lighter-price-merge"] = False
+                steps[f"{protocol}-price-merge"] = False
 
     return steps
 
@@ -1351,6 +1690,86 @@ def export_top_vaults_json(  # noqa: PLR0914 - R2 export settings are resolved t
         return False
 
 
+def _clean_incrementally(
+    raw_path: Path,
+    vault_db_path: Path,
+    settlement_path: Path,
+    hourly_path: Path,
+    crypto_path: Path,
+) -> tuple[bool, bool]:
+    """Reconcile the cleaned products and record the verified generations.
+
+    The checkpoint follows all three outputs. A crash during replacement or
+    an out-of-band rewrite invalidates the checkpoint's output tuple and
+    forces a full rebuild before targeted replacements can resume.
+
+    :param raw_path: Combined raw Parquet.
+    :param vault_db_path: Metadata catalogue.
+    :param settlement_path: Settlement database.
+    :param hourly_path: Public hourly prices.
+    :param crypto_path: Private daily prices.
+    :return: Public and crypto cleaning success flags.
+    """
+    if not raw_path.is_file() or not vault_db_path.is_file():
+        logger.warning("Price cleaning deferred until the combined prices and catalogue are available")
+        return False, False
+    started_at = time.perf_counter()
+    daily_path = hourly_path.with_name("cleaned-vault-prices-1d.parquet")
+    output_paths = (hourly_path, daily_path, crypto_path)
+    checkpoint_path = hourly_path.with_suffix(".cleaning.json")
+    previous = read_publication_state(checkpoint_path)
+    outputs = [file_revision(path) for path in output_paths]
+    inputs = cleaning_inputs(raw_path, vault_db_path, settlement_path)
+    outputs_match = all(outputs) and previous.get("outputs") == outputs
+    if outputs_match and previous.get("inputs") == inputs:
+        logger.info("Vault price cleaning skipped: sources and outputs unchanged")
+        return True, True
+
+    try:
+        snapshot = cleaning_snapshot(raw_path, vault_db_path, settlement_path)
+        changed = changed_histories(previous.get("snapshot", {}), snapshot) if outputs_match else None
+        if changed is None:
+            logger.info("Running full price cleaning to establish a current output baseline")
+            if not clean_prices(vault_db_path, raw_path, hourly_path, settlement_path):
+                return False, False
+            crypto_ok = clean_crypto_vault_prices(
+                vault_db_path=vault_db_path,
+                uncleaned_path=raw_path,
+                cleaned_path=crypto_path,
+                cleaned_stablecoin_path=hourly_path,
+                cleaned_stablecoin_daily_path=daily_path,
+                settlement_db_path=settlement_path,
+            )
+            if not crypto_ok:
+                return True, False
+            if not daily_path.is_file() or daily_path.stat().st_mtime_ns < hourly_path.stat().st_mtime_ns:
+                logger.warning("Daily sidecar needs repair; retaining the hourly fallback")
+                return True, False
+        else:
+            crypto_ok = replace_changed_histories(
+                snapshot,
+                *changed,
+                raw_path=raw_path,
+                vault_db_path=vault_db_path,
+                settlement_path=settlement_path,
+                hourly_path=hourly_path,
+                daily_path=daily_path,
+                crypto_path=crypto_path,
+            )
+            if not crypto_ok:
+                return True, False
+        if cleaning_inputs(raw_path, vault_db_path, settlement_path) != inputs:
+            logger.warning("Cleaning inputs changed during publication; deferring acknowledgement")
+            return False, False
+        published = [file_revision(path) for path in output_paths]
+        write_publication_state(checkpoint_path, {"inputs": inputs, "outputs": published, "snapshot": snapshot})
+        logger.info("Vault cleaner finished in %.2fs. Output sizes before and after: %s -> %s bytes", time.perf_counter() - started_at, [item[3] if item else 0 for item in outputs], [item[3] for item in published])
+        return True, True
+    except (duckdb.Error, AssertionError, OSError, ValueError, KeyError, RuntimeError, TypeError, pa.ArrowException) as exc:
+        logger.warning("Incremental price cleaning deferred: %s", exc)
+        return False, False
+
+
 def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options explicit
     *,
     scan_hypercore: bool = False,
@@ -1382,6 +1801,9 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     feed_db_path: Path | None = None,
     crypto_vaults_dir: Path | None = None,
     price_scan_state_path: Path | None = None,
+    incremental: bool = True,
+    incremental_cleaning: bool = True,
+    publication_retry: bool = False,
 ) -> dict[str, bool]:
     """Run full post-processing pipeline after chain scans complete.
 
@@ -1420,9 +1842,19 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param crypto_vaults_dir: Override for the isolated crypto bundle directory.
     :param price_scan_state_path: Price-only scan provenance written by the
         scanner. Defaults next to the cleaned price file.
+    :param incremental: Reuse committed native scopes.
+    :param incremental_cleaning: Reuse cleaned histories when incremental mode is enabled.
+    :param publication_retry: Stop an idle recovery tick before exports if its local inputs still need repair.
     :return: Dictionary mapping step name to success boolean
     """
-    steps = {}
+    timings = ScanTimings()
+    steps: dict[str, bool] = {}
+
+    def log_summary() -> None:
+        """Include failed steps by name, including when an idle retry ends early."""
+        failed = [name for name, ok in steps.items() if not ok]
+        logger.info("Post-processing timing ok=%d failed=%d failed_steps=%s %s", len(steps) - len(failed), len(failed), ",".join(failed) or "none", timings)
+
     data_dir = get_pipeline_data_dir()
     resolved_vault_db_path = vault_db_path or data_dir / "vault-metadata-db.pickle"
 
@@ -1446,44 +1878,56 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         apex_db_path=apex_db_path,
         derive_v3_db_path=derive_v3_db_path,
         neutral_trade_db_path=neutral_trade_db_path,
+        incremental=incremental,
     )
     steps.update(merge_results)
+    native_publication_ok = not incremental or all(merge_results.values())
+    timings.finish("native_merge")
 
-    # Clean the existing public stablecoin price file.
-    if skip_cleaning:
-        logger.info("Skipping price cleaning (SKIP_CLEANING=true)")
-    else:
-        steps["clean-prices"] = clean_prices(
-            vault_db_path=resolved_vault_db_path,
-            uncleaned_path=uncleaned_parquet_path,
-            cleaned_path=cleaned_path,
-            settlement_db_path=settlement_db_path,
-        )
+    if publication_retry and not native_publication_ok:
+        logger.warning("Native history is still pending; ending idle retry before cleaning and exports")
+        log_summary()
+        return steps
 
-    # Determine whether cleaned data is trustworthy for downstream exports.
-    # If cleaning was explicitly skipped, the operator asserts the existing
-    # cleaned parquet is valid.  If cleaning ran and failed, downstream steps
-    # that depend on fresh cleaned data must NOT run — otherwise they would
-    # silently re-upload stale artefacts, masking the failure.
-    cleaning_ok = steps.get("clean-prices", True) if not skip_cleaning else True
-
-    # Crypto price cleaning deliberately has its own contained failure boundary.
-    # It runs before public exports but cannot prevent them from completing.
+    # The isolated crypto product can fail independently of public publication.
     crypto_paths = resolve_crypto_vault_paths(data_dir, crypto_vaults_dir)
     resolved_cleaned_stablecoin_path = cleaned_path or data_dir / "cleaned-vault-prices-1h.parquet"
-    if cleaning_ok:
-        crypto_clean_ok = clean_crypto_vault_prices(
+    raw_path = uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE
+    if incremental and incremental_cleaning and not skip_cleaning:
+        cleaning_ok, crypto_clean_ok = _clean_incrementally(
+            raw_path,
+            resolved_vault_db_path,
+            settlement_db_path or get_default_vault_settlement_database_path(),
+            resolved_cleaned_stablecoin_path,
+            crypto_paths.cleaned_price_path,
+        )
+        steps["clean-prices"] = cleaning_ok
+    else:
+        if skip_cleaning:
+            logger.info("Skipping price cleaning (SKIP_CLEANING=true)")
+            cleaning_ok = True
+        else:
+            cleaning_ok = clean_prices(
+                vault_db_path=resolved_vault_db_path,
+                uncleaned_path=uncleaned_parquet_path,
+                cleaned_path=cleaned_path,
+                settlement_db_path=settlement_db_path,
+            )
+            steps["clean-prices"] = cleaning_ok
+        crypto_clean_ok = cleaning_ok and clean_crypto_vault_prices(
             vault_db_path=resolved_vault_db_path,
-            uncleaned_path=uncleaned_parquet_path or DEFAULT_UNCLEANED_PRICE_DATABASE,
+            uncleaned_path=raw_path,
             cleaned_path=crypto_paths.cleaned_price_path,
             cleaned_stablecoin_path=resolved_cleaned_stablecoin_path,
             cleaned_stablecoin_daily_path=resolved_cleaned_stablecoin_path.with_name("cleaned-vault-prices-1d.parquet"),
             settlement_db_path=settlement_db_path,
         )
-    else:
-        logger.error("Skipping crypto vault price cleaning because public price cleaning failed")
-        crypto_clean_ok = False
     steps["clean-crypto-vault-prices"] = crypto_clean_ok
+    timings.finish("cleaning")
+    if publication_retry and not (cleaning_ok and crypto_clean_ok):
+        logger.warning("Price cleaning is still pending; ending idle retry before exports")
+        log_summary()
+        return steps
 
     # The crypto USD metrics and R2 data-file export must share one immutable
     # local snapshot. A currency failure is isolated like crypto cleaning: it
@@ -1501,6 +1945,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         exchange_rate_parquet_error = exc
         steps["materialise-exchange-rate-parquet"] = False
 
+    timings.finish("exchange_rates")
     # Export top vaults JSON, including its best-effort strategy-category
     # aggregate. This depends on cleaned Parquet and must run before the
     # private data-file upload.
@@ -1517,6 +1962,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
             feed_db_path=feed_db_path,
         )
 
+    timings.finish("listing")
     crypto_metadata = None
     if crypto_clean_ok and cleaning_ok and exchange_rate_parquet_path is not None:
         crypto_metadata = calculate_crypto_vault_metadata(
@@ -1533,10 +1979,14 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         steps["calculate-crypto-vault-metadata"] = False
 
     # Publish trading inputs before the potentially lengthy image rendering.
+    timings.finish("crypto_metrics")
     if skip_data:
         logger.info("Skipping data file export (SKIP_DATA=true)")
     elif not cleaning_ok:
         logger.warning("Skipping data file export — clean_prices failed, refusing to export stale data")
+        steps["export-data-files"] = False
+    elif not native_publication_ok:
+        logger.warning("Deferring private data export until native prices and permission history are current")
         steps["export-data-files"] = False
     else:
         steps["export-data-files"] = export_data_files(
@@ -1565,6 +2015,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
             steps["publish-vault-scan-manifest"] = False
 
     # Export sparklines.
+    timings.finish("data_and_manifests")
     if skip_sparklines:
         logger.info("Skipping sparkline export (SKIP_SPARKLINES=true)")
     elif not cleaning_ok or not crypto_clean_ok:
@@ -1579,12 +2030,14 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
 
     # Export protocol metadata. This is not derived from cleaned prices and is
     # always safe to run.
+    timings.finish("sparklines")
     if skip_metadata:
         logger.info("Skipping metadata export (SKIP_METADATA=true)")
     else:
         steps["export-protocol-metadata"] = export_protocol_metadata()
 
     # Export Ethereum-only sample files to the public bucket.
+    timings.finish("protocol_metadata")
     if skip_samples:
         logger.info("Skipping sample file export (SKIP_SAMPLES=true)")
     else:
@@ -1609,6 +2062,7 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
                 skip_json_sample=not json_ok,
             )
 
+    timings.finish("samples")
     crypto_rate_published = bool(steps.get("export-data-files"))
     if not crypto_rate_published and exchange_rate_parquet_path is not None:
         # ``SKIP_DATA=true`` and public-data export failures must not prevent
@@ -1616,7 +2070,10 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
         # before making crypto metadata current.
         crypto_rate_published = export_crypto_exchange_rate_parquet(exchange_rate_parquet_path)
 
-    if crypto_metadata is None:
+    if not native_publication_ok:
+        logger.warning("Deferring private crypto publication until native prices are current")
+        steps["export-crypto-vault-bundle"] = False
+    elif crypto_metadata is None:
         logger.warning("Skipping crypto bundle publication — crypto metadata was not generated")
         steps["export-crypto-vault-bundle"] = False
     elif not crypto_rate_published:
@@ -1625,4 +2082,6 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     else:
         steps["export-crypto-vault-bundle"] = export_crypto_vault_bundle(crypto_paths, crypto_metadata)
 
+    timings.finish("crypto_upload")
+    log_summary()
     return steps

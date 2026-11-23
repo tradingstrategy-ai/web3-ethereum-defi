@@ -1,6 +1,10 @@
 # 1.2
 
-- feat: Load an optional `../vault-rpc.env` at Docker Compose scanner startup while preserving exported shell overrides (2026-11-23).
+- feat: Load an optional `../vault-rpc.env` at Docker Compose scanner startup while preserving exported shell overrides (2026-11-23, [#1811](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1811)).
+
+- fix: Match ApeX replays at stored millisecond precision, preserve same-second EVM block observations and repair historical ApeX duplicates with migration 106 (2026-11-23).
+- feat: Surface Morpho vault liquidity warnings through the withdrawal-capacity flag in vault JSON exports (2026-11-23).
+- feat: Make the vault scanner skip unchanged native price merges and recalculate only affected vault histories by default (2026-11-23).
 
 - feat: Complete σ-Labs curator attribution, descriptions and strategy tags for seven vaults, and add migrations to refresh metadata and backfill early hourly prices (2026-11-20).
 

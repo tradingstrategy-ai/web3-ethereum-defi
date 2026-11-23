@@ -34,6 +34,7 @@ contracts/aave-v3-deploy/hardhat-deployment-export.json
 
 # environment files
 .env
+# Track the symlink to the optional RPC file outside the checkout.
 !/.compose/.env
 
 logs/

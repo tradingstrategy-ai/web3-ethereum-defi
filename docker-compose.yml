@@ -1,4 +1,8 @@
-# Compose reads .compose/.env for the included services when its symlink to
-# ../vault-rpc.env (relative to this file) resolves. Shell settings take precedence.
+# The scanner service definitions, entrypoints and mounts live in .compose/scanners.yml.
+# Compose expands ${VAR:-default} before applying service env_file entries.
+# The include lets Compose read .compose/.env at that earlier step. This symlink
+# points to ../vault-rpc.env relative to the repository root. Compose skips it
+# when the target is missing. Exported shell variables and the checkout's .env
+# take precedence over the RPC file.
 include:
   - .compose/scanners.yml

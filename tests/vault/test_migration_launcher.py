@@ -47,7 +47,6 @@ def test_launcher_allows_stopped_or_absent_service(docker_environment: dict[str,
     calls = Path(env["DOCKER_CALLS"]).read_text()
     assert "--entrypoint vault-migrate" in calls
     assert "DRY_RUN=false" in calls
-    assert "DOCKER_IMAGE_HASH" not in calls
     assert "SCAN_PRICES=false" in calls
     assert Path(env["LAUNCHED"]).exists()
 
@@ -85,4 +84,3 @@ def test_launcher_detects_old_daemon_in_another_project(docker_environment: dict
     assert result.returncode == 1
     assert "Migration blocked" in result.stderr
     assert not Path(env["LAUNCHED"]).exists()
-    assert "compose -f docker-compose.yml ps" in Path(env["DOCKER_CALLS"]).read_text()

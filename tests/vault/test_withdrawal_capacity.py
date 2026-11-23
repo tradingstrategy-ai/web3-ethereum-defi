@@ -6,11 +6,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from functools import partial
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
-from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
+from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.withdrawal_capacity import assess_withdrawal_capacity, configured_capacity_threshold, enrich_withdrawal_capacity, fetch_withdrawal_capacity_limit
 
@@ -103,6 +105,31 @@ def test_corrupt_numeric_observation_stays_unknown():
     assert result.capacity_warning is None and result.current_capacity is None
 
 
+@pytest.mark.parametrize("capacity", [None, "200", "0"])
+def test_export_morpho_low_liquidity_sets_capacity_warning(capacity: str | None) -> None:
+    """Provider warnings supplement measured capacity and clear on refresh."""
+    spec = VaultSpec(137, "0x" + "a" * 40)
+    row = {"id": spec.as_string_id()}
+    morpho_data = {"vault_warnings": [{"type": "low_liquidity", "level": "YELLOW"}]}
+    source = {"_morpho_offchain_data": morpho_data}
+    if capacity is not None:
+        source["_withdrawal_capacity_observation"] = observation(capacity)
+    database = SimpleNamespace(rows={spec: source})
+
+    enrich_withdrawal_capacity([row], database, now=NOW)
+    limit = row["withdrawal_capacity_limit"]
+    assert limit["capacity_warning"] is True
+    assert limit["current_capacity"] == capacity
+    assert "Morpho reports low vault liquidity" in limit["capacity_reason"]
+    assert row["withdrawal_capacity_observation"]["capacity_warning_source"] == ("measured" if capacity == "0" else "morpho")
+    assert row["withdrawal_capacity_observation"]["morpho_low_liquidity"] is True
+
+    morpho_data["vault_warnings"] = [{"type": "not_whitelisted", "level": "YELLOW"}]
+    enrich_withdrawal_capacity([row], database, now=NOW)
+    assert row["withdrawal_capacity_limit"]["capacity_warning"] is (None if capacity is None else capacity == "0")
+    assert "morpho_low_liquidity" not in row["withdrawal_capacity_observation"]
+
+
 @pytest.mark.parametrize("missing_field", ["chain_id", "address", "both"])
 @pytest.mark.parametrize("uppercase", [False, True])
 def test_export_resolves_legacy_id(missing_field: str, uppercase: bool) -> None:
@@ -174,7 +201,7 @@ def test_zero_tvl_and_partial_cannot_be_safe():
     "native,wrapped,token_cash,native_cash,status",
     [(True, True, 0, 10**18, "partial"), (True, True, 10**18, 0, "measured"), (False, False, 0, 10**18, "measured"), (False, False, 10**18, 0, "partial"), (False, True, 0, 10**18, "partial")],
 )
-def test_fluid_selects_actual_liquidity_asset(monkeypatch, native, wrapped, token_cash, native_cash, status):
+def test_fluid_selects_actual_liquidity_asset(monkeypatch: pytest.MonkeyPatch, native: bool, wrapped: bool, token_cash: int, native_cash: int, status: str) -> None:
     """Native reserves and wrapped-token donations must not be confused."""
     from web3.exceptions import ContractLogicError
 
@@ -211,9 +238,15 @@ def test_fluid_selects_actual_liquidity_asset(monkeypatch, native, wrapped, toke
         calls.append(("native_balance", target))
         return native_cash
 
-    vault = SimpleNamespace(address=address, chain_id=1, vault_contract=contract, denomination_token=token, web3=SimpleNamespace(eth=SimpleNamespace(get_balance=balance)))
+    web3 = SimpleNamespace(eth=SimpleNamespace(get_balance=balance, get_storage_at=Mock(return_value=bytes(32))))
+    vault = FluidVault(web3, VaultSpec(1, address))
+    vault.vault_contract = contract
+    vault.denomination_token = token
     monkeypatch.setattr(readers, "get_deployed_contract", lambda *args: contract)
-    data = readers.fluid_observation(vault, 123)
+    data = vault.fetch_withdrawal_capacity_observation(123)
+    web3.eth.get_storage_at.assert_called_once()
+    assert web3.eth.get_storage_at.call_args.kwargs["block_identifier"] == 123
+    assert ("getData", None) in calls
     assert data["status"] == status
     assert data["current_capacity"] == ("0" if status == "measured" else None)
     assert any(name == "native_balance" for name, _ in calls) is (native or wrapped)
