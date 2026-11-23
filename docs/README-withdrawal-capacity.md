@@ -41,14 +41,23 @@ report includes this signal when its input contains the stored Morpho metadata.
 
 IPOR with no instant-withdrawal fuses uses idle assets; configured fuses currently
 produce an explicit partial result because idle cash alone cannot describe their
-market exits. Fluid with zero cash in its configured liquidity contract has zero
-capacity; nonzero cash remains partial until its expanding withdrawal limit is
-resolved. Native fTokens use the Liquidity contract's native balance, identified
-by `NATIVE_TOKEN_ADDRESS()`, instead of its WETH balance. Wrapped-token donations
-or dust do not measure native reserves. An older wrapped-native deployment that
-does not expose this interface remains partial, with its observed native balance
-recorded separately. An unknown chain wrapper mapping also remains partial.
-These limits must not be inferred from a zero-share account's maxima.
+market exits.
+
+For Fluid fTokens, a zero balance in the confirmed withdrawal currency establishes
+zero capacity. Nonzero balances leave capacity unknown until the expanding withdrawal
+limit is resolved. Native fTokens identify the currency with `NATIVE_TOKEN_ADDRESS()`
+and read the Liquidity contract's native balance. If the currency cannot be
+confirmed, the result stays partial. The reader records the observed native
+balance separately when the chain's wrapped native token is known and matches
+the vault denomination.
+
+For the [Fluid Lite USD Vault](https://docs.fluid.instadapp.io/lite-usd/index.html),
+the reader records TVL and idle USDC and leaves capacity unknown. It identifies
+the reviewed Lite implementation at the observation block and skips the fToken
+liquidity checks. The next successful scheduled refresh replaces the previous
+failed observation.
+
+A zero-share account's withdrawal maxima provide no evidence of global capacity.
 At the recorded stcUSD fork, available cash after reserved withdrawal claims is 42.590261 USDC against
 57.010412 USDC TVL, so it does not warn: the earlier 42.953828-USDC limit was a **deposit** limit.
 
@@ -116,7 +125,7 @@ must not be applied to those metavaults.
 the adaptive export freshness limit for all vaults. It does not change the daily
 or weekly acquisition schedule. Leave it unset or empty to use each observation's
 recorded cadence plus grace. Numeric coverage remains partial for IPOR routes
-with configured fuses and Fluid routes with nonzero liquidity.
+with configured fuses, Fluid fToken routes with nonzero liquidity and Fluid Lite.
 
 `tiny_tvl` warns when total USD TVL is strictly below **USD 10,000**; exactly
 USD 10,000 does not warn. It is independent of the 15% withdrawal-buffer rule.
