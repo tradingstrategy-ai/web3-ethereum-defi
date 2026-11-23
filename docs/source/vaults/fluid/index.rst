@@ -16,6 +16,12 @@ The protocol also includes the Vault Protocol for advanced borrowing with high L
 liquidation penalties, and a DEX Protocol built on top of the Liquidity Layer with Smart collateral
 and Smart debt features.
 
+The `Fluid Lite USD Vault <https://docs.fluid.instadapp.io/lite-usd/index.html>`__
+is an ERC-4626 USDC vault on Ethereum. Its withdrawal-capacity observation
+records total assets and idle USDC at the source block. Capacity and the
+liquidity warning remain unset while liquidity through the Lite withdrawal
+route is unmeasured.
+
 Links
 ~~~~~
 

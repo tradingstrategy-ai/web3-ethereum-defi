@@ -6,11 +6,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from functools import partial
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
-from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
+from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.withdrawal_capacity import assess_withdrawal_capacity, configured_capacity_threshold, enrich_withdrawal_capacity, fetch_withdrawal_capacity_limit
 
@@ -199,7 +201,7 @@ def test_zero_tvl_and_partial_cannot_be_safe():
     "native,wrapped,token_cash,native_cash,status",
     [(True, True, 0, 10**18, "partial"), (True, True, 10**18, 0, "measured"), (False, False, 0, 10**18, "measured"), (False, False, 10**18, 0, "partial"), (False, True, 0, 10**18, "partial")],
 )
-def test_fluid_selects_actual_liquidity_asset(monkeypatch, native, wrapped, token_cash, native_cash, status):
+def test_fluid_selects_actual_liquidity_asset(monkeypatch: pytest.MonkeyPatch, native: bool, wrapped: bool, token_cash: int, native_cash: int, status: str) -> None:
     """Native reserves and wrapped-token donations must not be confused."""
     from web3.exceptions import ContractLogicError
 
@@ -236,9 +238,15 @@ def test_fluid_selects_actual_liquidity_asset(monkeypatch, native, wrapped, toke
         calls.append(("native_balance", target))
         return native_cash
 
-    vault = SimpleNamespace(address=address, chain_id=1, vault_contract=contract, denomination_token=token, web3=SimpleNamespace(eth=SimpleNamespace(get_balance=balance)))
+    web3 = SimpleNamespace(eth=SimpleNamespace(get_balance=balance, get_storage_at=Mock(return_value=bytes(32))))
+    vault = FluidVault(web3, VaultSpec(1, address))
+    vault.vault_contract = contract
+    vault.denomination_token = token
     monkeypatch.setattr(readers, "get_deployed_contract", lambda *args: contract)
-    data = readers.fluid_observation(vault, 123)
+    data = vault.fetch_withdrawal_capacity_observation(123)
+    web3.eth.get_storage_at.assert_called_once()
+    assert web3.eth.get_storage_at.call_args.kwargs["block_identifier"] == 123
+    assert ("getData", None) in calls
     assert data["status"] == status
     assert data["current_capacity"] == ("0" if status == "measured" else None)
     assert any(name == "native_balance" for name, _ in calls) is (native or wrapped)
