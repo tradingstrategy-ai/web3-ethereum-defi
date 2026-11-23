@@ -1557,6 +1557,59 @@ def test_hyperevm_legacy_nav_sources() -> None:
     assert vault_price_wrangle.filter_verified_hyperevm_prices(prices.drop(columns="vault_poll_frequency"))["share_price"].tolist() == [1.9, 2.2]
 
 
+@pytest.mark.parametrize(
+    ("block_numbers", "allow_same_timestamp_blocks", "error"),
+    [
+        ((123, 123), True, "require distinct positive block numbers"),
+        ((0, 123), True, "require distinct positive block numbers"),
+        ((None, 123), True, "require distinct positive block numbers"),
+        (None, True, "Invalid or duplicate cleaned replacement price keys"),
+        ((123, 124), False, "Invalid or duplicate cleaned replacement price keys"),
+    ],
+)
+def test_replacement_rejects_ambiguous_same_timestamp_prices(
+    tmp_path: Path,
+    block_numbers: tuple[int | None, int] | None,
+    allow_same_timestamp_blocks: bool,
+    error: str,
+) -> None:
+    """Keep the existing file when prices lack distinct permitted identities."""
+    vault_id = "42161-0x0000000000000000000000000000000000000001"
+    timestamp = pd.Timestamp("2026-11-14 19:44:14")
+    prices = pd.DataFrame({"id": [vault_id, vault_id], "timestamp": [timestamp, timestamp]})
+    if block_numbers is not None:
+        prices["block_number"] = block_numbers
+    destination = tmp_path / "cleaned.parquet"
+    prices.iloc[-1:].to_parquet(destination, index=False)
+    original = destination.read_bytes()
+
+    with pytest.raises(ValueError, match=error):
+        vault_price_wrangle.replace_cleaned_price_rows(
+            destination,
+            {vault_id},
+            prices,
+            logger=logging.getLogger(__name__).info,
+            allow_same_timestamp_blocks=allow_same_timestamp_blocks,
+        )
+
+    assert destination.read_bytes() == original
+
+
+def test_replace_combined_daily_histories_uses_only_price_columns(tmp_path: Path) -> None:
+    """Replace interleaved denomination histories without persisting row labels."""
+    stablecoin_id = "42161-0x0000000000000000000000000000000000000002"
+    native_id = "42161-0x0000000000000000000000000000000000000001"
+    timestamp = pd.Timestamp("2026-11-14 19:44:14")
+    prices = pd.DataFrame({"id": [stablecoin_id, native_id], "timestamp": [timestamp, timestamp], "share_price": [1.1, 2.2]})
+    destination = tmp_path / "crypto-daily.parquet"
+    prices.iloc[0:0].to_parquet(destination, index=False)
+
+    replaced = vault_price_wrangle.replace_cleaned_price_rows(destination, {stablecoin_id, native_id}, prices, logger=logging.getLogger(__name__).info)
+
+    assert replaced == len(prices)
+    pd.testing.assert_frame_equal(pd.read_parquet(destination), prices.reset_index(drop=True))
+
+
 def test_incremental_cleaning_matches_rebuild_after_corrections(
     vault_db: Path,
     raw_price_df: Path,
@@ -1606,7 +1659,9 @@ def test_incremental_cleaning_matches_rebuild_after_corrections(
     addition["timestamp"] += pd.Timedelta(days=1)
     addition["timestamp"] = addition["timestamp"].astype(prices["timestamp"].dtype)
     addition["block_number"] += 10_000
-    pd.concat([prices, addition], ignore_index=True).to_parquet(raw, index=False)
+    # Consecutive EVM blocks can have the same timestamp in the price archive.
+    same_second = addition.assign(block_number=addition["block_number"] + 1, share_price=addition["share_price"] * 1.001)
+    pd.concat([prices, addition, same_second], ignore_index=True).to_parquet(raw, index=False)
 
     database = VaultSettlementDatabase(settlement)
     try:
@@ -1620,7 +1675,12 @@ def test_incremental_cleaning_matches_rebuild_after_corrections(
     assert selected.loc[previous["timestamp"], "raw_share_price"] == pytest.approx(corrected_share_price)
     assert selected.loc[previous["timestamp"], "vault_settlement_at"] == previous["timestamp"]
     assert list(selected["address"].unique()) == [target.vault_address]
-    assert len(selected) == counts.iloc[0] + 1
+    assert len(selected) == counts.iloc[0] + 2
+    same_timestamp = addition["timestamp"].iloc[0]
+    assert selected.loc[same_timestamp, "block_number"].tolist() == [addition["block_number"].iloc[0], same_second["block_number"].iloc[0]]
+    daily_rows = pd.read_parquet(daily).reset_index()
+    daily_close = daily_rows.loc[(daily_rows["id"] == target_id) & (daily_rows["timestamp"] == same_timestamp)]
+    assert daily_close["block_number"].tolist() == [same_second["block_number"].iloc[0]]
 
     # A case alias at the *same* instant cannot be resolved by row order.
     committed = hourly.read_bytes()

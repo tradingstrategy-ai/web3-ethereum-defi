@@ -3011,6 +3011,7 @@ def replace_cleaned_price_rows(
     logger: Callable[[str], None],
     require_all_cleaned: bool = False,
     allow_empty_output: bool = True,
+    allow_same_timestamp_blocks: bool = False,
 ) -> int:
     """Install prepared complete vault histories while stream-copying other rows.
 
@@ -3023,6 +3024,9 @@ def replace_cleaned_price_rows(
     :param logger: Progress callback.
     :param require_all_cleaned: Require at least one replacement row for each id.
     :param allow_empty_output: Permit a valid replacement to empty this product.
+    :param allow_same_timestamp_blocks: For hourly histories, allow observations
+        for the same vault and timestamp when each has a distinct positive
+        block number. Native observations use zero for the block number.
     :return: Number of replacement rows published.
     """
     if "timestamp" not in cleaned_selected_df.columns and cleaned_selected_df.index.name == "timestamp":
@@ -3035,16 +3039,31 @@ def replace_cleaned_price_rows(
         raise ValueError(f"Selected cleaned histories are missing required columns: {sorted(missing_cleaned_columns)}")
 
     cleaned_ids = set(cleaned_selected_df["id"].astype(str))
-    if cleaned_ids - canonical_ids or cleaned_selected_df[["id", "timestamp"]].isna().any().any() or cleaned_selected_df.duplicated(["id", "timestamp"]).any():
-        raise ValueError("Invalid or duplicate cleaned replacement price keys")
+    timestamp_key = ["id", "timestamp"]
+    invalid_key_message = "Invalid or duplicate cleaned replacement price keys"
+    if cleaned_ids - canonical_ids or cleaned_selected_df[timestamp_key].isna().any().any():
+        raise ValueError(invalid_key_message)
+    repeated_timestamps = cleaned_selected_df.duplicated(timestamp_key, keep=False)
+    if repeated_timestamps.any():
+        if not allow_same_timestamp_blocks or "block_number" not in cleaned_selected_df:
+            raise ValueError(invalid_key_message)
+        repeated_keys = cleaned_selected_df.loc[repeated_timestamps, [*timestamp_key, "block_number"]]
+        blocks = repeated_keys["block_number"]
+        if blocks.isna().any() or blocks.le(0).any() or repeated_keys.duplicated().any():
+            message = "Same-timestamp cleaned replacement prices require distinct positive block numbers"
+            raise ValueError(message)
     missing_cleaned_ids = set(canonical_ids) - cleaned_ids
     if missing_cleaned_ids and require_all_cleaned:
         raise ValueError(f"Cleaning removed all rows for selected vault ids; refusing to replace existing histories: {', '.join(sorted(missing_cleaned_ids))}")
-    cleaned_selected_df.sort_values(by=["id", "timestamp"], inplace=True)
+    # The stable multi-column sort preserves the full cleaner's order for
+    # same-timestamp rows, whose returns were computed in that order.
+    cleaned_selected_df.sort_values(by=timestamp_key, inplace=True)
 
     existing_reader = pq.ParquetFile(cleaned_price_df_path)
     output_schema = existing_reader.schema_arrow
-    selected_table = pa.Table.from_pandas(cleaned_selected_df)
+    # Sorting combined histories can turn a RangeIndex into integer row
+    # labels. Only the explicit timestamp column belongs in the output.
+    selected_table = pa.Table.from_pandas(cleaned_selected_df, preserve_index=False)
     unexpected_columns = set(selected_table.schema.names) - set(output_schema.names)
     if unexpected_columns:
         raise ValueError(f"Selected cleaned histories contain columns missing from {cleaned_price_df_path}: {sorted(unexpected_columns)}")
