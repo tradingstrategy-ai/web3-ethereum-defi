@@ -1819,7 +1819,14 @@ def run_post_processing(  # noqa: PLR0914 - orchestration keeps stage options ex
     :param scan_apex: Whether to merge ApeX data
     :param scan_neutral_trade: Include Neutral Trade native REST collection/merge.
     :param scan_derive_v3: Whether to merge Derive v3 mainnet data
-    :param skip_cleaning: Skip price cleaning step
+    :param skip_cleaning:
+        Reuse the existing cleaned stablecoin price files during a manual
+        export retry after cleaning has already succeeded for the intended
+        snapshot. The crypto cleaner still runs and uses those stablecoin
+        prices. If newer raw observations exist, exports such as sparklines
+        can use older stablecoin data. Leave this false for scheduled scans.
+        Incremental cleaning already reuses unchanged histories and
+        recalculates histories that changed.
     :param skip_top_vaults: Skip top-vaults JSON generation and R2 upload
     :param skip_sparklines: Skip sparkline image export to R2
     :param skip_metadata: Skip protocol/stablecoin metadata export to R2

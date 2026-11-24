@@ -3850,6 +3850,11 @@ def _main() -> None:
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
     incremental_post_processing = os.environ.get("INCREMENTAL_POST_PROCESSING", "true").lower() == "true"
     incremental_cleaning = os.environ.get("INCREMENTAL_CLEANING", "true").lower() == "true"
+    # Keep cleaning enabled for scheduled scans. Incremental cleaning already
+    # reuses unchanged vault histories and recalculates the ones that changed.
+    # Enable this only for a manual export retry from an already-cleaned snapshot.
+    # The crypto cleaner still runs using the existing cleaned stablecoin prices,
+    # so downstream exports, including sparklines, can use older observations.
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
     skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"

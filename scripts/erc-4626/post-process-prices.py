@@ -55,7 +55,14 @@ Pipeline control:
 - ``MERGE_DERIVE_V3``: Merge Derive v3 mainnet native vault data (default: ``false``)
 - ``INCREMENTAL_POST_PROCESSING``: Set to ``false`` for full native merging and cleaning (default: ``true``)
 - ``INCREMENTAL_CLEANING``: Set to ``false`` for full cleaning only (default: ``true``)
-- ``SKIP_CLEANING``: Skip price cleaning step (default: ``false``)
+- ``SKIP_CLEANING``: Reuse the existing cleaned stablecoin price files
+  (default: ``false``). Use ``true`` for a manual export retry after cleaning
+  has already succeeded for the intended snapshot. The crypto cleaner still
+  runs using the existing stablecoin prices. If newer raw observations exist,
+  downstream exports, including sparklines, can use older stablecoin data.
+  Leave this unset for scheduled scans. Incremental cleaning already reuses
+  unchanged vault histories and recalculates histories that changed. To retry
+  only chart publication, use ``scripts/erc-4626/export-sparklines.py``.
 - ``SKIP_TOP_VAULTS``: Skip top-vaults JSON generation and R2 upload (default: ``false``)
 - ``SKIP_SPARKLINES``: Skip sparkline image export to R2 (default: ``false``)
 - ``SKIP_METADATA``: Skip protocol/stablecoin metadata export to R2 (default: ``false``)
