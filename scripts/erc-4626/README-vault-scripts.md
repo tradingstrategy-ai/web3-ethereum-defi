@@ -2181,8 +2181,10 @@ BTC family and it has two valid share-price observations at distinct timestamps,
 including on its first trading day. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1
 BTC) are successfully published at most once every 72 hours; high-TVL vaults
 are considered on every invocation. The persistent
-`sparkline-export-state.json` file records cadence, input hashes and bounded
-failure backoff, renderer version and the non-secret R2 destination identity.
+`sparkline-export-state.json` file records cadence, input hashes, bounded
+failure backoff, renderer version, confirmed image digests and the non-secret
+R2 destination identity. Existing state gains the optional image digests as
+vaults publish successfully, so the change needs no migration.
 The BTC boundary is the explicit 0.1 BTC native-unit policy; its USD-equivalent
 conversion is only a fixed consistency check, not a live valuation. Set
 `FORCE_SPARKLINE_EXPORT=true` to repair state or remote object drift.
@@ -2202,10 +2204,14 @@ uniform 3× scaling, including its 3 px stroke, for 72 × 18 blog/email cells.
 All three assets are required before completion state advances. A missing
 variant or partial upload fails that vault and retains its previous completion
 until a complete retry succeeds.
-All assets are gzip-compressed, and
-unchanged source images are skipped using the local input digest before any
-rendering or R2 request. A matching source fingerprint also lets the exporter
-skip preparing chart data for a previously completed vault.
+All assets are gzip-compressed. During normal exports, matching chart input
+digests for the current renderer and destination skip rendering and R2
+requests. A matching source fingerprint also skips chart preparation.
+When a rendered image differs from its last confirmed digest for the same
+object and destination, the exporter sends it straight to R2. The remote
+check still verifies matching and unknown digests, and runs during forced
+exports and retries. The export summary reports total time and upload wall
+time, including the wait for the last request in each batch.
 
 ```shell
 poetry run python scripts/erc-4626/export-sparklines.py
@@ -2218,7 +2224,7 @@ poetry run python scripts/erc-4626/export-sparklines.py
 | `R2_SPARKLINE_ACCESS_KEY_ID` | Required. R2 access key ID. |
 | `R2_SPARKLINE_SECRET_ACCESS_KEY` | Required. R2 secret access key. |
 | `SPARKLINE_RENDER_WORKERS` | Optional. Number of sparkline preparation and rendering workers. Default: 6 processes; set `SPARKLINE_RENDER_BACKEND=threads` to use threads. |
-| `SPARKLINE_UPLOAD_WORKERS` | Optional. Number of concurrent R2 upload threads. Default: 8. |
+| `SPARKLINE_UPLOAD_WORKERS` | Optional. Number of concurrent R2 upload threads. Default: 16. |
 | `SPARKLINE_RENDER_BACKEND` | Optional. `processes` or `threads`. Default: `processes`. |
 | `SPARKLINE_MAX_WORKERS` | Deprecated. Fallback for upload threads only; it does not increase the default process count. |
 | `SPARKLINE_BATCH_SIZE` | Optional. Vaults retained in one render/upload batch. Default: 100. |

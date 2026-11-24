@@ -71,7 +71,7 @@ Pipeline control:
 - ``UPLOAD_PREFIX``: Prefix for uploaded data file keys, e.g. ``test-`` (default: ``""``). Applies to all R2 uploads including the top-vaults JSON.
 - ``SPARKLINE_RENDER_WORKERS``: Sparkline renderer process/thread count
   (default: ``6``)
-- ``SPARKLINE_UPLOAD_WORKERS``: Sparkline R2 upload thread count (default: ``8``)
+- ``SPARKLINE_UPLOAD_WORKERS``: Sparkline R2 upload thread count (default: ``16``)
 - ``SPARKLINE_RENDER_BACKEND``: ``processes`` or ``threads`` (default:
   ``processes``)
 - ``SPARKLINE_MAX_WORKERS``: Deprecated fallback for sparkline upload threads
