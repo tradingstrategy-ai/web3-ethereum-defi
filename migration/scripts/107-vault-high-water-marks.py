@@ -5,7 +5,7 @@ Purpose: Export performance-fee scope and correct the Pear and Lagoon fee modes.
 Scope: Four reviewed Pear deployments on HyperEVM and saved Lagoon vaults with Lagoon detection.
 Branch: investigate-pear-net-fees
 PR title: feat: export Pear and Lagoon fee accounting and high-water marks
-PR: See the pull request for branch investigate-pear-net-fees.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1823
 Preserves: Fee rates, unrelated metadata, price history, leads and reader state.
 Expected: Refresh up to two fields per qualifying vault.
 

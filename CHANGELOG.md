@@ -1,8 +1,8 @@
 # 1.2
 
-- fix: Decode the Lagoon Safe trading module's Solidity version string when selecting its `performCall` signature (2026-11-24).
+- fix: Decode the Lagoon Safe trading module's Solidity version string when selecting its `performCall` signature (2026-11-24, [#1823](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1823)).
 
-- feat: Export the performance-fee high-water mark scope for Pear and Lagoon, and correct Lagoon net returns to account for fees already reflected in its share price (2026-11-24).
+- feat: Export the performance-fee high-water mark scope for Pear and Lagoon, and correct Lagoon net returns to account for fees already reflected in its share price (2026-11-24, [#1823](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1823)).
 
 - fix: Restore inline vault sparkline publishing, speed up square PNG downsampling and encoding, and reduce state writes (2026-11-23).
 
