@@ -2605,10 +2605,9 @@ woff = ["brotli (>=1.0.1) ; platform_python_implementation == \"CPython\"", "bro
 name = "fpng"
 version = "0.1.0"
 description = "Very fast .PNG image writer for Python"
-optional = true
+optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"data\""
 files = [
     {file = "fpng-0.1.0-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:d7cc970c474553239525d7ca4a0bcef12fa5d85c5b045f55160dfc59f121b62a"},
     {file = "fpng-0.1.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:f5a6a4a75f2c7ef1f429e70e70a28fc497ab8b0523fc50b31ad98a912976acc1"},
@@ -4484,7 +4483,6 @@ files = [
     {file = "lazy_loader-0.5-py3-none-any.whl", hash = "sha256:ab0ea149e9c554d4ffeeb21105ac60bed7f3b4fd69b1d2360a4add51b170b005"},
     {file = "lazy_loader-0.5.tar.gz", hash = "sha256:717f9179a0dbed357012ddad50a5ad3d5e4d9a0b8712680d4e687f5e6e6ed9b3"},
 ]
-markers = {main = "extra == \"data\""}
 
 [package.dependencies]
 packaging = "*"
@@ -6309,7 +6307,6 @@ files = [
     {file = "pillow-12.1.1-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:cb9bb857b2d057c6dfc72ac5f3b44836924ba15721882ef103cecb40d002d80e"},
     {file = "pillow-12.1.1.tar.gz", hash = "sha256:9ad8fa5937ab05218e2b6a4cff30295ad35afd2f83ac592e68c0d871bb0fdbc4"},
 ]
-markers = {main = "extra == \"data\""}
 
 [package.extras]
 docs = ["furo", "olefile", "sphinx (>=8.2)", "sphinx-autobuild", "sphinx-copybutton", "sphinx-inline-tabs", "sphinxext-opengraph"]
@@ -10216,7 +10213,7 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [extras]
 ccxt = ["ccxt"]
 cloudflare-r2 = ["boto3", "brotli"]
-data = ["cairosvg", "ffn", "fpng", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "pillow", "plotly", "pyarrow", "tenacity", "tqdm"]
+data = ["cairosvg", "ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "plotly", "pyarrow", "tenacity", "tqdm"]
 docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "standard-imghdr", "zope-dottedname"]
 duckdb = ["duckdb"]
 gsheets = ["gspread"]
@@ -10228,4 +10225,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "09966bcabc8134116b4d9c92e4e82502fb84495490c5eb65d7a87b3e48337df3"
+content-hash = "cc53bba4939a6143449cd90053b90476cd3ca87f34e8e07758ce3b0ffecef665"
