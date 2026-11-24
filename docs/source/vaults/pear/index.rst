@@ -26,7 +26,16 @@ and onchain head observations as ``latest``. Scheduled scans read NAV onchain.
 
 Curator assignments and vault descriptions come from the reviewed mandates.
 The adapter reads the performance and withdrawal rates onchain. The public
-vault terms specify zero entry and management fees. Vault JSON includes the
+vault terms specify zero entry and management fees. Pear's performance fee
+crystallises at withdrawal settlement based on the investor's deposit cost.
+Vault JSON identifies this as ``fee_mode: externalised`` and
+``high_water_mark: investor_level``. See
+:py:class:`~eth_defi.vault.fee.HighWaterMark` for how Lagoon's shared
+high-water mark differs. The generic return calculator leaves Pear's net
+figures unset. Applying the performance fee requires the investor's cost
+basis, and applying the minimum withdrawal charge requires a redemption amount.
+
+Vault JSON also includes the
 HyperCore trading account in ``other_data.pear.hypercore_address`` and the
 comptroller's minimum withdrawal charge in
 ``other_data.pear.minimum_withdrawal_fee``, measured in denomination tokens.

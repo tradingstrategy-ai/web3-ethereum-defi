@@ -502,6 +502,9 @@ class VaultMetricsRecord(TypedDict, total=False):
     #: Source used to produce the share-price series.
     share_price_source: str | None
 
+    #: Performance-fee scope from :py:class:`~eth_defi.vault.fee.HighWaterMark`, or None when unspecified.
+    high_water_mark: str | None
+
     #: Original NAV publication time for explicitly publication-priced vaults.
     nav_timestamp: pd.Timestamp | None
     #: Age of the published NAV at export time, in seconds.
@@ -3365,11 +3368,15 @@ def _calculate_vault_record_from_arrays(
     deployment = vault_metadata.get("_deployment")
     deployment_chain_id = vault_metadata.get("_deployment_chain_id")
 
+    protocol = vault_metadata["Protocol"]
+    vault_address = vault_metadata["Address"]
+    is_lagoon = protocol in ("Lagoon Finance", "Lagoon")
     fee_data: FeeData | None = vault_metadata.get("_fees")
 
     if fee_data is None:
-        # Legacy, unit tests,etc.
-        # _fees not in the exported pickle we use for testing
+        # Older catalogues store scalar rates. Lagoon records can use either
+        # withdrawal column name, with "Withdrawal fee" taking precedence.
+        withdrawal_fallback = vault_metadata.get("Withdraw fee", 0) if is_lagoon else 0
         fee_data = FeeData(
             # Reviewed Buoy fee shares are already reflected in published
             # prices, including when old metadata has only scalar fee columns.
@@ -3377,7 +3384,7 @@ def _calculate_vault_record_from_arrays(
             management=_normalise_fee_for_fee_data(vault_metadata["Mgmt fee"], "management fee"),
             performance=_normalise_fee_for_fee_data(vault_metadata["Perf fee"], "performance fee"),
             deposit=_normalise_fee_for_fee_data(vault_metadata.get("Deposit fee", 0), "deposit fee"),  # Rare: assume 0 if not explicitly set
-            withdraw=_normalise_fee_for_fee_data(vault_metadata.get("Withdrawal fee", 0), "withdrawal fee"),  # Rare: assume 0 if not explicitly set
+            withdraw=_normalise_fee_for_fee_data(vault_metadata.get("Withdrawal fee", withdrawal_fallback), "withdrawal fee"),
             protocol=_normalise_fee_for_fee_data(vault_metadata.get("Protocol fee"), "protocol fee"),
         )
     else:
@@ -3393,19 +3400,15 @@ def _calculate_vault_record_from_arrays(
             protocol=_normalise_fee_for_fee_data(getattr(fee_data, "protocol", None), "protocol fee"),
         )
 
-    gross_fee_data = fee_data
-
-    vault_address = vault_metadata["Address"]
-    protocol = vault_metadata["Protocol"]
-
     fee_mode = fee_data.fee_mode
-    if fee_mode is None:
-        # Cached scan data may pre-date the fee matrix entry for this protocol.
-        # Re-derive from the current matrix so updates take effect without rescanning.
+    if fee_mode is None or (fee_mode is VaultFeeMode.externalised and is_lagoon):
+        # Older rows can lack a fee mode. Saved Lagoon rows can also retain an
+        # externalised mode for fees already reflected in settled share prices.
         fee_mode = get_vault_fee_mode(protocol, vault_address)
         fee_data.fee_mode = fee_mode
 
-    net_fee_data = fee_data.get_net_fees()
+    gross_fee_data = fee_data
+    net_fee_data = fee_data.get_net_fees(vault_protocol_name=protocol)
 
     mgmt_fee = fee_data.management
     perf_fee = fee_data.performance
@@ -4063,6 +4066,7 @@ def _calculate_vault_record_from_arrays(
             "deposit_fee": deposit_fee,
             "withdraw_fee": withdrawal_fee,
             "fee_mode": fee_mode,
+            "high_water_mark": vault_metadata.get("_high_water_mark"),
             "fee_internalised": fee_mode.is_internalised() if fee_mode else None,
             "gross_fees": gross_fee_data,
             "net_fees": net_fee_data,
@@ -4787,6 +4791,7 @@ def format_lifetime_table(df: pd.DataFrame, add_index: bool = False, add_address
     _del("features")
     _del("strategy_tags")
     _del("fee_mode")
+    _del("high_water_mark")
     _del("fee_internalised")
     _del("gross_fees")
     _del("net_fees")
@@ -5839,6 +5844,8 @@ def export_lifetime_row(row: pd.Series) -> dict:
 
     The ``share_price_source`` column is retained as a stable
     :py:class:`eth_defi.vault.price_source.PriceSource` string value.
+    The ``high_water_mark`` column is a
+    :py:class:`eth_defi.vault.fee.HighWaterMark` string, or null when unspecified.
 
     The ``denomination_token_rate`` dataclass from
     :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate` is converted

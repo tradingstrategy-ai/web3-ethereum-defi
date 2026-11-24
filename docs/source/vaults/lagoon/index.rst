@@ -19,6 +19,17 @@ Key features:
 - Vault access controls with optional KYC/KYB integration
 - CoW Protocol integration for trade execution
 
+Fee accounting
+~~~~~~~~~~~~~~
+
+Lagoon crystallises management and performance fees when settling a valuation.
+The vault mints shares for the fee recipients. The new shares dilute the
+settled share price, so returns calculated from that price already reflect
+these fees. Vault JSON uses ``fee_mode: internalised_minting`` and
+``high_water_mark: vault_shared``. The return calculation still accounts for
+separate entry and exit fees where reported. See the
+`Lagoon fee documentation <https://docs.lagoon.finance/vault/fees>`__.
+
 Curator and strategy metadata
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

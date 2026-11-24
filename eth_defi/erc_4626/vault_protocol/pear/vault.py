@@ -17,6 +17,7 @@ from eth_defi.erc_4626.vault_protocol.pear.tags import get_pear_strategy_tags
 from eth_defi.types import Percent
 from eth_defi.vault.base import normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.exception import UnsupportedVaultProtocol
+from eth_defi.vault.fee import HighWaterMark
 from eth_defi.vault.handwritten_metadata import HandwrittenVaultMetadata, get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag
 
@@ -29,7 +30,23 @@ class PearVault(ERC4626Vault):
 
     NAV includes HyperCore capital. The price scanner samples this adapter
     at the latest block and retains the observed execution block and time.
+
+    Pear's share price is gross of investor-level exit fees. Performance fees
+    crystallise when a withdrawal executes, including settlement of queued
+    requests. The contract applies the performance fee rate to gains above the
+    investor's proportional deposit cost and deducts the fee in USDC from the
+    payout. It calculates the separate withdrawal fee on gross proceeds, using
+    a fixed minimum charge.
+
+    Lagoon crystallises its management and performance fees when the curator
+    settles a valuation. It uses a shared high-water mark per share and mints
+    fee shares, so the settled share price reflects those fees. Separate entry
+    and exit fees can still apply. See :py:class:`~eth_defi.vault.fee.HighWaterMark`
+    for the comparison and references.
     """
+
+    #: The cost basis used at redemption belongs to the individual investor.
+    high_water_mark = HighWaterMark.investor_level
 
     @cached_property
     def _reviewed_metadata(self) -> HandwrittenVaultMetadata | None:

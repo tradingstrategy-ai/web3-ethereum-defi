@@ -62,13 +62,11 @@ Migration ``059-lagoon-offchain-metadata.py`` fills only missing descriptions fo
 22 reviewed deployments; it does not change flags, curator assignments or price
 history. Use the numbered migration runner and inspect all pending migrations.
 
-A minimal public API check needs no RPC or credentials::
+The scanner and JSON export test covers a closed vault whose strategy text
+remains available after it disappears from the public listing. It runs with
+local fixtures and a temporary cache::
 
-    source .local-test.env && RUN_LAGOON_LIVE=true timeout 180s poetry run pytest tests/lagoon/test_lagoon_unlisted_metadata.py -v -rA
-
-This check uses temporary cache storage and is guarded because Lagoon blocks
-GitHub Actions IPs. A closed product disappearing from the catalogue does not
-mean its available historical strategy text should be discarded.
+    source .local-test.env && poetry run pytest tests/erc_4626/test_scan_features.py::test_existing_unlisted_lagoon_text_reaches_scan_and_json
 
 Each description or curator-name accessor makes at most one metadata read per
 call. Standalone reads may refresh catalogue or detail data over HTTP when due.

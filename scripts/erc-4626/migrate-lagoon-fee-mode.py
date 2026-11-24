@@ -1,34 +1,7 @@
-"""Migrate persisted Lagoon fee modes in the vault metadata database.
+"""Historical repair for the Lagoon scanner protocol name change.
 
-Older metadata rows have the correct Lagoon management and performance fee
-percentages, but their :class:`~eth_defi.vault.fee.FeeData` has no fee mode.
-The historical fee matrix used ``"Lagoon"`` while the scanner persists the
-canonical protocol name ``"Lagoon Finance"``.  A missing fee mode prevents
-fee-adjusted net-return metrics from being calculated.
-
-This metadata-only migration sets ``VaultFeeMode.externalised`` on stale
-Lagoon ``_fees`` values. It does not alter fee percentages, price Parquet
-files, reader state, or any vault history rows.
-
-Usage:
-
-.. code-block:: shell
-
-    # Inspect affected rows without changing the database
-    source .local-test.env && DRY_RUN=true \\
-        poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
-
-    # Create a backup and persist the repair
-    source .local-test.env && DRY_RUN=false \\
-        poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
-
-Environment variables:
-
-- ``VAULT_DB_PATH``: Optional path to ``vault-metadata-db.pickle``. Defaults
-  to the production metadata path.
-- ``DRY_RUN``: Set to ``true`` to report affected rows without writing. The
-  default is ``true``.
-- ``LOG_LEVEL``: Optional log level. Defaults to ``info``.
+The historical repair writes the former externalised classification. Use
+numbered migration 107 to refresh Lagoon fee modes in the saved catalogue.
 """
 
 import logging
@@ -95,11 +68,10 @@ def migrate_lagoon_fee_mode(
     *,
     dry_run: bool,
 ) -> LagoonFeeModeMigrationResult:
-    """Set the externalised fee mode on stale Lagoon metadata records.
+    """Reproduce the historical externalised classification for Lagoon.
 
-    The fee values are already persisted in each ``FeeData`` object. Only a
-    missing fee mode is repaired, making this safe to run repeatedly and
-    preventing accidental changes to any fee percentage.
+    This legacy repair filled missing fee modes. Numbered migration 107
+    supersedes it with the classification based on settlement fee minting.
 
     :param vault_db_path:
         Path to the metadata pickle to inspect or update.

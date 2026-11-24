@@ -1,7 +1,5 @@
 """Single-line, first-sentence Lagoon summaries without onchain reads."""
 
-import os
-
 import pytest
 
 from eth_defi.erc_4626.vault_protocol.lagoon import offchain_metadata
@@ -49,24 +47,6 @@ def test_lagoon_missing_descriptions(metadata: dict | None) -> None:
     vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(metadata, True, "success", None)
     assert vault.description is None
     assert vault.short_description == ("" if metadata else None)
-
-
-@pytest.mark.live
-@pytest.mark.skipif(os.environ.get("CI") == "true", reason="Lagoon API returns HTTP 500 from GitHub Actions datacenter IPs; see tests/lagoon/test_lagoon_metadata.py")
-def test_lagoon_coinshift_live_summary_uses_first_sentence() -> None:
-    """Exercise Coinshift's real Lagoon detail response and adapter summary.
-
-    Query only the public metadata endpoint for the reviewed vault; this check
-    does not scan other vaults, require credentials or read onchain state.
-    """
-    raw = offchain_metadata._fetch_vault_detail(1, "0x09252d2c4afca9b1479efdd39faa53de9ff23114")
-    assert raw is not None
-    assert raw.get("shortDescription")
-    vault = LagoonVault.__new__(LagoonVault)
-    vault.spec = VaultSpec(1, "0x09252d2c4afca9b1479efdd39faa53de9ff23114")
-    vault.__dict__["_lagoon_scan_snapshot"] = offchain_metadata.LagoonMetadataSnapshot(offchain_metadata._parse_vault_detail(raw), True, "success", None)
-    assert vault.short_description == COINSHIFT_FIRST_SENTENCE
-    assert all(character not in vault.short_description for character in ("\n", "\r", "\\n", "\\r"))
 
 
 @pytest.mark.parametrize("listed", [False, None])

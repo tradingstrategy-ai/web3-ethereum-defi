@@ -2043,33 +2043,12 @@ be purged and rescanned.
 
 ### migrate-lagoon-fee-mode.py
 
-Repair stale fee-accounting modes on Lagoon metadata rows. Older rows contain
-the correct management and performance percentages but no fee mode because the
-fee matrix previously used the non-canonical protocol name `Lagoon`. The
-migration sets the mode to `externalised`, allowing the export pipeline to
-calculate net investor returns. It only changes the metadata pickle; vault
-prices, reader state, and the stored fee percentages remain unchanged.
-
-Inspect the proposed migration first:
-
-```shell
-source .local-test.env && \
-DRY_RUN=true \
-poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
-```
-
-Then persist the repair:
-
-```shell
-source .local-test.env && \
-DRY_RUN=false \
-poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
-```
-
-Set `VAULT_DB_PATH` to target a downloaded or test metadata pickle. The script
-defaults to dry-run mode and creates a non-overwriting
-`*.bak-lagoon-fee-mode` backup before writing. Run `export-data-files.py`
-afterwards to publish regenerated fee-adjusted metrics.
+Historical repair for the Lagoon scanner protocol name change. It wrote the
+former `externalised` classification. Numbered migration
+[`107-vault-high-water-marks.py`](../../migration/scripts/107-vault-high-water-marks.py)
+updates saved Lagoon vaults to `internalised_minting`. Follow the
+[production migration runbook](../../.claude/docs/migration-scripts.md#production-runbook)
+for the metadata refresh and subsequent export.
 
 ### migrate-lagoon-private-vaults.py
 

@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
+from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.vaultdb import VaultDatabase
 
 #: Representative persisted Lagoon management fee.
@@ -54,16 +54,6 @@ def create_fee_data(fee_mode: VaultFeeMode | None) -> FeeData:
     )
 
 
-def test_fee_matrix_uses_canonical_lagoon_protocol_name() -> None:
-    """Canonical and historical Lagoon names resolve externalised fees."""
-
-    fee_mode = get_vault_fee_mode("Lagoon Finance", "0x0000000000000000000000000000000000000001")
-    legacy_fee_mode = get_vault_fee_mode("Lagoon", "0x0000000000000000000000000000000000000001")
-
-    assert fee_mode == VaultFeeMode.externalised
-    assert legacy_fee_mode == VaultFeeMode.externalised
-
-
 def test_migrate_lagoon_fee_mode_updates_only_stale_lagoon_rows(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Migration persists the fee mode without changing fee values or other protocols."""
 
@@ -95,6 +85,13 @@ def test_migrate_lagoon_fee_mode_updates_only_stale_lagoon_rows(tmp_path: Path, 
     vault_db_path = tmp_path / "vault-metadata-db.pickle"
     vault_db.write(vault_db_path)
 
+    before = vault_db_path.read_bytes()
+    preview = migration.migrate_lagoon_fee_mode(vault_db_path, dry_run=True)
+    assert preview.migrated_rows == 1
+    assert "Stale Lagoon vault" in capsys.readouterr().out
+    assert vault_db_path.read_bytes() == before
+    assert not (tmp_path / "vault-metadata-db.pickle.bak-lagoon-fee-mode").exists()
+
     result = migration.migrate_lagoon_fee_mode(vault_db_path, dry_run=False)
     captured = capsys.readouterr()
 
@@ -111,33 +108,6 @@ def test_migrate_lagoon_fee_mode_updates_only_stale_lagoon_rows(tmp_path: Path, 
     assert migrated_db.rows[current_lagoon_spec]["_fees"].fee_mode == VaultFeeMode.externalised
     assert migrated_db.rows[morpho_spec]["_fees"].fee_mode is None
     assert (tmp_path / "vault-metadata-db.pickle.bak-lagoon-fee-mode").exists()
-
-
-def test_migrate_lagoon_fee_mode_dry_run_does_not_write(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Dry run reports stale Lagoon fee data without changing the pickle."""
-
-    migration = load_migration_module()
-    lagoon_spec = VaultSpec(1, "0x0000000000000000000000000000000000000001")
-    vault_db = VaultDatabase(
-        rows={
-            lagoon_spec: {
-                "Name": "Stale Lagoon vault",
-                "Protocol": "Lagoon Finance",
-                "_fees": create_fee_data(None),
-            },
-        }
-    )
-    vault_db_path = tmp_path / "vault-metadata-db.pickle"
-    vault_db.write(vault_db_path)
-
-    result = migration.migrate_lagoon_fee_mode(vault_db_path, dry_run=True)
-    captured = capsys.readouterr()
-
-    assert result.migrated_rows == 1
-    assert "Stale Lagoon vault" in captured.out
-    unchanged_db = VaultDatabase.read(vault_db_path)
-    assert unchanged_db.rows[lagoon_spec]["_fees"].fee_mode is None
-    assert not (tmp_path / "vault-metadata-db.pickle.bak-lagoon-fee-mode").exists()
 
 
 def test_create_backup_path_keeps_existing_backup(tmp_path: Path) -> None:

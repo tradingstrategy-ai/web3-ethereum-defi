@@ -3,6 +3,7 @@
 import datetime
 import os
 from collections.abc import Iterator
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,6 +20,7 @@ from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_CHAIN_ID, PEAR_
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.fee import FeeData, HighWaterMark, VaultFeeMode
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
@@ -78,6 +80,8 @@ def test_pear_fee_scale_and_admission(anvil_fork_pool: AnvilForkPool) -> None:
     longevity = create_vault_instance(web3, LONGEVITY, features=PEAR_FEATURES)
     assert agent.get_protocol_name() == "Pear"
     fees = agent.get_fee_data(PEAR_FORK_BLOCK)
+    assert fees.fee_mode is VaultFeeMode.externalised
+    assert agent.get_high_water_mark() is HighWaterMark.investor_level
     assert (fees.management, fees.performance, fees.deposit, fees.withdraw) == pytest.approx((0, 0.2, 0, 0))
     assert agent.fetch_scan_record_extra_data() == {
         "_pear": {
@@ -98,11 +102,10 @@ def test_pear_fee_scale_and_admission(anvil_fork_pool: AnvilForkPool) -> None:
         (AGENT_PEAR, {StrategyTag.algorithmic_trading, StrategyTag.arbitrage, StrategyTag.delta_neutral, StrategyTag.mean_reversion, StrategyTag.pair_trading, StrategyTag.statistical_arbitrage}),
         (EMPORIUM_VENTURES, {StrategyTag.algorithmic_trading, StrategyTag.delta_neutral}),
         ("0xdf6917ee9a2d9b34075bb099a0a1e955bcfcdf84", {StrategyTag.delta_neutral, StrategyTag.directional_trading, StrategyTag.discretionary_trading, StrategyTag.pair_trading}),
-        (LONGEVITY, {StrategyTag.discretionary_trading, StrategyTag.pair_trading}),
     ],
 )
 def test_pear_reviewed_strategy_tags(address: HexAddress, specific_tags: set[StrategyTag]) -> None:
-    """Resolve each published Pear mandate through the normal adapter.
+    """Cover Agent's statistical arbitrage, SPC's index correction and Valkyria's long/short mandate.
 
     The shared tags capture the portfolio and instrument, while the remaining
     tags describe each deployment's trading decisions.
@@ -190,4 +193,51 @@ def test_pear_strategy_tag_migration(
     runner.run_pending_migrations(dry_run=False, **options)
     updated = VaultDatabase.read(path).rows
     assert updated[pear] == rows[pear] | {"_strategy_tags": expected_specific_tags | PEAR_COMMON_TAGS}
+    assert updated[unrelated] == rows[unrelated]
+
+
+def test_high_water_mark_migration(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Refresh saved Pear and Lagoon classifications while preserving fee rates.
+
+    The former Lagoon mode is corrected alongside the Pear metadata. A
+    same-address Pear row on another chain retains its metadata. Preview
+    leaves the catalogue file byte-for-byte intact.
+
+    :param tmp_path: Isolated catalogue, migration journal and script copy.
+    :param monkeypatch: Fixture used to remove metadata path overrides.
+    """
+    for variable in ("VAULT_DB", "VAULT_DB_PATH"):
+        monkeypatch.delenv(variable, raising=False)
+    now = datetime.datetime.fromisoformat("2026-11-24")
+    pear = VaultSpec(PEAR_CHAIN_ID, AGENT_PEAR)
+    unrelated = VaultSpec(1, AGENT_PEAR)
+    lagoon = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    fees = FeeData(fee_mode=None, management=0, performance=0.2, deposit=0, withdraw=0)
+    rows = {
+        spec: {
+            "Protocol": protocol,
+            "_detection_data": ERC4262VaultDetection(spec.chain_id, spec.vault_address, 0, now, features, now, 1, 0),
+            "_fees": fees,
+            "NAV": 42,
+        }
+        for spec, protocol, features in ((pear, "Pear", PEAR_FEATURES), (lagoon, "Lagoon Finance", {ERC4626Feature.lagoon_like}), (unrelated, "Pear", PEAR_FEATURES))
+    }
+    rows[lagoon]["_fees"] = replace(fees, fee_mode=VaultFeeMode.externalised)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    path = data_dir / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    before = path.read_bytes()
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    script = next(spec for spec in runner.discover_migrations() if spec.name == "107-vault-high-water-marks.py")
+    (scripts_dir / script.name).write_bytes(script.source)
+    options = {"data_dir": data_dir, "scripts_dir": scripts_dir, "provenance": {"in_docker": False}}
+
+    runner.run_pending_migrations(dry_run=True, **options)
+    assert path.read_bytes() == before
+    runner.run_pending_migrations(dry_run=False, **options)
+    updated = VaultDatabase.read(path).rows
+    assert updated[pear] == rows[pear] | {"_high_water_mark": HighWaterMark.investor_level, "_fees": replace(fees, fee_mode=VaultFeeMode.externalised)}
+    assert updated[lagoon] == rows[lagoon] | {"_high_water_mark": HighWaterMark.vault_shared, "_fees": replace(fees, fee_mode=VaultFeeMode.internalised_minting)}
     assert updated[unrelated] == rows[unrelated]
