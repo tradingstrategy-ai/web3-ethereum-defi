@@ -63,7 +63,7 @@ def format_performance_table(database: VaultDatabase, prices: pd.DataFrame) -> s
             share_price = history["share_price"]
             daily, returns = prepare_daily_share_price_series(share_price)
             fees = row["_fees"]
-            lifetime = calculate_period_metrics("lifetime", fees, fees.get_net_fees(), share_price, daily, returns, history["total_assets"], pd.Timestamp(share_price.index[-1]))
+            lifetime = calculate_period_metrics("lifetime", fees, fees.get_net_fees(vault_protocol_name="Pear"), share_price, daily, returns, history["total_assets"], pd.Timestamp(share_price.index[-1]))
             if not lifetime.error_reason:
                 cagr = lifetime.cagr_gross
                 sharpe = lifetime.sharpe

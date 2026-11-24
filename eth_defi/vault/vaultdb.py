@@ -20,6 +20,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
+from eth_defi.vault.fee import HighWaterMark
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -111,6 +112,9 @@ class VaultRow(TypedDict):
     features: set[ERC4626Feature]
 
     _flags: set[VaultFlag]
+
+    #: Reviewed performance-fee accounting scope for public export.
+    _high_water_mark: NotRequired[HighWaterMark | None]
 
     #: Maintained investment strategy classifications, or ``None`` where the
     #: vault's strategy information is missing.

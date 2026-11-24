@@ -42,7 +42,7 @@ from eth_defi.vault.publication_state import publish_verified_parquet
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
-from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
+from .fee import FeeData, HighWaterMark, VaultFeeMode, get_vault_fee_mode
 from .flag import VaultFlag, get_notes, get_vault_special_flags
 from .risk import VaultTechnicalRisk, get_vault_risk
 
@@ -1449,6 +1449,9 @@ class VaultBase(ABC):
     #: declaration does not assert that a volatile underlying asset is stable.
     synthetic_usd_denomination: ClassVar[bool] = False
 
+    #: Reviewed scope of this adapter's performance-fee accounting.
+    high_water_mark: ClassVar[HighWaterMark | None] = None
+
     def __init__(
         self,
         token_cache: dict | None = None,
@@ -1965,6 +1968,16 @@ class VaultBase(ABC):
         address = self.address
         protocol = self.get_protocol_name()
         return get_vault_fee_mode(protocol, address)
+
+    def get_high_water_mark(self) -> HighWaterMark | None:
+        """Return whose gains determine the vault's performance fee.
+
+        The scanner stores this classification for the vault JSON. Adapters can
+        supply a protocol default or resolve the scope for a specific deployment.
+
+        :return: Investor-level or shared accounting, or None when unspecified.
+        """
+        return self.high_water_mark
 
     def get_fee_data(self, block_identifier: BlockIdentifier = "latest") -> FeeData:
         """Get fee data structure for this vault.

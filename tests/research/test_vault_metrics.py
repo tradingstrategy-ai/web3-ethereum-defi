@@ -57,7 +57,7 @@ from eth_defi.research.vault_metrics import (
 )
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault, process_raw_vault_scan_data, materialise_daily_crypto_prices
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
-from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.fee import FeeData, HighWaterMark, VaultFeeMode
 from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, PROTOCOL_NOTES, SUMMER_FI_ILLIQUID, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
 from eth_defi.vault.handwritten_metadata import VERANTA_VAULT_METADATA
 from eth_defi.vault.price_source import PriceSource
@@ -1285,8 +1285,55 @@ def test_calculate_lifetime_metrics_normalises_legacy_decimal_fee_columns(
     assert result["withdraw_fee"] == 0.02
 
 
+@pytest.mark.parametrize(("protocol", "structured_fees"), [("Lagoon Finance", True), ("Lagoon", False)])
+def test_lagoon_vault_json_preserves_settled_fee_adjusted_returns(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    protocol: str,
+    structured_fees: bool,
+) -> None:
+    """Apply entry and exit fees to Lagoon's settled share price.
+
+    Old structured records used an externalised mode, and earlier snapshots
+    stored only scalar fee rates. Both paths must preserve share-price returns
+    after already minted management and performance fees.
+
+    :param vault_db: Catalogue supplying a representative priced vault row.
+    :param price_df: Historical share price and asset observations.
+    :param protocol: Lagoon scanner name used by this snapshot.
+    :param structured_fees: Whether the snapshot contains a FeeData record.
+    """
+    spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    row = dict(vault_db.rows[spec])
+    row.update(
+        Protocol=protocol,
+        _detection_data=replace(row["_detection_data"], features={ERC4626Feature.lagoon_like}),
+        _fees=FeeData(fee_mode=VaultFeeMode.externalised, management=0.01, performance=0.20, deposit=0.01, withdraw=0.02) if structured_fees else None,
+        _high_water_mark=HighWaterMark.vault_shared,
+    )
+    row.update({"Mgmt fee": 0.01, "Perf fee": 0.20, "Deposit fee": 0.01, "Withdraw fee": 0.02})
+    prices = price_df.loc[price_df["id"] == spec.as_string_id()]
+    exported = export_lifetime_row(calculate_lifetime_metrics(prices, {spec: row}).iloc[0])
+
+    assert exported["fee_mode"] == "internalised_minting"
+    assert exported["fee_internalised"] is True
+    assert exported["high_water_mark"] == "vault_shared"
+    assert exported["gross_fees"]["management"] == 0.01
+    assert exported["gross_fees"]["performance"] == 0.20
+    assert exported["net_fees"] == {"fee_mode": "internalised_minting", "management": 0.0, "performance": 0.0, "deposit": 0.01, "withdraw": 0.02, "protocol": 0.0}
+    assert exported["lifetime_return"] > 0
+    assert exported["lifetime_return_net"] == pytest.approx((1 + exported["lifetime_return"]) * 0.99 * 0.98 - 1)
+
+
 def test_pear_vault_json_exports_fee_floor_and_trading_account(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
-    """Publish the withdrawal floor even when Pear's percentage rate is zero."""
+    """Publish the fee model, including the floor on a zero-rate withdrawal.
+
+    A cached fee record needs the current classification. Preserve the gross
+    returns and suppress investor figures until the exit calculation exists.
+
+    :param vault_db: Source catalogue row for the synthetic Pear vault.
+    :param price_df: Share prices and TVL for the source catalogue row.
+    """
     source = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
     spec = VaultSpec.parse_string("999-0x65c9f4665c7d9ce96f53aafc67796dcad46f4096")
     row = dict(vault_db.rows[source])
@@ -1296,6 +1343,7 @@ def test_pear_vault_json_exports_fee_floor_and_trading_account(vault_db: VaultDa
         _risk=None,
         _detection_data=replace(row["_detection_data"], chain=spec.chain_id, address=spec.vault_address, features={ERC4626Feature.pear_like}),
         _fees=FeeData(fee_mode=None, management=0, performance=0.20, deposit=0, withdraw=0),
+        _high_water_mark=HighWaterMark.investor_level,
         _pear={"hypercore_address": "0x2e9d9f8bc560c3eafa336d774c14c196a6af6500", "minimum_withdrawal_fee": Decimal("0.001")},
     )
     prices = price_df.loc[price_df["id"] == source.as_string_id()].assign(id=spec.as_string_id(), chain=spec.chain_id, address=spec.vault_address)
@@ -1306,8 +1354,15 @@ def test_pear_vault_json_exports_fee_floor_and_trading_account(vault_db: VaultDa
         "minimum_withdrawal_fee": 0.001,
     }
     assert (exported["management_fee"], exported["performance_fee"], exported["deposit_fee"], exported["withdraw_fee"]) == (0, 0.20, 0, 0)
+    assert exported["fee_mode"] == "externalised"
+    assert exported["fee_internalised"] is False
+    assert exported["high_water_mark"] == "investor_level"
+    assert exported["gross_fees"]["fee_mode"] == "externalised"
+    assert exported["net_fees"]["fee_mode"] is None
     assert exported["risk"] == "Severe"
     assert exported["lifetime_return_net"] is None
+    assert any(period["returns_gross"] is not None for period in exported["period_results"])
+    assert all(period["returns_net"] is None for period in exported["period_results"])
 
 
 def test_apply_morpho_not_in_api_check_blacklists_vault():
@@ -1963,6 +2018,7 @@ def test_calculate_lifetime_metrics_nullifies_period_net_returns_when_fee_mode_u
 
     exported = export_lifetime_row(row)
     json.dumps(exported)
+    assert exported["high_water_mark"] is None
     assert all(period["returns_net"] is None for period in exported["period_results"])
     assert all(period["cagr_net"] is None for period in exported["period_results"])
 

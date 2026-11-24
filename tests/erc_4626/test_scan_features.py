@@ -21,7 +21,7 @@ from eth_defi.erc_4626.vault_protocol.yearn.vault import YearnV3Vault
 from eth_defi.research.vault_metrics import calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultSpec, WithdrawalDelayType, WithdrawalPeriod
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
-from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.fee import FeeData, HighWaterMark, VaultFeeMode
 from eth_defi.vault.flag import VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.price_source import PriceSource
@@ -64,6 +64,11 @@ class _FakeVault:
             deposit=0.0,
             withdraw=0.0,
         )
+
+    @staticmethod
+    def get_high_water_mark() -> HighWaterMark | None:
+        """Return the default unclassified fee scope."""
+        return None
 
     @staticmethod
     def fetch_total_assets(_block_identifier: int) -> float:
@@ -466,6 +471,8 @@ def test_existing_unlisted_lagoon_text_reaches_scan_and_json(tmp_path: Path, mon
     monkeypatch.setattr(scan_module, "LagoonVault", _FakeVault)
     for name in ("fetch_metadata_snapshot_for_scan", "lagoon_metadata_snapshot", "lagoon_metadata", "description", "short_description", "manager_name", "fetch_scan_record_extra_data"):
         monkeypatch.setattr(_FakeVault, name, lagoon.LagoonVault.__dict__[name], raising=False)
+    monkeypatch.setattr(_FakeVault, "get_high_water_mark", lagoon.LagoonVault.get_high_water_mark)
+    monkeypatch.setattr(_FakeVault, "high_water_mark", lagoon.LagoonVault.high_water_mark, raising=False)
     monkeypatch.setattr(_FakeVault, "chain_id", 42161, raising=False)
     monkeypatch.setattr(_FakeVault, "vault_address", detection.address, raising=False)
     monkeypatch.setattr(_FakeVault, "get_flags", lambda self: {VaultFlag.unofficial})
@@ -481,6 +488,7 @@ def test_existing_unlisted_lagoon_text_reaches_scan_and_json(tmp_path: Path, mon
     prices = pd.DataFrame({"id": detection.get_spec().as_string_id(), "chain": 42161, "address": detection.address, "block_number": [1, 2, 3], "share_price": [1.0, 1.01, 1.02], "total_assets": 100.0, "total_supply": 100.0, "event_count": 1, "returns_1h": [0.0, 0.01, 0.00990099]}, index=pd.date_range("2026-11-01", periods=3, freq="D"))
     exported = export_lifetime_row(calculate_lifetime_metrics(prices, database).iloc[0])
     parsed = json.loads(json.dumps(exported, allow_nan=False))
+    assert parsed["high_water_mark"] == "vault_shared"
     assert parsed["short_description"] == "New summary."
     assert parsed["description"] == "First paragraph.\n\nSecond paragraph."
     assert "unofficial" in parsed["flags"]

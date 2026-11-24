@@ -12,6 +12,7 @@ from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonAccessMode, LagoonVault, LagoonVersion
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.fee import VaultFeeMode
 
 JSON_RPC_BASE = os.environ.get("JSON_RPC_BASE")
 
@@ -117,6 +118,7 @@ def test_lagoon_v1_fixed_block_erc4626_and_access_views(lagoon_v1: LagoonVault) 
     assert vault.has_custom_fees() is False
 
     fee_data = vault.get_fee_data()
+    assert fee_data.fee_mode is VaultFeeMode.internalised_minting
     assert fee_data.management == 0.0
     assert fee_data.performance == pytest.approx(0.2)
     assert fee_data.deposit == 0.0

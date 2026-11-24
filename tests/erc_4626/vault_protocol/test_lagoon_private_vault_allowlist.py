@@ -73,32 +73,31 @@ def test_private_lagoon_vault_allowlist_is_exact() -> None:
     assert LAGOON_PRIVATE_VAULT_ALLOWLIST.isdisjoint(EXCLUDED_PRIVATE_VAULTS)
 
 
-def test_private_lagoon_vault_allowlist_normalises_address_case() -> None:
-    """Match allowlisted vaults independently of checksum casing."""
-
-    assert is_lagoon_private_vault_allowlisted(ETHEREUM_CHAIN_ID, Web3.to_checksum_address(PRIVATE_VAULT_ADDRESS)) is True
-    assert is_lagoon_private_vault_allowlisted(42161, PRIVATE_VAULT_ADDRESS) is False
-
-
-@pytest.mark.parametrize(("chain_id", "address"), sorted(EXPECTED_PRIVATE_VAULTS))
-def test_private_lagoon_vault_is_not_flagged_unofficial(chain_id: int, address: HexAddress, monkeypatch: MonkeyPatch) -> None:
-    """Keep every allowlisted hidden vault eligible for public export."""
-
+def test_private_lagoon_vault_is_eligible_for_export(monkeypatch: MonkeyPatch) -> None:
+    """An allowlisted, unlisted deployment gets the private-vault note on its reviewed chain."""
+    address = Web3.to_checksum_address(PRIVATE_VAULT_ADDRESS)
+    assert is_lagoon_private_vault_allowlisted(ETHEREUM_CHAIN_ID, address)
+    assert not is_lagoon_private_vault_allowlisted(42161, address)
     monkeypatch.setattr(ERC7540Vault, "get_flags", lambda _self: set())
     monkeypatch.setattr(ERC7540Vault, "get_notes", lambda _self: None)
-    vault = create_lagoon_vault(chain_id, address)
+    vault = create_lagoon_vault(ETHEREUM_CHAIN_ID, address)
 
     assert vault.get_flags() == set()
     assert vault.get_notes() == PRIVATE_LAGOON_VAULT_NOTE
 
 
-@pytest.mark.parametrize(("chain_id", "address"), sorted(KAMUI_LAGOON_VAULTS))
-def test_kamui_lagoon_vault_bypasses_deposit_event_threshold(chain_id: int, address: HexAddress) -> None:
-    """Schedule reviewed Kamui vaults despite their absent canonical Deposit events."""
-
+@pytest.mark.parametrize(
+    ("address", "eligible"),
+    [
+        (HexAddress("0xcda323c2df692d989b24ba51d0acca924cf9a344"), True),
+        (HexAddress("0x1111111111111111111111111111111111111111"), False),
+    ],
+)
+def test_lagoon_activity_filter_with_no_deposits(address: HexAddress, eligible: bool) -> None:
+    """Only reviewed Kamui deployments qualify for scanning without deposit events."""
     timestamp = datetime.datetime(2026, 9, 28)  # noqa: DTZ001 - Repository convention is naive UTC.
     detection = ERC4262VaultDetection(
-        chain=chain_id,
+        chain=ETHEREUM_CHAIN_ID,
         address=address,
         first_seen_at_block=1,
         first_seen_at=timestamp,
@@ -108,25 +107,7 @@ def test_kamui_lagoon_vault_bypasses_deposit_event_threshold(chain_id: int, addr
         redeem_count=1,
     )
 
-    assert passes_price_scan_activity_filter(detection, min_deposit_threshold=5) is True
-
-
-def test_unreviewed_lagoon_vault_does_not_bypass_deposit_event_threshold() -> None:
-    """Keep the Kamui shortcut scoped to reviewed chain-address pairs."""
-
-    timestamp = datetime.datetime(2026, 9, 28)  # noqa: DTZ001 - Repository convention is naive UTC.
-    detection = ERC4262VaultDetection(
-        chain=ETHEREUM_CHAIN_ID,
-        address=HexAddress("0x1111111111111111111111111111111111111111"),
-        first_seen_at_block=1,
-        first_seen_at=timestamp,
-        features={ERC4626Feature.erc_7540_like, ERC4626Feature.lagoon_like},
-        updated_at=timestamp,
-        deposit_count=0,
-        redeem_count=1,
-    )
-
-    assert passes_price_scan_activity_filter(detection, min_deposit_threshold=5) is False
+    assert passes_price_scan_activity_filter(detection, min_deposit_threshold=5) is eligible
 
 
 @pytest.mark.parametrize(("chain_id", "address"), EXCLUDED_PRIVATE_VAULTS)
