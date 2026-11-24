@@ -265,7 +265,6 @@ def main() -> None:  # noqa: PLR0914
                     prices_path=prices_path,
                     state_path=state_path,
                     render_workers=render_workers,
-                    upload_workers=int(os.environ.get("SPARKLINE_UPLOAD_WORKERS") or os.environ.get("SPARKLINE_MAX_WORKERS") or "8"),
                     render_backend=backend,
                     force=True,
                     dry_run=True,
