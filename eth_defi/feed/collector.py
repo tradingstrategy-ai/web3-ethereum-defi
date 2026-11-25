@@ -26,11 +26,8 @@ from eth_defi.feed.twitter_api import TwitterUserCache, fetch_tweets_from_x_list
 logger = logging.getLogger(__name__)
 
 
-_RETRYABLE_STATUS_CODES = {403, 429, 502, 503, 504}
-
-#: Status codes that indicate the URL itself is broken, not the proxy.
-#: These should fail immediately without proxy rotation or retry.
-_PERMANENT_FAILURE_STATUS_CODES = {404, 410}
+#: Feed responses worth retrying through another egress IP, then directly.
+_RETRYABLE_STATUS_CODES = {403, 408, 429, 500, 502, 503, 504}
 
 #: Bridge responses that may mean LinkedIn put the company page behind its login wall.
 #: ``rsshub-balancer.virworks.moe`` answers 502 and older RSSHub instances answer 503.
@@ -430,13 +427,26 @@ def _fetch_feed_content(
     proxy_rotator: ProxyRotator | None = None,
     max_proxy_rotations: int = 3,
 ) -> bytes:
-    """Fetch one feed URL and return response content."""
+    """Fetch a feed with bounded retries through the shared proxy pool.
 
-    using_proxy = proxy_rotator is not None
+    Retryable HTTP responses and transport errors rotate the proxy, then fall
+    back to a direct request once the rotation limit is reached. Only a
+    Requests ``ProxyError`` that still matches the rotator generation can be
+    recorded in shared failure state. Another worker may have changed the
+    current proxy while the request was in flight.
+
+    :param url: Feed URL.
+    :param timeout: Request timeout in seconds per attempt.
+    :param proxy_rotator: Optional pool shared by feed workers.
+    :param max_proxy_rotations: Maximum rotations before one direct attempt.
+    :return: Feed response body.
+    :raises requests.HTTPError: A non-retryable HTTP response or an HTTP error on the direct attempt.
+    :raises OSError: A transport error on a direct request.
+    """
+
     rotations = 0
-
     while True:
-        response = None
+        generation = proxy_rotator.generation if proxy_rotator is not None else None
         try:
             response = requests.get(
                 url,
@@ -444,45 +454,30 @@ def _fetch_feed_content(
                 headers={"User-Agent": "web3-ethereum-defi/vault-post-database"},
                 proxies=_build_proxy_dict(proxy_rotator),
             )
-            # 404/410 mean the URL itself is gone — no proxy will fix that
-            if response.status_code in _PERMANENT_FAILURE_STATUS_CODES:
+        except OSError as exc:
+            if proxy_rotator is None:
+                raise
+            reason = type(exc).__name__
+            failure_reason = reason if isinstance(exc, requests.exceptions.ProxyError) else None
+        else:
+            # A response describes this feed request. Missing feeds fail immediately,
+            # and temporary HTTP errors may rotate without blocking a shared proxy.
+            if proxy_rotator is None or response.status_code not in _RETRYABLE_STATUS_CODES:
                 response.raise_for_status()
+                return response.content
+            reason = f"HTTP {response.status_code}"
+            failure_reason = None
 
-            if proxy_rotator is not None and response.status_code in _RETRYABLE_STATUS_CODES and rotations < max_proxy_rotations:
-                rotations += 1
-                proxy_rotator.rotate(failure_reason=f"HTTP {response.status_code}")
-                continue
-
-            response.raise_for_status()
-            return response.content
-        except (requests.ConnectionError, requests.Timeout, OSError) as e:
-            if proxy_rotator is not None and rotations < max_proxy_rotations:
-                rotations += 1
-                proxy_rotator.rotate(failure_reason=str(e)[:80])
-                continue
-
-            if using_proxy and proxy_rotator is not None:
-                logger.warning("Proxy-backed feed fetch failed for %s, retrying direct: %s", url, e)
-                proxy_rotator = None
-                continue
-
-            raise
-        except requests.HTTPError:
-            if proxy_rotator is not None and response is not None and response.status_code in _RETRYABLE_STATUS_CODES and rotations < max_proxy_rotations:
-                rotations += 1
-                proxy_rotator.rotate(failure_reason=f"HTTP {response.status_code}")
-                continue
-
-            if using_proxy and proxy_rotator is not None and response is not None and response.status_code in _RETRYABLE_STATUS_CODES:
-                logger.warning(
-                    "Proxy-backed feed fetch returned retryable HTTP %d for %s, retrying direct",
-                    response.status_code,
-                    url,
-                )
-                proxy_rotator = None
-                continue
-
-            raise
+        if rotations < max_proxy_rotations:
+            rotations += 1
+            proxy_rotator.rotate(
+                expected_generation=generation,
+                reason=reason if failure_reason is None else None,
+                failure_reason=failure_reason,
+            )
+        else:
+            logger.warning("Proxy-backed feed fetch failed for %s (%s), retrying direct", url, reason)
+            proxy_rotator = None
 
 
 def collect_posts_for_source(

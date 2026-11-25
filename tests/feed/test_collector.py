@@ -3,11 +3,13 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import requests
 
 from eth_defi.compat import native_datetime_utc_now
+from eth_defi.event_reader.webshare import ProxyRotator, ProxyStateManager, WebshareProxy
 from eth_defi.feed.collector import DEFAULT_LINKEDIN_URL_TEMPLATES, AllBridgesFailedError, CollectedSourceResult, CollectorRunSummary, _format_inserted_post_preview, collect_posts, collect_posts_for_source, collect_twitter_list_posts
 from eth_defi.feed.database import CollectedPost, VaultPostDatabase
 from eth_defi.feed.sources import (
@@ -68,6 +70,65 @@ class DummyResponse:
 
         if self.status_code >= 400:
             raise requests.HTTPError(f"HTTP {self.status_code}", response=self)
+
+
+@pytest.fixture
+def feed_rotator(tmp_path: Path) -> ProxyRotator:
+    """Provide two proxy routes and an isolated failure-state file."""
+    proxies = [WebshareProxy(f"proxy-{i}.example", 8080, "user", "pass", "FI", None) for i in range(2)]
+    state = ProxyStateManager(tmp_path / "proxy-state.json")
+    return ProxyRotator(proxies, state)
+
+
+@pytest.mark.parametrize("status, retry", [(400, False), (401, False), (404, False), (410, False), (403, True), (408, True), (429, True), (500, True), (502, True), (503, True), (504, True)])
+def test_feed_http_errors_preserve_proxy_pool(status: int, retry: bool, feed_rotator: ProxyRotator, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Exercise missing feeds, bounded proxy rotation and a successful direct fallback."""
+    get = Mock(side_effect=[DummyResponse(status_code=status), DummyResponse(status_code=status), DummyResponse(content=RSS_XML)])
+    monkeypatch.setattr(requests, "get", get)
+
+    def collect() -> list[CollectedPost]:
+        return collect_posts_for_source(make_test_tracked_source(), request_timeout=1, max_posts_per_source=1, twitter_rss_base_urls=[], proxy_rotator=feed_rotator, max_proxy_rotations=1)
+
+    expected_routes: list[str | None] = [feed_rotator.proxies[0].to_proxy_url()]
+    if retry:
+        assert collect()[0].title == "Protocol launch"
+        expected_routes.extend([feed_rotator.proxies[1].to_proxy_url(), None])
+    else:
+        with pytest.raises(requests.HTTPError) as error:
+            collect()
+        assert error.value.response.status_code == status
+    assert [(call.kwargs["proxies"] or {}).get("https") for call in get.call_args_list] == expected_routes
+    assert feed_rotator.state_manager.get_blocked_count() == 0
+
+
+@pytest.mark.parametrize("failure, expected_blocks", [(requests.exceptions.ProxyError, 1), (requests.ReadTimeout, 0), (requests.exceptions.ChunkedEncodingError, 0)])
+def test_feed_transport_retry(failure: type[requests.RequestException], expected_blocks: int, feed_rotator: ProxyRotator, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry interrupted transfers and persist failures attributed to the proxy."""
+    get = Mock(side_effect=[failure(), DummyResponse(content=RSS_XML)])
+    monkeypatch.setattr(requests, "get", get)
+    posts = collect_posts_for_source(make_test_tracked_source(), request_timeout=1, max_posts_per_source=1, twitter_rss_base_urls=[], proxy_rotator=feed_rotator)
+    assert posts[0].title == "Protocol launch"
+    assert feed_rotator.state_manager.get_blocked_count() == expected_blocks
+    assert feed_rotator.generation == 1
+
+
+def test_feed_proxy_error_after_another_worker_rotates(feed_rotator: ProxyRotator, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Skip recording a proxy block when another worker has changed routes."""
+
+    def fetch(*args: object, **kwargs: object) -> DummyResponse:
+        if get.call_count == 1:
+            feed_rotator.rotate()
+            raise requests.exceptions.ProxyError
+        return DummyResponse(content=RSS_XML)
+
+    get = Mock(side_effect=fetch)
+    monkeypatch.setattr(requests, "get", get)
+
+    posts = collect_posts_for_source(make_test_tracked_source(), request_timeout=1, max_posts_per_source=1, twitter_rss_base_urls=[], proxy_rotator=feed_rotator)
+
+    assert posts[0].title == "Protocol launch"
+    assert feed_rotator.state_manager.get_blocked_count() == 0
+    assert [call.kwargs["proxies"]["https"] for call in get.call_args_list] == [proxy.to_proxy_url() for proxy in feed_rotator.proxies]
 
 
 def test_format_inserted_post_preview_caps_title_at_80_characters() -> None:
