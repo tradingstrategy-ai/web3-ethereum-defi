@@ -29,11 +29,6 @@ def web3() -> Web3:
 
 
 @pytest.fixture(scope="module")
-def test_block_number() -> int:
-    return 27975506
-
-
-@pytest.fixture(scope="module")
 def ipor_usdc_address() -> HexAddress:
     # https://app.ipor.io/fusion/base/0x45aa96f0b3188d47a1dafdbefce1db6b37f58216
     return "0x45aa96f0b3188d47a1dafdbefce1db6b37f58216"
@@ -49,25 +44,24 @@ def vault(web3, ipor_usdc_address) -> ERC4626VaultInfo:
 # RPC broken?
 # RuntimeError: Failed to read timestamp for block 39935174, chain: 8453: ***'code': -32014, 'message': 'block not found with number 0x2615cc6'***
 @flaky.flaky
-def test_4626_recent_profitability(
-    vault: ERC4626Vault,
-    test_block_number: int,
-):
-    """Calculate 7 days profitability for IPOR USDC Base vault.
-
-    - Use live blockchain data
-    """
+def test_4626_recent_profitability(vault: ERC4626Vault) -> None:
+    """Check returns against the observed share prices over a live seven-day window."""
 
     profitability_data = estimate_4626_recent_profitability(
         vault,
         lookback_window=datetime.timedelta(days=7),
     )
 
-    yearly_profitability = profitability_data.calculate_profitability(annualise=True)
-    assert 0 < yearly_profitability < 20
+    start_price, end_price = profitability_data.get_share_price_range()
+    assert start_price > 0 and end_price > 0
+    expected = float(end_price / start_price - 1)
+    assert profitability_data.calculate_profitability(annualise=False) == pytest.approx(expected)
 
-    profitability = profitability_data.calculate_profitability(annualise=False)
-    assert 0 < profitability < 900
+    start_at, end_at = profitability_data.get_time_range()
+    duration = (end_at - start_at).total_seconds()
+    assert duration > 0
+    year = datetime.timedelta(days=365).total_seconds()
+    assert profitability_data.calculate_profitability(annualise=True) == pytest.approx(expected * year / duration)
 
 
 # @pytest.mark.skipif(CI, reason="Getting Response: 429 ***error:Too many requests*** from FindBlock on Github")

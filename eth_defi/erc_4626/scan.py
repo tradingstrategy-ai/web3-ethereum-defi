@@ -41,6 +41,7 @@ OPTIONAL_READ_EXCEPTIONS = (AttributeError, NotImplementedError, ValueError)
 BEST_EFFORT_READ_EXCEPTIONS = (
     *OPTIONAL_READ_EXCEPTIONS,
     ConnectionError,
+    ProbablyNodeHasNoBlock,
     KeyError,
     RuntimeError,
     TimeoutError,
@@ -231,7 +232,7 @@ def _export_denomination_token(vault: VaultBase) -> dict | None:
     return exported_token
 
 
-def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> dict[str, object]:
+def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None, block_identifier: BlockIdentifier = "latest") -> dict[str, object]:
     """Fetch current deposit status and sizeable-vault activity fields.
 
     Deposit availability is always collected when an adapter has an
@@ -244,6 +245,9 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
     :param total_assets:
         Human-readable denomination-token TVL.
 
+    :param block_identifier:
+        Source block for adapters with block-tagged redemption request status.
+
     :return:
         Private scan-row status fields.
     """
@@ -252,6 +256,7 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
         "_deposits_open": None,
         "_deposit_closed_reason": None,
         "_redemption_closed_reason": None,
+        "_redemption_request_observation": None,
         "_deposit_next_open": None,
         "_redemption_next_open": None,
     }
@@ -267,9 +272,15 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
         return status
 
     status["_deposit_closed_reason"] = _best_effort_vault_read(vault.fetch_deposit_closed_reason)
-    status["_redemption_closed_reason"] = _best_effort_vault_read(vault.fetch_redemption_closed_reason)
     status["_deposit_next_open"] = _best_effort_vault_read(vault.fetch_deposit_next_open)
-    status["_redemption_next_open"] = _best_effort_vault_read(vault.fetch_redemption_next_open)
+    observation = _best_effort_vault_read(lambda: vault.fetch_redemption_request_observation(block_identifier))
+    if observation is not None:
+        status["_redemption_request_observation"] = observation.export()
+        status["_redemption_closed_reason"] = observation.closed_reason
+        status["_redemption_next_open"] = observation.next_open
+    else:
+        status["_redemption_closed_reason"] = _best_effort_vault_read(vault.fetch_redemption_closed_reason)
+        status["_redemption_next_open"] = _best_effort_vault_read(vault.fetch_redemption_next_open)
 
     return status
 
@@ -503,7 +514,7 @@ def create_vault_scan_record(
 
         link = vault.get_link()
         protocol_name = get_vault_protocol_name(detection.features)
-        activity_status = _fetch_activity_status(vault, total_assets)
+        activity_status = _fetch_activity_status(vault, total_assets, block_identifier)
         lending_stats = _fetch_lending_stats(vault, detection, total_assets, block_identifier)
         description = normalise_vault_description(vault.description)
         short_description = normalise_vault_short_description(vault.short_description)

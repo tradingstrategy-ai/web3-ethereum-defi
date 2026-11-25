@@ -3534,6 +3534,13 @@ def _calculate_vault_record_from_arrays(
         # generic adapter estimate beside the explicit range.
         lockup = max_withdrawal_period
 
+    redemption_request_observation = vault_metadata.get("_redemption_request_observation")
+    if isinstance(redemption_request_observation, dict) and "unlock_epochs_min" in redemption_request_observation:
+        # The older range and its lockup alias used the sampling interval as
+        # an epoch. Report the unlock distance and preserve any independent
+        # settlement estimate used by historical consumers.
+        lockup = min_withdrawal_period = max_withdrawal_period = withdrawal_delay_type = None
+
     # These values are captured by the vault scanner through VaultBase's
     # source-proven decimal accessors. Keep an absent legacy field as None:
     # unknown minimums must never be presented as a zero limit.
@@ -4119,6 +4126,7 @@ def _calculate_vault_record_from_arrays(
             "deposit_closed_reason": deposit_closed_reason,
             "deposits_open": deposits_open,
             "redemption_closed_reason": redemption_closed_reason,
+            "redemption_request_observation": redemption_request_observation,
             "deposit_next_open": deposit_next_open,
             "redemption_next_open": redemption_next_open,
             # Static adapter support, distinct from the live closed-reason
@@ -4727,6 +4735,13 @@ def format_lifetime_table(df: pd.DataFrame, add_index: bool = False, add_address
     for column in ("min_withdrawal_period", "max_withdrawal_period", "estimated_settlement"):
         if column in df.columns:
             df[column] = df[column].apply(_format_withdrawal_period)
+    if "redemption_request_observation" in df.columns:
+        observations = df.pop("redemption_request_observation")
+        if observations.map(lambda value: isinstance(value, dict)).any():
+            df["Redemption request status"] = observations.map(lambda value: f"{value['status']} ({value['observed_at']})" if isinstance(value, dict) else "---")
+            uses_epochs = observations.map(lambda value: isinstance(value, dict) and "unlock_epochs_min" in value)
+            if uses_epochs.any():
+                df["Withdrawal unlock epochs"] = observations.map(lambda value: f"{value['unlock_epochs_min']}–{value['unlock_epochs_max']}" if isinstance(value, dict) and "unlock_epochs_min" in value else "---")
     df["flags"] = df["flags"].apply(_str_enum_set)
 
     # Format lending protocol statistics

@@ -3253,3 +3253,38 @@ def test_buoy_protocol_fee_component_survives_json_export(vault_db: VaultDatabas
         assert exported[field] is not None
     assert all(value is not None for value in exported["gross_fees"].values())
     assert all(value is not None for value in exported["net_fees"].values())
+
+
+def test_export_redemption_request_observation(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Keep the request clock and epoch rule without claiming a settlement bound."""
+    source_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(source_id)
+    row = dict(vault_db.rows[spec])
+    row["_withdrawal_period"] = WithdrawalPeriod(
+        min_period=datetime.timedelta(hours=6),
+        max_period=datetime.timedelta(hours=18),
+        delay_type=WithdrawalDelayType.delay,
+        estimated_settlement=datetime.timedelta(days=2),
+    )
+    clock = {
+        "status": "closed",
+        "block_number": 56688126,
+        "observed_at": "2026-11-13T00:00:00Z",
+        "nominal_epoch_seconds": 259200,
+        "unlock_epochs_min": 1,
+        "unlock_epochs_max": 3,
+    }
+    row["_redemption_request_observation"] = clock
+    row["_redemption_next_open"] = None
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == source_id], {spec: row})
+    exported = export_lifetime_row(metrics.iloc[0])
+    assert exported["redemption_request_observation"] == clock
+    assert exported["redemption_next_open"] is None
+    assert exported["min_withdrawal_period"] is None
+    assert exported["max_withdrawal_period"] is None
+    assert exported["lockup"] is None
+    assert exported["withdrawal_delay_type"] is None
+    assert exported["estimated_settlement"] == 172800
+    display = vault_metrics.format_lifetime_table(metrics, drop_blacklisted=False).iloc[0]
+    assert display["Redemption request status"] == "closed (2026-11-13T00:00:00Z)"
+    assert display["Withdrawal unlock epochs"] == "1–3"

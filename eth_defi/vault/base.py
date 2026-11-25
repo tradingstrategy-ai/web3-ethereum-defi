@@ -241,6 +241,47 @@ class WithdrawalDelayType(enum.StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class RedemptionRequestObservation:
+    """Observe whether a vault accepts new redemption requests at a block.
+
+    The scanner exports this evidence independently of owner balances,
+    outstanding tickets and immediate withdrawal capacity.
+    """
+
+    #: Block used for all reads making up this observation.
+    block_number: int
+    #: Naive UTC block timestamp.
+    observed_at: datetime.datetime
+    #: True when open, false when closed, or None when unreadable.
+    request_open: bool | None
+    #: Public explanation for a known closure.
+    closed_reason: str | None = None
+    #: Estimated next opening, in naive UTC.
+    next_open: datetime.datetime | None = None
+    #: Configured nominal epoch duration, in seconds.
+    nominal_epoch_seconds: int | None = None
+    #: Nominal minimum and maximum unlock distance in epochs.
+    unlock_epochs: tuple[int, int] | None = None
+
+    def export(self) -> dict[str, object]:
+        """Return the JSON-ready request evidence for :py:func:`create_vault_scan_record`."""
+
+        status = "unknown" if self.request_open is None else "open" if self.request_open else "closed"
+        result = {
+            "status": status,
+            "block_number": self.block_number,
+            "observed_at": self.observed_at.isoformat() + "Z",
+        }
+        if self.unlock_epochs is not None:
+            result.update(
+                nominal_epoch_seconds=self.nominal_epoch_seconds,
+                unlock_epochs_min=self.unlock_epochs[0],
+                unlock_epochs_max=self.unlock_epochs[1],
+            )
+        return result
+
+
+@dataclass(frozen=True, slots=True)
 class WithdrawalPeriod:
     """Protocol withdrawal timing bounds exported by the vault scanner.
 
@@ -2060,6 +2101,14 @@ class VaultBase(ABC):
             ``True`` when deposits are open, ``False`` when they are closed,
             or ``None`` when the protocol does not expose a reliable global
             availability read.
+        """
+        return None
+
+    def fetch_redemption_request_observation(self, block_identifier: BlockIdentifier) -> RedemptionRequestObservation | None:
+        """Fetch block-tagged request availability when the adapter supports it.
+
+        :param block_identifier: Block number or tag selected by the metadata scanner.
+        :return: A request observation, or None for adapters without this reporting hook.
         """
         return None
 

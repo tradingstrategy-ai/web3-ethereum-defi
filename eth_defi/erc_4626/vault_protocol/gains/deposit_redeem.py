@@ -18,6 +18,7 @@ from web3.contract.contract import ContractFunction
 
 from eth_defi.abi import get_topic_signature_from_event
 from eth_defi.erc_4626.deposit_redeem import ERC4626DepositManager
+from eth_defi.erc_4626.vault_protocol.gains.vault import fetch_gains_epoch_parameters
 from eth_defi.provider.anvil import is_anvil
 from eth_defi.revert_reason import fetch_transaction_revert_reason
 from eth_defi.timestamp import get_block_timestamp
@@ -431,9 +432,8 @@ class GainsDepositManager(ERC4626DepositManager):
         return False
 
     def estimate_redemption_delay(self) -> datetime.timedelta:
-        vault = self.vault
-        epoch_duration_seconds = vault.open_pnl_contract.functions.requestsStart().call() + (vault.open_pnl_contract.functions.requestsEvery().call() * vault.open_pnl_contract.functions.requestsCount().call())
-        return datetime.timedelta(seconds=epoch_duration_seconds)
+        start, every, samples = fetch_gains_epoch_parameters(self.vault.open_pnl_contract)
+        return datetime.timedelta(seconds=start + every * samples)
 
     def is_redemption_in_progress(self, owner: HexAddress) -> bool:
         contract = self.vault.vault_contract
