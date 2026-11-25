@@ -5,7 +5,7 @@ Purpose: Remove false admin closures and record the observed redemption request 
 Scope: Arbitrum Plutus Hedge and Base gTrade USDC metadata, and verified HedgeVaultV2 price rows.
 Branch: fix/plutus-gtrade-redemption-reporting
 PR title: fix: correct Plutus Hedge and Base gTrade redemption reporting
-PR: Pending publication
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1826
 Preserves: Historical prices, timestamps, other vaults, settlement and reader state.
 Expected: Two metadata rows and only redemption_open and max_redeem in matching V2 history.
 
