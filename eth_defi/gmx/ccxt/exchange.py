@@ -54,6 +54,7 @@ from eth_defi.gmx.ccxt.order_key_cache import OrderKeyCache, OrderKeyRecord
 from eth_defi.gmx.ccxt.properties import describe_gmx
 from eth_defi.gmx.ccxt.validation import _validate_ohlcv_data_sufficiency
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.symbols import DEPRECATED_MARKET_TOKENS, SYMBOL_NORMALISE
 from eth_defi.gmx.collateral_routing import (
     assign_usdc_routed_symbols,
@@ -9521,8 +9522,9 @@ class GMX(ExchangeCompatible):
                 reader = get_reader_contract(self.web3, chain)
                 datastore_addr = contract_addresses.datastore
                 raw_orders = reader.functions.getAccountOrders(datastore_addr, self.wallet_address, 0, 100).call()
-                for raw_order in raw_orders:
-                    key_bytes = raw_order[0] if isinstance(raw_order, (list, tuple)) else None
+                named_orders = reader_named_output(raw_orders, "getAccountOrders")
+                for raw_order, named_order in zip(raw_orders, named_orders):
+                    key_bytes = named_order["orderKey"]
                     if key_bytes and ("0x" + key_bytes.hex()) == order_key_hex.lower():
                         logger.debug(
                             "_resolve_order_from_sources(%s): resolved via Reader orders (Tier B)",
@@ -9908,12 +9910,14 @@ class GMX(ExchangeCompatible):
 
         :param raw_positions: List of raw position tuples from the Reader contract.
         :param symbol: CCXT pair symbol to match against.
-        :returns: Matching raw position or ``None``.
+        :returns: Matching position dictionary named from the Reader ABI, or ``None``.
         """
         if not symbol:
             return None
-        for pos in raw_positions:
-            pos_symbol = self._map_market_to_symbol(pos[0][1] if isinstance(pos, (list, tuple)) and len(pos) > 0 and len(pos[0]) > 1 else "")
+        named_positions = reader_named_output(raw_positions, "getAccountPositions")
+        for pos in named_positions:
+            market_address = pos["addresses"]["market"]
+            pos_symbol = self._map_market_to_symbol(market_address)
             if pos_symbol == symbol:
                 return pos
         return None

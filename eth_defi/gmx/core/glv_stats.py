@@ -580,6 +580,7 @@ class GlvStats(GetData):
 
             glvs = {}
             for raw_glv in raw_output:
+                assert len(raw_glv) == 2 and len(raw_glv[0]) == 3, "Unexpected GlvReader getGlvInfoList tuple layout"
                 glvs[raw_glv[0][0]] = {
                     "glv_address": raw_glv[0][0],
                     "long_address": raw_glv[0][1],
@@ -588,6 +589,8 @@ class GlvStats(GetData):
                 }
 
             return glvs
+        except AssertionError:
+            raise
         except Exception as e:
             logger.error("Failed to get GLV info list: %s", e)
             return {}

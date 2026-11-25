@@ -11,7 +11,6 @@ These tests lock in that address resolution is pinned, cached, and overridable.
 
 import dataclasses
 import json
-import logging
 from pathlib import Path
 
 import pytest
@@ -22,14 +21,22 @@ from eth_defi.gmx.contracts import (
     GMX_CONTRACT_RELEASE_ENV_VAR,
     GMX_CONTRACT_RELEASE_REMOTE,
     GMX_DEFAULT_CONTRACT_RELEASE,
+    GMX_VENDORED_ABI_RELEASE,
+    NETWORK_CONTRACTS,
     PINNED_CONTRACTS,
     ContractAddresses,
+    GMXReleaseMismatchError,
     clear_contract_address_cache,
     get_contract_addresses,
+    get_glv_reader_contract,
     get_pinned_contract_release,
+    get_reader_contract,
 )
 
-#: v2.2c ExchangeRouter on Arbitrum — the router GMX rotated to.
+#: v2.2.1 ExchangeRouter on Arbitrum — the current router.
+V221_EXCHANGE_ROUTER = "0x6776c2b52179BC737193DE3bc75262681006AA27"
+
+#: v2.2c ExchangeRouter on Arbitrum — the previous router.
 V22C_EXCHANGE_ROUTER = "0x7dE39FF2e232A2203196788d37e234cF8F1b83f1"
 
 #: v2.2b ExchangeRouter on Arbitrum — the router the vault guard already allowed.
@@ -45,9 +52,8 @@ ORDER_VAULT = "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"
 #: ``gmx-io/gmx-synthetics@updates:deployments/arbitrumSepolia/``.
 SEPOLIA_EXCHANGE_ROUTER = "0x6B489dD5bB1AAE8df246359d59aA7316760a75d2"
 
-#: Current Arbitrum Sepolia Reader. The previous entry pointed at a superseded
-#: deployment whose ``getAccountOrders`` returns an older struct, so decoding it
-#: against the vendored ABI failed once an order was actually pending.
+#: Arbitrum Sepolia Reader address, retained for address-only inspection. Its
+#: older tuple layout is incompatible with the vendored v2.2.1 ABI.
 SEPOLIA_READER = "0x92659fEf40582ceCC3CBa4D096d28291C238D358"
 
 
@@ -70,18 +76,22 @@ def no_network(monkeypatch):
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", _boom)
 
 
-def test_default_release_is_v22c():
-    """The shipped default is the current GMX release."""
-    assert GMX_DEFAULT_CONTRACT_RELEASE == "v2.2c"
-    assert get_pinned_contract_release() == "v2.2c"
+def test_default_release_is_v221():
+    """The shipped default is the current GMX release, and the vendored ABIs' release."""
+    assert GMX_DEFAULT_CONTRACT_RELEASE == "v2.2.1"
+    assert GMX_VENDORED_ABI_RELEASE == GMX_DEFAULT_CONTRACT_RELEASE
+    assert get_pinned_contract_release() == "v2.2.1"
 
 
-def test_arbitrum_resolves_to_pinned_v22c(no_network):
-    """Arbitrum resolves to the v2.2c address set without touching the network."""
+def test_arbitrum_resolves_to_pinned_v221(no_network):
+    """Arbitrum resolves to the v2.2.1 address set without touching the network."""
     addresses = get_contract_addresses("arbitrum")
-    assert addresses.exchangerouter == V22C_EXCHANGE_ROUTER
-    assert addresses.syntheticsreader == "0xfA26cBb46e2614609406de08CA1Dc7f70a684184"
-    assert addresses.glvreader == "0x85fcBD684D08053f1efAB302dCb04F22E20E65B1"
+    assert addresses.exchangerouter == V221_EXCHANGE_ROUTER
+    assert addresses.syntheticsreader == "0xAda708aFf0f1D784D28cd8Ff4d6D977fF9599e5D"
+    assert addresses.glvreader == "0x51fe0b7919e1208a717E9B16a097C1C3D70eFbf6"
+    assert addresses.orderhandler == "0x2dC2315039bf3617e815969c613428F36e9Baf98"
+    assert addresses.oracle == "0x42F3642F3F82CBAdE4CFA32961a57568055Dd10E"
+    assert addresses.chainlinkdatastreamprovider == "0x204CC947Fddd11c90e302db2A5ac3865021D1618"
 
 
 def test_resolution_is_stable_when_remote_changes(monkeypatch):
@@ -103,19 +113,38 @@ def test_resolution_is_stable_when_remote_changes(monkeypatch):
     )
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: rogue)
 
-    assert get_contract_addresses("arbitrum").exchangerouter == V22C_EXCHANGE_ROUTER
+    assert get_contract_addresses("arbitrum").exchangerouter == V221_EXCHANGE_ROUTER
 
 
-def test_env_var_overrides_the_pin(monkeypatch, no_network):
-    """Operators can roll back to a previous release without a code change."""
-    monkeypatch.setenv(GMX_CONTRACT_RELEASE_ENV_VAR, "v2.2b")
-    assert get_contract_addresses("arbitrum").exchangerouter == V22B_EXCHANGE_ROUTER
+@pytest.mark.parametrize("old_release", ["v2.2b", "v2.2c"])
+def test_env_var_cannot_pair_old_addresses_with_new_abis(monkeypatch, no_network, old_release):
+    """Rollback is by image tag only: an env override to an older release is refused.
+
+    The vendored ABIs decode v2.2.1 only; an older Reader decoded with them
+    mis-aligns struct tuples silently.
+    """
+    monkeypatch.setenv(GMX_CONTRACT_RELEASE_ENV_VAR, old_release)
+    with pytest.raises(GMXReleaseMismatchError, match="does not match the vendored ABIs"):
+        get_contract_addresses("arbitrum")
 
 
-def test_release_argument_overrides_env(monkeypatch, no_network):
-    """An explicit argument beats the environment variable."""
-    monkeypatch.setenv(GMX_CONTRACT_RELEASE_ENV_VAR, "v2.2b")
-    assert get_contract_addresses("arbitrum", release="v2.2c").exchangerouter == V22C_EXCHANGE_ROUTER
+@pytest.mark.parametrize("old_release", ["v2.2b", "v2.2c"])
+def test_release_argument_cannot_pair_old_addresses_with_new_abis(no_network, old_release):
+    """An explicit older ``release`` argument is refused too."""
+    with pytest.raises(GMXReleaseMismatchError):
+        get_contract_addresses("arbitrum", release=old_release)
+
+
+def test_explicit_vendored_release_is_accepted(monkeypatch, no_network):
+    """Setting the env var to the vendored release is a no-op, not an error."""
+    monkeypatch.setenv(GMX_CONTRACT_RELEASE_ENV_VAR, GMX_VENDORED_ABI_RELEASE)
+    assert get_contract_addresses("arbitrum").exchangerouter == V221_EXCHANGE_ROUTER
+
+
+def test_avalanche_is_not_pinned_for_vendored_release(no_network):
+    """v2.2.1 is Arbitrum only; Avalanche has no vendored-ABI-compatible pin."""
+    with pytest.raises(GMXReleaseMismatchError, match="Arbitrum only"):
+        get_contract_addresses("avalanche")
 
 
 def test_unknown_release_raises(no_network):
@@ -129,9 +158,14 @@ def test_unsupported_chain_raises(no_network):
         get_contract_addresses("dogechain")
 
 
-def test_testnet_ignores_release_pinning(no_network):
-    """Testnets have a single static deployment and are unaffected by the pin."""
-    assert get_contract_addresses("arbitrum_sepolia", release="v2.2b").exchangerouter == SEPOLIA_EXCHANGE_ROUTER
+def test_sepolia_cannot_use_v221_abis(no_network):
+    """Sepolia's older Reader layout must not be paired with v2.2.1 ABIs."""
+    for release in ("v2.2b", None):
+        assert get_contract_addresses("arbitrum_sepolia", release=release).exchangerouter == SEPOLIA_EXCHANGE_ROUTER
+    with pytest.raises(GMXReleaseMismatchError, match="Sepolia contracts have not migrated"):
+        get_reader_contract(None, "arbitrum_sepolia")
+    with pytest.raises(GMXReleaseMismatchError, match="Sepolia contracts have not migrated"):
+        get_glv_reader_contract(None, "arbitrum_sepolia")
 
 
 @pytest.mark.parametrize("chain", ["arbitrum", "avalanche"])
@@ -142,8 +176,8 @@ def test_approval_critical_addresses_unchanged_across_releases(chain, no_network
     ExchangeRouter to an OrderVault. If either had rotated, the migration would have
     needed a re-approval and a guard remap rather than a single whitelist entry.
     """
-    old = get_contract_addresses(chain, release="v2.2b")
-    new = get_contract_addresses(chain, release="v2.2c")
+    old = PINNED_CONTRACTS["v2.2b"][chain]
+    new = PINNED_CONTRACTS["v2.2c"][chain]
     assert old.syntheticsrouter == new.syntheticsrouter
     assert old.ordervault == new.ordervault
     assert old.datastore == new.datastore
@@ -151,16 +185,17 @@ def test_approval_critical_addresses_unchanged_across_releases(chain, no_network
 
 def test_arbitrum_pinned_addresses_are_the_documented_ones(no_network):
     """Guard-relevant Arbitrum addresses match the migration plan."""
-    v22c = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
-    assert v22c.exchangerouter == V22C_EXCHANGE_ROUTER
-    assert v22c.syntheticsrouter == SYNTHETICS_ROUTER
-    assert v22c.ordervault == ORDER_VAULT
+    v221 = PINNED_CONTRACTS["v2.2.1"]["arbitrum"]
+    assert v221.exchangerouter == V221_EXCHANGE_ROUTER
+    assert v221.syntheticsrouter == SYNTHETICS_ROUTER
+    assert v221.ordervault == ORDER_VAULT
+    assert PINNED_CONTRACTS["v2.2c"]["arbitrum"].exchangerouter == V22C_EXCHANGE_ROUTER
 
 
 def test_remote_release_is_cached(monkeypatch):
     """Opting into live resolution must not cost an HTTP round trip per order."""
     calls = []
-    sentinel = PINNED_CONTRACTS["v2.2b"]["arbitrum"]
+    sentinel = PINNED_CONTRACTS["v2.2.1"]["arbitrum"]
 
     def _counting_fetch(chain):
         calls.append(chain)
@@ -181,7 +216,7 @@ def test_remote_release_serves_stale_entry_on_failure(monkeypatch):
     Historically a failed fetch of the ``updates`` branch fell through to ``main``,
     so rate limiting alone could swap a live bot's ExchangeRouter.
     """
-    sentinel = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
+    sentinel = PINNED_CONTRACTS["v2.2.1"]["arbitrum"]
     responses = [sentinel, None, None]
 
     def _flaky_fetch(chain):
@@ -211,7 +246,7 @@ def test_remote_release_serves_stale_when_the_fetch_raises(monkeypatch):
     looks like, the most likely failure of all. Letting that escape would defeat
     the resilience path for the very case it exists to cover.
     """
-    sentinel = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
+    sentinel = PINNED_CONTRACTS["v2.2.1"]["arbitrum"]
     calls = []
 
     def _fetch_then_die(chain):
@@ -247,7 +282,7 @@ def test_remote_release_does_not_mask_programming_errors(monkeypatch):
     renamed field into a "failed to fetch" warning that quietly serves stale
     addresses — hiding a code defect behind a connectivity story.
     """
-    sentinel = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
+    sentinel = PINNED_CONTRACTS["v2.2.1"]["arbitrum"]
     calls = []
 
     def _fetch_then_bug(chain):
@@ -266,65 +301,71 @@ def test_remote_release_does_not_mask_programming_errors(monkeypatch):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
 
-def test_remote_release_warns_on_an_unrecognised_router(monkeypatch, caplog):
-    """A router matching no pinned release is called out as unverified.
-
-    This is what a genuinely new GMX release looks like. It is not necessarily
-    wrong, but nothing has confirmed the new router is whitelisted on a vault
-    guard yet, which is the check that matters before pinning to it.
-    """
+def test_remote_release_refuses_an_unrecognised_router(monkeypatch):
+    """Unknown remote router addresses cannot be paired with vendored ABIs."""
     unknown = dataclasses.replace(
-        PINNED_CONTRACTS["v2.2c"]["arbitrum"],
+        PINNED_CONTRACTS["v2.2.1"]["arbitrum"],
         exchangerouter="0x" + "ab" * 20,
     )
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: unknown)
 
-    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
+    with pytest.raises(GMXReleaseMismatchError, match="does not match the pinned"):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
-    assert "unrecognised ExchangeRouter" in caplog.text
-    assert "whitelisted" in caplog.text
+
+@pytest.mark.parametrize("field", ["syntheticsreader", "ordervault", "syntheticsrouter"])
+def test_remote_release_refuses_mixed_contract_set(monkeypatch, field):
+    """A partial address match cannot route orders through a mixed deployment."""
+    mixed = dataclasses.replace(
+        PINNED_CONTRACTS["v2.2.1"]["arbitrum"],
+        **{field: "0x" + "ab" * 20},
+    )
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: mixed)
+    with pytest.raises(GMXReleaseMismatchError, match=field):
+        get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
 
-def test_remote_release_warns_when_it_resolves_a_superseded_router(monkeypatch, caplog):
-    """A silent fall-back to the previous release must not pass unnoticed.
+@pytest.mark.parametrize("old_release", ["v2.2b", "v2.2c"])
+def test_remote_release_refuses_a_superseded_router(monkeypatch, old_release):
+    """Live resolution returning an older known release must not be paired with the new ABIs.
 
     The ``updates``-then-``main`` fetch does not fail when ``updates`` is rate
-    limited — it succeeds against ``main`` and returns the older release. That is
-    how a 429 alone could swap a running bot's ExchangeRouter.
+    limited or still serves the old release — it succeeds and returns it. That
+    would pair old addresses with the v2.2.1 vendored ABIs, so it is refused.
     """
-    older = PINNED_CONTRACTS["v2.2b"]["arbitrum"]
+    older = PINNED_CONTRACTS[old_release]["arbitrum"]
     monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: older)
 
-    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
-        resolved = get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
-
-    assert resolved is older
-    assert "v2.2b" in caplog.text
-    assert V22B_EXCHANGE_ROUTER in caplog.text
-
-
-def test_remote_release_does_not_warn_on_the_current_router(monkeypatch, caplog):
-    current = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
-    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: current)
-
-    with caplog.at_level(logging.WARNING, logger=contracts_module.__name__):
+    with pytest.raises(GMXReleaseMismatchError, match="does not match the pinned"):
         get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE)
 
-    assert "ExchangeRouter" not in caplog.text
+
+def test_remote_release_accepts_the_exact_pinned_contract_set(monkeypatch):
+    current = PINNED_CONTRACTS["v2.2.1"]["arbitrum"]
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: current)
+
+    assert get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE) is current
+
+
+def test_remote_release_refuses_chain_without_vendored_abi_set(monkeypatch):
+    """Remote Avalanche resolution is refused because only Arbitrum is vendored."""
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: PINNED_CONTRACTS["v2.2.1"]["arbitrum"])
+    with pytest.raises(GMXReleaseMismatchError, match="vendored for Arbitrum only"):
+        get_contract_addresses("avalanche", release=GMX_CONTRACT_RELEASE_REMOTE)
+
+
+def test_remote_release_allows_unpublished_optional_gm_oracle_provider(monkeypatch):
+    """The upstream contracts file may omit the carried test-helper address."""
+    remote = dataclasses.replace(PINNED_CONTRACTS["v2.2.1"]["arbitrum"], gmoracleprovider=None)
+    monkeypatch.setattr(contracts_module, "_fetch_contract_addresses_from_url", lambda chain: remote)
+    assert get_contract_addresses("arbitrum", release=GMX_CONTRACT_RELEASE_REMOTE).gmoracleprovider == PINNED_CONTRACTS["v2.2.1"]["arbitrum"].gmoracleprovider
 
 
 @pytest.mark.parametrize("chain", ["arbitrum", "avalanche"])
-def test_release_rotation_set_is_documented(chain, no_network):
-    """Pin exactly which addresses moved between v2.2b and v2.2c.
-
-    The ``PINNED_CONTRACTS`` docstring makes a claim about what is stable across
-    the upgrade, and the whole migration rests on it: the SyntheticsRouter keeps
-    an existing ERC-20 approval valid and the OrderVault keeps a guard's
-    router-to-vault mapping valid. Assert it rather than trusting the prose.
-    """
-    old = get_contract_addresses(chain, release="v2.2b")
-    new = get_contract_addresses(chain, release="v2.2c")
+def test_release_rotation_set_is_documented_v22b_to_v22c(chain):
+    """Pin exactly which addresses moved between v2.2b and v2.2c (historical)."""
+    old = PINNED_CONTRACTS["v2.2b"][chain]
+    new = PINNED_CONTRACTS["v2.2c"][chain]
 
     rotated = {f.name for f in dataclasses.fields(old) if getattr(old, f.name) != getattr(new, f.name)}
 
@@ -338,23 +379,40 @@ def test_release_rotation_set_is_documented(chain, no_network):
         "oracle",
     }
 
+
+def test_release_rotation_set_is_documented(no_network):
+    """Pin exactly which addresses moved between v2.2c and v2.2.1 on Arbitrum.
+
+    The ``PINNED_CONTRACTS`` docstring makes a claim about what is stable across
+    the upgrade, and the migration rests on it: the SyntheticsRouter keeps an
+    existing ERC-20 approval valid and the OrderVault keeps a guard's
+    router-to-vault mapping valid. Assert it rather than trusting the prose.
+    """
+    old = PINNED_CONTRACTS["v2.2c"]["arbitrum"]
+    new = get_contract_addresses("arbitrum")
+
+    rotated = {f.name for f in dataclasses.fields(old) if getattr(old, f.name) != getattr(new, f.name)}
+
+    assert rotated == {
+        "exchangerouter",
+        "syntheticsreader",
+        "glvreader",
+        "orderhandler",
+        "oracle",
+        "chainlinkdatastreamprovider",
+    }
+
     # The load-bearing half: these must not move, or the migration would need a
     # re-approval and a guard remap rather than a single whitelist entry.
-    for field_name in ("syntheticsrouter", "ordervault", "datastore", "eventemitter", "depositvault", "withdrawalvault"):
+    for field_name in ("syntheticsrouter", "ordervault", "datastore", "eventemitter", "depositvault", "withdrawalvault", "chainlinkpricefeedprovider"):
         assert getattr(old, field_name) == getattr(new, field_name), f"{field_name} rotated"
 
 
-def test_sepolia_addresses_match_the_current_deployment(no_network):
-    """Arbitrum Sepolia must point at GMX's current testnet deployment.
-
-    GMX shipped the same upgrade to Sepolia that produced mainnet v2.2c, but this
-    table was not updated with it. The stale Reader was the visible symptom:
-    ``getAccountOrders`` on the superseded deployment returns an older struct, so
-    decoding it against the vendored ABI failed whenever an order was pending —
-    an empty result decodes fine either way, which is why it looked healthy until
-    a live order existed.
-    """
-    sepolia = get_contract_addresses("arbitrum_sepolia")
+def test_sepolia_addresses_remain_available_for_address_only_use(no_network):
+    """Address inspection remains available although Reader ABI binding is refused."""
+    # Address-only inspection remains available from the registry; ABI binding
+    # helpers reject this Reader's old tuple layout.
+    sepolia = NETWORK_CONTRACTS["arbitrum_sepolia"]
     assert sepolia.exchangerouter == SEPOLIA_EXCHANGE_ROUTER
     assert sepolia.syntheticsreader == SEPOLIA_READER
     assert sepolia.glvreader == "0x45356cEE7f8668b7030577c13b4638802D3397Df"
@@ -377,8 +435,8 @@ def _load_vendored_abi(name: str) -> list:
     return json.loads(path.read_text())
 
 
-def test_vendored_reader_abi_matches_v22c():
-    """The vendored Reader ABI must carry the v2.2c fields.
+def test_vendored_reader_abi_matches_v221():
+    """The vendored Reader ABI must carry the v2.2c fields and the v2.2.1 additions.
 
     ``get_contract_addresses()`` resolves the Reader *address* but decoding uses this
     vendored ABI. v2.2c appended fields to several structs, so a stale ABI decodes a
@@ -394,8 +452,17 @@ def test_vendored_reader_abi_matches_v22c():
     order_numbers = next(c for c in functions["getOrder"]["outputs"][0]["components"] if c["name"] == "numbers")
     assert "uiFeeFactor" in [c["name"] for c in order_numbers["components"]]
 
+    # v2.2.1 additions.
+    assert "getMarketTokenPriceForDeposit" in functions
+    position = next(c for c in functions["getPosition"]["outputs"][0]["components"] if c["name"] == "numbers")
+    position_numbers = [c["name"] for c in position["components"]]
+    assert len(position_numbers) == 15, position_numbers
+    assert {"pendingImpactAmount", "cappedPnlAllowancePerPrice"} <= set(position_numbers)
+    market_info = [c["name"] for c in functions["getMarketInfo"]["outputs"][0]["components"]]
+    assert {"borrowingFactorForLongsAvailable", "borrowingFactorForShortsAvailable"} <= set(market_info)
 
-def test_vendored_exchange_router_abi_matches_v22c():
+
+def test_vendored_exchange_router_abi_matches_v221():
     """v2.2c moved the simulate* family out of ExchangeRouter into SimulationRouter."""
     abi = _load_vendored_abi("ExchangeRouter.json")
     names = {e["name"] for e in abi if e.get("type") == "function"}
@@ -407,3 +474,20 @@ def test_vendored_exchange_router_abi_matches_v22c():
     # otherwise order calldata could not be decoded on-chain.
     for required in ("createOrder", "multicall", "sendWnt", "sendTokens", "cancelOrder", "updateOrder"):
         assert required in names, f"{required} missing from vendored ExchangeRouter ABI"
+
+
+def test_vendored_glv_reader_and_oracle_abis_match_v221():
+    """GlvReader and Oracle gained the v2.2.1 deposit-price and raw-price getters."""
+    glv = {e["name"] for e in _load_vendored_abi("GlvReader.json") if e.get("type") == "function"}
+    assert {"getGlvValueForDeposit", "getGlvTokenPriceForDeposit"} <= glv
+
+    oracle = {e["name"] for e in _load_vendored_abi("Oracle.json") if e.get("type") == "function"}
+    assert {"getPrimaryRawPrice", "primaryRawPrices"} <= oracle
+
+
+def test_vendored_update_order_has_decrease_position_swap_type():
+    """v2.2.1 ``updateOrder`` takes ``decreasePositionSwapType`` before ``autoCancel``."""
+    abi = _load_vendored_abi("ExchangeRouter.json")
+    update_order = next(e for e in abi if e.get("type") == "function" and e["name"] == "updateOrder")
+    names = [i["name"] for i in update_order["inputs"]]
+    assert names.index("decreasePositionSwapType") == names.index("autoCancel") - 1

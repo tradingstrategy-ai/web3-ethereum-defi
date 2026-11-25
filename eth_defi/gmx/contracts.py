@@ -3,6 +3,15 @@ GMX Protocol Contract Infrastructure
 
 This module provides contract addresses, ABIs, and utility functions for interacting
 with GMX protocol contracts across supported networks.
+
+The vendored v2.2.1 Reader and GLV Reader ABIs are compatible with Arbitrum only.
+Arbitrum Sepolia Reader-dependent flows (market loading via the registration
+filter, onchain position reads, CCXT GMX market loading, and the Lagoon testnet
+position helpers) and Avalanche contract resolution are unsupported in this
+release. Reader helpers and Avalanche resolution raise
+:class:`GMXReleaseMismatchError` until matching per-chain ABIs are vendored.
+Static Sepolia address inspection remains available through
+:data:`NETWORK_CONTRACTS` and :func:`get_contract_addresses`.
 """
 
 import json
@@ -10,7 +19,7 @@ import logging
 import os
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Optional
 
@@ -121,15 +130,8 @@ class ContractAddresses:
 # release-pinned like the mainnets and is recorded here instead. Sourced from
 # ``gmx-io/gmx-synthetics@updates:deployments/arbitrumSepolia/``.
 #
-# GMX shipped the same upgrade to Sepolia that produced mainnet v2.2c, rotating
-# ``ExchangeRouter``, ``Reader``, ``GlvReader`` and ``OrderHandler``. This table
-# was not updated at the time, so it kept pointing at the superseded deployment.
-# The stale Reader was the visible symptom: its ``getAccountOrders`` returns an
-# older struct, so decoding it against the vendored ABI failed with
-# "Could not decode contract function call" whenever an order was actually
-# pending — an empty result decodes fine either way, which is why it looked
-# healthy until a live order existed. The current Sepolia Reader ABI is identical
-# to mainnet v2.2c, so the vendored ABIs serve both.
+# Sepolia has no v2.2.1 deployment. Its pinned Reader is from the v2.2c era and
+# returns older tuple layouts, so it must not be paired with the vendored ABI.
 NETWORK_CONTRACTS = {
     "arbitrum_sepolia": ContractAddresses(
         datastore=to_checksum_address("0xCF4c2C4c53157BcC01A596e3788fFF69cBBCD201"),
@@ -159,21 +161,36 @@ NETWORK_CONTRACTS = {
 #: deployment when GitHub returns HTTP 429. Both happened in production and caused
 #: every order to revert with ``Target not allowed`` against a Lagoon vault guard
 #: whose allowlist still held the older router.
-GMX_DEFAULT_CONTRACT_RELEASE = "v2.2c"
+GMX_DEFAULT_CONTRACT_RELEASE = "v2.2.1"
+
+#: The only GMX release the vendored ABIs in ``eth_defi/abi/gmx/`` belong to.
+#:
+#: Decoding is done with the vendored ``Reader``, ``GlvReader``, ``ExchangeRouter``
+#: and ``Oracle`` ABIs, while :func:`get_contract_addresses` supplies the
+#: addresses. The two must come from the same release: a Reader of another
+#: release decoded with these ABIs mis-aligns struct tuples (``Position.numbers``,
+#: ``MarketInfo`` and ``PositionFees`` changed layout in v2.2.1), returning
+#: plausible but wrong numbers instead of failing. Mainnet address resolution
+#: therefore refuses any release other than this one; see
+#: :func:`assert_release_matches_vendored_abis`. Whoever bumps the vendored ABIs
+#: must bump this constant in the same commit.
+GMX_VENDORED_ABI_RELEASE = "v2.2.1"
 
 #: Environment variable overriding :data:`GMX_DEFAULT_CONTRACT_RELEASE`.
 #:
-#: This is the documented escape hatch. Set it to another key of
-#: :data:`PINNED_CONTRACTS` (e.g. ``v2.2b``) to roll back without a code change, or
-#: to :data:`GMX_CONTRACT_RELEASE_REMOTE` to restore the legacy dynamic-fetch
-#: behaviour.
+#: For mainnet chains the value must resolve to
+#: :data:`GMX_VENDORED_ABI_RELEASE`; any other release raises
+#: :class:`GMXReleaseMismatchError`, because the vendored ABIs only decode that
+#: release correctly. Rolling back to an older GMX release means deploying an
+#: older image/tag of this library, which carries the matching ABIs, not setting
+#: this variable.
 GMX_CONTRACT_RELEASE_ENV_VAR = "GMX_CONTRACT_RELEASE"
 
-#: Sentinel release restoring live resolution from ``gmx-io/gmx-synthetics``.
+#: Sentinel requesting remote address resolution from ``gmx-io/gmx-synthetics``.
 #:
-#: Opt-in only. Results are still cached for
-#: :data:`GMX_REMOTE_CACHE_TTL_SECONDS` so the order hot path does not perform an
-#: HTTP round trip per order.
+#: Opt-in only. Returned addresses must still match the pinned contract set exactly.
+#: Results are cached for :data:`GMX_REMOTE_CACHE_TTL_SECONDS` so the order hot
+#: path does not perform an HTTP round trip per order.
 GMX_CONTRACT_RELEASE_REMOTE = "remote"
 
 #: How long a dynamically fetched address set stays cached, in seconds.
@@ -181,8 +198,20 @@ GMX_REMOTE_CACHE_TTL_SECONDS = 3600.0
 
 #: Pinned GMX contract addresses, keyed by release then by chain.
 #:
-#: Sourced from ``gmx-io/gmx-synthetics``: ``v2.2c`` from the ``updates`` branch
-#: and ``v2.2b`` from ``main``, both read from ``docs/contracts.json``.
+#: Sourced from ``gmx-io/gmx-synthetics`` ``docs/contracts.json``: ``v2.2.1`` from
+#: tag ``2026-10-23-deployments`` (Arbitrum only), ``v2.2c`` from the ``updates``
+#: branch and ``v2.2b`` from ``main``.
+#:
+#: Only :data:`GMX_VENDORED_ABI_RELEASE` is resolvable through
+#: :func:`get_contract_addresses`; the older entries are kept as historical data
+#: (rotation-set tests and identifying mismatches found by remote resolution).
+#:
+#: Six Arbitrum addresses rotated between v2.2c and v2.2.1: ``ExchangeRouter``,
+#: ``Reader``, ``GlvReader``, ``OrderHandler``, ``Oracle`` and
+#: ``ChainlinkDataStreamProvider``. ``GmOracleProvider`` is not listed under that
+#: name in the v2.2.1 ``contracts.json``; the v2.2c value is carried over and is
+#: read by ``testing/keeper.py`` and ``testing/oracle.py``. It may be stale for
+#: v2.2.1 forks.
 #:
 #: Seven addresses rotated between v2.2b and v2.2c, identically on both chains:
 #: ``ExchangeRouter``, ``Reader``, ``GlvReader``, ``ChainlinkPriceFeedProvider``,
@@ -201,6 +230,25 @@ GMX_REMOTE_CACHE_TTL_SECONDS = 3600.0
 #: ``test_release_rotation_set_is_documented`` pins this list, so a future release
 #: that rotates something else fails rather than silently invalidating the claim.
 PINNED_CONTRACTS: dict[str, dict[str, ContractAddresses]] = {
+    "v2.2.1": {
+        "arbitrum": ContractAddresses(
+            datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
+            eventemitter=to_checksum_address("0xC8ee91A54287DB53897056e12D9819156D3822Fb"),
+            exchangerouter=to_checksum_address("0x6776c2b52179BC737193DE3bc75262681006AA27"),
+            depositvault=to_checksum_address("0xF89e77e8Dc11691C9e8757e84aaFbCD8A67d7A55"),
+            withdrawalvault=to_checksum_address("0x0628D46b5D145f183AdB6Ef1f2c97eD1C4701C55"),
+            ordervault=to_checksum_address("0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5"),
+            syntheticsreader=to_checksum_address("0xAda708aFf0f1D784D28cd8Ff4d6D977fF9599e5D"),
+            syntheticsrouter=to_checksum_address("0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6"),
+            glvreader=to_checksum_address("0x51fe0b7919e1208a717E9B16a097C1C3D70eFbf6"),
+            chainlinkpricefeedprovider=to_checksum_address("0x90218fbb064b1475E4382b041Cc7ccF08AF718B0"),
+            chainlinkdatastreamprovider=to_checksum_address("0x204CC947Fddd11c90e302db2A5ac3865021D1618"),
+            # testing/keeper.py and testing/oracle.py read this carried-over v2.2c address; it may be stale for v2.2.1 forks.
+            gmoracleprovider=to_checksum_address("0x5d6B84086DA6d4B0b6C0dF7E02f8a6A039226530"),
+            orderhandler=to_checksum_address("0x2dC2315039bf3617e815969c613428F36e9Baf98"),
+            oracle=to_checksum_address("0x42F3642F3F82CBAdE4CFA32961a57568055Dd10E"),
+        ),
+    },
     "v2.2c": {
         "arbitrum": ContractAddresses(
             datastore=to_checksum_address("0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"),
@@ -279,6 +327,29 @@ _remote_address_cache: dict[str, tuple[float, ContractAddresses]] = {}
 _remote_address_cache_lock = threading.Lock()
 
 
+class GMXReleaseMismatchError(ValueError):
+    """Raised when a GMX release is requested that the vendored ABIs cannot decode."""
+
+
+def assert_release_matches_vendored_abis(release: str) -> None:
+    """Refuse to pair another release's addresses with the vendored ABIs.
+
+    The vendored ABIs belong to :data:`GMX_VENDORED_ABI_RELEASE`. Resolving the
+    addresses of any other release (for example ``v2.2c`` via the
+    :data:`GMX_CONTRACT_RELEASE_ENV_VAR` environment variable) would decode that
+    release's Reader/GlvReader output with the wrong struct layout and silently
+    return misaligned values. The supported rollback is deploying the previous
+    image/tag of this library, which ships the matching ABIs.
+
+    :param release: Resolved release key.
+    :raises GMXReleaseMismatchError: If ``release`` is not :data:`GMX_VENDORED_ABI_RELEASE`.
+    """
+    if release != GMX_VENDORED_ABI_RELEASE:
+        raise GMXReleaseMismatchError(
+            f"GMX contract release {release!r} does not match the vendored ABIs, which belong to {GMX_VENDORED_ABI_RELEASE!r}. Pairing another release's addresses with these ABIs mis-decodes Reader structs. To roll back, deploy the previous image/tag of this library instead of setting {GMX_CONTRACT_RELEASE_ENV_VAR}.",
+        )
+
+
 def get_pinned_contract_release() -> str:
     """Resolve which GMX contract release address lookups should use.
 
@@ -345,10 +416,14 @@ def _get_remote_contract_addresses(chain: str) -> ContractAddresses:
             )
             return stale[1]
         raise ValueError(
-            f"Failed to fetch contract addresses for {chain} from GMX ({GMX_CONTRACTS_JSON_URL}). Set {GMX_CONTRACT_RELEASE_ENV_VAR} to a pinned release ({', '.join(sorted(PINNED_CONTRACTS))}) to avoid the network dependency.",
+            f"Failed to fetch contract addresses for {chain} from GMX ({GMX_CONTRACTS_JSON_URL}). Set {GMX_CONTRACT_RELEASE_ENV_VAR}={GMX_VENDORED_ABI_RELEASE} to use the pinned release without a network dependency.",
         )
 
-    _warn_if_superseded_release(chain, addresses)
+    _assert_remote_contract_set_matches_pin(chain, addresses)
+    # GMX does not publish this optional address in contracts.json, but the
+    # repository's testing helpers still consume the carried v2.2c value.
+    if addresses.gmoracleprovider is None:
+        addresses = replace(addresses, gmoracleprovider=PINNED_CONTRACTS[GMX_VENDORED_ABI_RELEASE][chain].gmoracleprovider)
 
     with _remote_address_cache_lock:
         _remote_address_cache[chain] = (now, addresses)
@@ -356,48 +431,34 @@ def _get_remote_contract_addresses(chain: str) -> ContractAddresses:
     return addresses
 
 
-def _warn_if_superseded_release(chain: str, addresses: ContractAddresses) -> None:
-    """Log loudly when live resolution returned a release older than the default.
+def _assert_remote_contract_set_matches_pin(chain: str, addresses: ContractAddresses) -> None:
+    """Reject remote address sets that do not match the pinned Arbitrum set.
 
-    :func:`_fetch_contract_addresses_from_url` tries the ``updates`` branch and
-    falls back to ``main``. That fallback does not fail — it *succeeds*, returning
-    a valid but older address set. So a transient GitHub 429 can still swap the
-    resolved ExchangeRouter out from under a running bot, which is the failure
-    this module exists to prevent; caching then holds the wrong set for up to
-    :data:`GMX_REMOTE_CACHE_TTL_SECONDS`.
-
-    Remote resolution is opt-in, so this is reported rather than rejected. The
-    fix for anyone seeing it is to pin — that is what the default does.
+    ABI addresses and route targets must match the pin. The optional
+    ``gmoracleprovider`` field is excluded because GMX does not publish it in
+    ``contracts.json`` and the carried value is used only by testing helpers.
 
     :param chain: Chain the addresses were resolved for.
     :param addresses: The freshly resolved address set.
+    :raises GMXReleaseMismatchError: If the chain is not vendored or any
+        published contract address differs from the pinned set.
     """
-    default_chains = PINNED_CONTRACTS.get(GMX_DEFAULT_CONTRACT_RELEASE, {})
-    expected = default_chains.get(chain)
-    if expected is None or addresses.exchangerouter == expected.exchangerouter:
-        return
+    expected_chains = PINNED_CONTRACTS[GMX_VENDORED_ABI_RELEASE]
+    expected = expected_chains.get(chain)
+    if expected is None:
+        raise GMXReleaseMismatchError(
+            f"GMX {GMX_VENDORED_ABI_RELEASE} ABIs are vendored for Arbitrum only; {chain} has no compatible pinned contract set.",
+        )
 
-    for release, chains in PINNED_CONTRACTS.items():
-        known = chains.get(chain)
-        if known is not None and known.exchangerouter == addresses.exchangerouter:
-            logger.warning(
-                "GMX live resolution for %s returned the %s ExchangeRouter (%s), not the current %s (%s). The updates branch was probably unavailable and the fetch fell back to main. Set %s to pin a release instead of resolving live.",
-                chain,
-                release,
-                addresses.exchangerouter,
-                GMX_DEFAULT_CONTRACT_RELEASE,
-                expected.exchangerouter,
-                GMX_CONTRACT_RELEASE_ENV_VAR,
-            )
-            return
-
-    logger.warning(
-        "GMX live resolution for %s returned an unrecognised ExchangeRouter %s (expected the %s address %s). If GMX has published a new release, verify it is whitelisted on any vault guard before pinning to it.",
-        chain,
-        addresses.exchangerouter,
-        GMX_DEFAULT_CONTRACT_RELEASE,
-        expected.exchangerouter,
-    )
+    # Match the complete address set: route targets such as OrderVault and
+    # SyntheticsRouter also carry collateral or receive approval transactions.
+    checked_fields = tuple(contract_field.name for contract_field in fields(ContractAddresses) if contract_field.name != "gmoracleprovider")
+    mismatches = [field for field in checked_fields if getattr(addresses, field) != getattr(expected, field)]
+    if mismatches:
+        details = ", ".join(f"{field}={getattr(addresses, field)} (expected {getattr(expected, field)})" for field in mismatches)
+        raise GMXReleaseMismatchError(
+            f"GMX live resolution for {chain} does not match the pinned {GMX_VENDORED_ABI_RELEASE} published contract set: {details}. Use the pinned release or deploy the previous image/tag to roll back.",
+        )
 
 
 def _fetch_contract_addresses_from_url(
@@ -683,22 +744,22 @@ def get_contract_addresses(chain: str, release: Optional[str] = None) -> Contrac
     and against an on-chain allowlist (such as a Lagoon vault guard) a silently
     rotated ExchangeRouter turns every order into a reverted transaction.
 
-    To follow GMX's published addresses live instead, pass
+    To request addresses from GMX's published contracts file, pass
     ``release=GMX_CONTRACT_RELEASE_REMOTE`` or set the
     :data:`GMX_CONTRACT_RELEASE_ENV_VAR` environment variable. Remote results are
-    cached for :data:`GMX_REMOTE_CACHE_TTL_SECONDS`, so this no longer costs an
-    HTTP round trip per order.
+    accepted only when the complete address set matches the pinned Arbitrum
+    v2.2.1 set, then cached for :data:`GMX_REMOTE_CACHE_TTL_SECONDS`.
 
-    Example — pin to the previous release without a code change:
-
-    .. code-block:: shell
-
-        export GMX_CONTRACT_RELEASE=v2.2b
+    Only :data:`GMX_VENDORED_ABI_RELEASE` is accepted for mainnet chains, because
+    the vendored ABIs decode that release only. Rolling back means deploying the
+    previous image/tag of this library, not overriding the release.
 
     :param chain: Network name ("arbitrum", "avalanche", or "arbitrum_sepolia")
     :param release: Override the release for this call. Defaults to
         :func:`get_pinned_contract_release`.
     :return: Contract addresses for the network
+    :raises GMXReleaseMismatchError: If the resolved mainnet release is not
+        :data:`GMX_VENDORED_ABI_RELEASE`.
     :raises ValueError: If chain or release is not supported
     """
     # Handle the docstring keys in NETWORK_CONTRACTS
@@ -717,8 +778,7 @@ def get_contract_addresses(chain: str, release: Optional[str] = None) -> Contrac
     if release is None:
         release = get_pinned_contract_release()
 
-    # Networks with a static deployment (testnets) never take part in release
-    # pinning — they have a single known address set.
+    # Networks with a static deployment never take part in release pinning.
     if chain in clean_contracts:
         return clean_contracts[chain]
 
@@ -727,9 +787,16 @@ def get_contract_addresses(chain: str, release: Optional[str] = None) -> Contrac
             raise ValueError(
                 f"Unsupported chain: {chain}. Supported: {list(clean_contracts.keys()) + ['arbitrum', 'avalanche']}",
             )
+        if chain not in PINNED_CONTRACTS[GMX_VENDORED_ABI_RELEASE]:
+            raise GMXReleaseMismatchError(
+                f"GMX {GMX_VENDORED_ABI_RELEASE} ABIs are vendored for Arbitrum only; {chain} has no compatible pinned contract set.",
+            )
         return _get_remote_contract_addresses(chain)
 
     pinned_chains = PINNED_CONTRACTS.get(release)
+    if pinned_chains is not None:
+        # Known release: refuse unless the vendored ABIs can decode it.
+        assert_release_matches_vendored_abis(release)
     if pinned_chains is None:
         raise ValueError(
             f"Unknown GMX contract release: {release!r}. Supported: {sorted(PINNED_CONTRACTS)} or {GMX_CONTRACT_RELEASE_REMOTE!r}. Set via the {GMX_CONTRACT_RELEASE_ENV_VAR} environment variable.",
@@ -737,6 +804,10 @@ def get_contract_addresses(chain: str, release: Optional[str] = None) -> Contrac
 
     addresses = pinned_chains.get(chain)
     if addresses is None:
+        if release == GMX_VENDORED_ABI_RELEASE and chain == "avalanche":
+            raise GMXReleaseMismatchError(
+                f"GMX {GMX_VENDORED_ABI_RELEASE} ABIs are vendored for Arbitrum only; {chain} has no compatible contract deployment.",
+            )
         raise ValueError(
             f"Unsupported chain: {chain}. Supported: {list(clean_contracts.keys()) + sorted(pinned_chains)}",
         )
@@ -752,6 +823,7 @@ def get_reader_contract(web3: Web3, chain: str) -> Contract:
     :param chain: Network name
     :return: Web3 contract instance for SyntheticsReader
     """
+    _assert_reader_abi_compatible_chain(chain)
     addresses = get_contract_addresses(chain)
     return get_deployed_contract(web3, "gmx/Reader.json", addresses.syntheticsreader)
 
@@ -854,8 +926,27 @@ def get_glv_reader_contract(web3: Web3, chain: str) -> Contract:
     :param chain: Network name
     :return: Web3 contract instance for GLV Reader
     """
+    _assert_reader_abi_compatible_chain(chain)
     addresses = get_contract_addresses(chain)
     return get_deployed_contract(web3, "gmx/GlvReader.json", addresses.glvreader)
+
+
+def _assert_reader_abi_compatible_chain(chain: str) -> None:
+    """Reject Sepolia before binding either Arbitrum Reader ABI.
+
+    Sepolia's static Reader and GLV Reader addresses have not migrated to the
+    Arbitrum v2.2.1 tuple layouts. Binding either vendored ABI there can fail
+    decoding or produce incorrect values. Address-only resolution remains
+    available.
+
+    :param chain: GMX network name.
+    :return: None when Reader binding is compatible.
+    :raises GMXReleaseMismatchError: If ``chain`` is Arbitrum Sepolia.
+    """
+    if chain == "arbitrum_sepolia":
+        raise GMXReleaseMismatchError(
+            "GMX vendored Reader and GLV Reader ABIs are v2.2.1 for Arbitrum mainnet only; Arbitrum Sepolia contracts have not migrated and use older layouts.",
+        )
 
 
 def get_token_balance_contract(web3: Web3, contract_address: HexAddress) -> Contract:

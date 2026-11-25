@@ -118,12 +118,12 @@ logger = logging.getLogger(__name__)
 #:     :data:`eth_defi.gmx.contracts.PINNED_CONTRACTS` directly and therefore
 #:     cannot drift.
 #:
-#: Kept in sync with the ``v2.2c`` entry of
+#: Kept in sync with the ``v2.2.1`` entry of
 #: :data:`eth_defi.gmx.contracts.PINNED_CONTRACTS`; the literals exist only to
 #: avoid a circular import between this module and :mod:`eth_defi.gmx.contracts`.
 #: ``test_whitelist_constants_track_the_pinned_release`` enforces the match.
 GMX_ARBITRUM_ADDRESSES: dict[str, HexAddress] = {
-    "exchange_router": "0x7dE39FF2e232A2203196788d37e234cF8F1b83f1",
+    "exchange_router": "0x6776c2b52179BC737193DE3bc75262681006AA27",
     "synthetics_router": "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6",
     "order_vault": "0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5",
 }
@@ -586,7 +586,7 @@ def assert_gmx_router_whitelisted(
 
     if not guard.functions.isAllowedGMXRouter(exchange_router).call():
         raise GMXRouterNotWhitelisted(
-            f"GMX ExchangeRouter {exchange_router} is not whitelisted on guard {guard.address}. Every order through this router will revert with 'Target not allowed'. Fix: the guard owner must call whitelistGMX(exchangeRouter, syntheticsRouter, orderVault, collateralTokens, notes) for this router, or pin GMX contract resolution to a release whose router is already allowed (see eth_defi.gmx.contracts.GMX_CONTRACT_RELEASE_ENV_VAR).",
+            f"GMX ExchangeRouter {exchange_router} is not whitelisted on guard {guard.address}. Every order through this router will revert with 'Target not allowed'. Fix: the guard owner must call whitelistGMX(exchangeRouter, syntheticsRouter, orderVault, collateralTokens, notes) for this router. Rollback uses the previous image/tag, not GMX_CONTRACT_RELEASE.",
         )
 
     if order_vault is not None:

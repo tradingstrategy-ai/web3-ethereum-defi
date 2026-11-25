@@ -18,6 +18,7 @@ from web3.types import TxParams
 from eth_defi.gmx.config import GMXConfig
 from eth_defi.gmx.contracts import get_contract_addresses, get_exchange_router_contract, NETWORK_TOKENS, get_datastore_contract, TESTNET_TO_MAINNET_ORACLE_TOKENS, get_reader_contract
 from eth_defi.gmx.constants import PRECISION, OrderType, DECREASE_POSITION_SWAP_TYPES, GAS_LIMITS, ETH_ZERO_ADDRESS
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.markets import Markets
 from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gas import estimate_gas_fees
@@ -1089,7 +1090,7 @@ class BaseOrder:
 
             # Result is ExecutionPriceResult struct (v2.2):
             # (priceImpactUsd, executionPrice, balanceWasImproved, proportionalPendingImpactUsd, totalImpactUsd, priceImpactDiffUsd)
-            price_impact_usd = result[0] / (10**PRECISION)
+            price_impact_usd = reader_named_output(result, "getExecutionPrice")["priceImpactUsd"] / (10**PRECISION)
 
             return price_impact_usd
 

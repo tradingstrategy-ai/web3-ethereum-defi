@@ -5,10 +5,11 @@ This module provides funding APR data for GMX protocol markets.
 """
 
 from eth_defi.gmx.config import GMXConfig
+from eth_defi.gmx.core.abi_named import reader_named_output
 from eth_defi.gmx.core.get_data import GetData
-from eth_defi.gmx.types import PositionSideData
 from eth_defi.gmx.core.open_interest import GetOpenInterest
 from eth_defi.gmx.keys import apply_factor
+from eth_defi.gmx.types import PositionSideData
 
 
 class GetFundingFee(GetData):
@@ -80,16 +81,7 @@ class GetFundingFee(GetData):
         # Multithreaded call on contract
         threaded_output = self._execute_threading(output_list)
         for output, long_interest_usd, short_interest_usd, symbol in zip(threaded_output, long_interest_usd_list, short_interest_usd_list, mapper):
-            market_info_dict = {
-                "market_token": output[0][0],
-                "index_token": output[0][1],
-                "long_token": output[0][2],
-                "short_token": output[0][3],
-                "long_borrow_fee": output[1],
-                "short_borrow_fee": output[2],
-                "is_long_pays_short": output[4][0],
-                "funding_factor_per_second": output[4][1],
-            }
+            market_info_dict = self._format_funding_inputs(output)
 
             long_funding_fee = self._get_funding_factor_per_period(market_info_dict, True, 3600, long_interest_usd, short_interest_usd)
 
@@ -101,6 +93,27 @@ class GetFundingFee(GetData):
         self.output["parameter"] = "funding_apr"
 
         return self.output
+
+    @staticmethod
+    def _format_funding_inputs(output: tuple) -> dict:
+        """Extract fields used by funding APR calculations from Reader output.
+
+        :param output: Decoded ``getMarketInfo`` Reader result.
+        :returns: Funding calculation inputs with stable internal key names.
+        """
+        named = reader_named_output(output, "getMarketInfo")
+        market = named["market"]
+        next_funding = named["nextFunding"]
+        return {
+            "market_token": market["marketToken"],
+            "index_token": market["indexToken"],
+            "long_token": market["longToken"],
+            "short_token": market["shortToken"],
+            "long_borrow_fee": named["borrowingFactorPerSecondForLongs"],
+            "short_borrow_fee": named["borrowingFactorPerSecondForShorts"],
+            "is_long_pays_short": next_funding["longsPayShorts"],
+            "funding_factor_per_second": next_funding["fundingFactorPerSecond"],
+        }
 
     @staticmethod
     def _get_funding_factor_per_period(

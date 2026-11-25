@@ -23,16 +23,17 @@ from eth_utils import to_checksum_address
 
 from eth_defi.gmx.api import GMXAPI, GMXAPIChainUnsupported
 from eth_defi.gmx.config import GMXConfig
-from eth_defi.gmx.core.get_data import GetData
-from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.constants import PRECISION
 from eth_defi.gmx.contracts import (
-    get_contract_addresses,
-    get_tokens_metadata_dict,
+    GMX_SUBSQUID_ENDPOINTS,
     NETWORK_TOKENS_METADATA,
     TESTNET_TO_MAINNET_ORACLE_TOKENS,
-    GMX_SUBSQUID_ENDPOINTS,
+    get_contract_addresses,
+    get_tokens_metadata_dict,
 )
+from eth_defi.gmx.core.abi_named import reader_named_output
+from eth_defi.gmx.core.get_data import GetData
+from eth_defi.gmx.core.oracle import OraclePrices
 from eth_defi.gmx.types import MarketData
 from eth_defi.gmx.utils import get_oracle_address
 
@@ -666,12 +667,19 @@ class GetOpenPositions(GetData):
         :returns: A processed dictionary containing info on the positions
         :rtype: dict
         """
+        # getAccountPositions returns Position.Props[]; name the fields using
+        # the exact vendored Reader ABI before consuming any position values.
+        position = reader_named_output([raw_position], "getAccountPositions")[0]
+        addresses = position["addresses"]
+        numbers = position["numbers"]
+        flags = position["flags"]
+
         # Normalize chain name to lowercase string
         chain_name = self.config.chain.lower() if isinstance(self.config.chain, str) else str(self.config.chain).lower()
 
         # Get market information
         available_markets = self.markets.get_available_markets()
-        market_key = raw_position[0][1]
+        market_key = addresses["market"]
         market_info = available_markets[market_key]
 
         # Use enhanced token dictionary with NETWORK_TOKENS fallbacks
@@ -679,7 +687,7 @@ class GetOpenPositions(GetData):
 
         # Get token addresses
         index_token_address = market_info["index_token_address"]
-        collateral_token_address = raw_position[0][2]
+        collateral_token_address = addresses["collateralToken"]
 
         # Validate required tokens exist (this prevents the original KeyError)
         if index_token_address not in chain_tokens:
@@ -690,7 +698,7 @@ class GetOpenPositions(GetData):
 
         # Calculate entry price - this was line causing KeyError
         index_token_decimals = chain_tokens[index_token_address]["decimals"]
-        entry_price = (raw_position[1][0] / raw_position[1][1]) / 10 ** (PRECISION - index_token_decimals)
+        entry_price = (numbers["sizeInUsd"] / numbers["sizeInTokens"]) / 10 ** (PRECISION - index_token_decimals)
 
         # Get token decimals
         collateral_token_decimals = chain_tokens[collateral_token_address]["decimals"]
@@ -791,8 +799,8 @@ class GetOpenPositions(GetData):
 
         # Calculate leverage with correct formula: leverage = position_size_usd / collateral_usd
         # where collateral_usd = collateral_amount * collateral_price
-        position_size_usd = raw_position[1][0] / 10**PRECISION
-        collateral_amount_tokens = raw_position[1][2] / 10**collateral_token_decimals
+        position_size_usd = numbers["sizeInUsd"] / 10**PRECISION
+        collateral_amount_tokens = numbers["collateralAmount"] / 10**collateral_token_decimals
         collateral_amount_usd = collateral_amount_tokens * collateral_price
 
         if collateral_amount_usd > 0:
@@ -802,33 +810,18 @@ class GetOpenPositions(GetData):
 
         # Calculate profit percentage with proper long/short logic
         if entry_price > 0:
-            if raw_position[2][0]:  # is_long
+            if flags["isLong"]:  # is_long
                 percent_profit = ((mark_price / entry_price) - 1) * leverage * 100
             else:  # is_short
                 percent_profit = (1 - (mark_price / entry_price)) * leverage * 100
         else:
             percent_profit = 0
 
-        # Position struct indices (GMX v2.2):
-        # raw_position[0] = Addresses (account, market, collateralToken)
-        # raw_position[1] = Numbers:
-        #   [0] sizeInUsd
-        #   [1] sizeInTokens
-        #   [2] collateralAmount
-        #   [3] pendingImpactAmount (NEW in v2.2)
-        #   [4] borrowingFactor
-        #   [5] fundingFeeAmountPerSize
-        #   [6] longTokenClaimableFundingAmountPerSize
-        #   [7] shortTokenClaimableFundingAmountPerSize
-        #   [8] increasedAtTime
-        #   [9] decreasedAtTime
-        # raw_position[2] = Flags (isLong)
-
         # Log position data for debugging
         logger.info(
             "POSITION_TRACE: _get_data_processing() market=%s, is_long=%s, position_size_usd=%.2f",
             market_info["market_symbol"],
-            raw_position[2][0],
+            flags["isLong"],
             position_size_usd,
         )
         logger.info(
@@ -846,27 +839,27 @@ class GetOpenPositions(GetData):
         )
 
         return {
-            "account": raw_position[0][0],
-            "market": raw_position[0][1],
+            "account": addresses["account"],
+            "market": addresses["market"],
             "market_symbol": market_info["market_symbol"],
             "collateral_token": chain_tokens[collateral_token_address]["symbol"],
             "collateral_token_address": collateral_token_address,
-            "position_size": raw_position[1][0] / 10**PRECISION,
-            "position_size_usd_raw": raw_position[1][0],  # Raw value with 30 decimals - needed for exact position closing
-            "size_in_tokens": raw_position[1][1],
+            "position_size": numbers["sizeInUsd"] / 10**PRECISION,
+            "position_size_usd_raw": numbers["sizeInUsd"],  # Raw value with 30 decimals - needed for exact position closing
+            "size_in_tokens": numbers["sizeInTokens"],
             "entry_price": entry_price,
-            "initial_collateral_amount": raw_position[1][2],
+            "initial_collateral_amount": numbers["collateralAmount"],
             "initial_collateral_amount_usd": collateral_amount_usd,  # in USD
             "leverage": leverage,
-            "pending_impact_amount": raw_position[1][3],
-            "borrowing_factor": raw_position[1][4],
-            "funding_fee_amount_per_size": raw_position[1][5],
-            "long_token_claimable_funding_amount_per_size": raw_position[1][6],
-            "short_token_claimable_funding_amount_per_size": raw_position[1][7],
-            "increased_at_time": raw_position[1][8],
-            "decreased_at_time": raw_position[1][9],
+            "pending_impact_amount": numbers["pendingImpactAmount"],
+            "borrowing_factor": numbers["borrowingFactor"],
+            "funding_fee_amount_per_size": numbers["fundingFeeAmountPerSize"],
+            "long_token_claimable_funding_amount_per_size": numbers["longTokenClaimableFundingAmountPerSize"],
+            "short_token_claimable_funding_amount_per_size": numbers["shortTokenClaimableFundingAmountPerSize"],
+            "increased_at_time": numbers["increasedAtTime"],
+            "decreased_at_time": numbers["decreasedAtTime"],
             "position_modified_at": "",  # Deprecated, keeping for backward compatibility
-            "is_long": raw_position[2][0],
+            "is_long": flags["isLong"],
             "percent_profit": percent_profit,
             "mark_price": mark_price,
         }
