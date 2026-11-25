@@ -27,9 +27,10 @@ from functools import cached_property
 
 import eth_abi
 from eth_typing import BlockIdentifier
+from requests.exceptions import RequestException
 from web3 import Web3
 from web3.contract.contract import Contract
-from web3.exceptions import BadFunctionCallOutput, ContractLogicError
+from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.compat import native_datetime_utc_now
@@ -46,19 +47,43 @@ from eth_defi.erc_4626.vault_protocol.gains.metadata import (
 from eth_defi.erc_4626.vault_protocol.gains.tags import get_strategy_tags
 from eth_defi.event_reader.conversion import convert_bytes32_to_address, convert_int256_bytes_to_int, convert_string_to_bytes32
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.middleware import ProbablyNodeHasNoBlock
 from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_CAP_REACHED,
     DEPOSIT_CLOSED_FUNCTION_DISABLED,
     REDEMPTION_CLOSED_EPOCH_WINDOW,
+    RedemptionRequestObservation,
     VaultHistoricalRead,
     VaultHistoricalReader,
+    VaultSpec,
     WithdrawalDelayType,
     WithdrawalPeriod,
 )
 from eth_defi.vault.strategy_tag import StrategyTag
 
 logger = logging.getLogger(__name__)
+
+#: gTrade USDC on Base, whose GToken and Open PnL feed were verified at the fork.
+BASE_GTRADE_USDC = VaultSpec(8453, "0xad20523a7dc37babc1cc74897e4977232b3d02e5")
+
+#: Contract and transport failures that leave optional reporting data unknown.
+EPOCH_REPORT_READ_ERRORS = (Web3Exception, RequestException, ProbablyNodeHasNoBlock, ValueError)
+
+
+def fetch_gains_epoch_parameters(feed: Contract, block_identifier: BlockIdentifier = "latest") -> tuple[int, int, int]:
+    """Read the configured full epoch schedule shared with the redemption manager.
+
+    :param feed: The vault's Open PnL feed.
+    :param block_identifier: Source block number or tag.
+    :return: Delay before sampling, sampling interval (both seconds), and sample count.
+    """
+    functions = feed.functions
+    return (
+        functions.requestsStart().call(block_identifier=block_identifier),
+        functions.requestsEvery().call(block_identifier=block_identifier),
+        functions.requestsCount().call(block_identifier=block_identifier),
+    )
 
 
 #: Compatibility projections of the reviewed inventory. Runtime lookups use
@@ -612,8 +637,52 @@ class GainsVault(ERC4626Vault):  # noqa: PLR0904 - shared vault adapter interfac
 
         return None
 
+    def fetch_redemption_request_observation(self, block_identifier: BlockIdentifier) -> RedemptionRequestObservation | None:
+        if self.spec != BASE_GTRADE_USDC:
+            return None
+
+        header = self.web3.eth.get_block(block_identifier)
+        block_number = header["number"]
+        observed_at = from_unix_timestamp(header["timestamp"])
+        try:
+            address = self.vault_contract.functions.openTradesPnlFeed().call(block_identifier=block_number)
+            feed = get_deployed_contract(self.web3, "gains/OstiumOpenPnl.json", address)
+            count = feed.functions.nextEpochValuesRequestCount().call(block_identifier=block_number)
+        except EPOCH_REPORT_READ_ERRORS:
+            logger.debug("Could not read gTrade request gate at block %d", block_number, exc_info=True)
+            return RedemptionRequestObservation(block_number, observed_at, None, unlock_epochs=(1, 3))
+
+        epoch_seconds = None
+        next_open = None
+        try:
+            start, every, samples = fetch_gains_epoch_parameters(feed, block_number)
+            if every > 0 and samples > 0:
+                epoch_seconds = start + every * samples
+                if count > 0:
+                    epoch_start = self.vault_contract.functions.currentEpochStart().call(block_identifier=block_number)
+                    estimated = from_unix_timestamp(epoch_start + epoch_seconds)
+                    if estimated > observed_at:
+                        next_open = estimated
+        except EPOCH_REPORT_READ_ERRORS:
+            logger.debug("Could not estimate gTrade request window at block %d", block_number, exc_info=True)
+        return RedemptionRequestObservation(
+            block_number,
+            observed_at,
+            count == 0,
+            REDEMPTION_CLOSED_EPOCH_WINDOW if count > 0 else None,
+            next_open,
+            epoch_seconds,
+            (1, 3),
+        )
+
     def fetch_redemption_closed_reason(self) -> str | None:
         """Check epoch state - redemptions open when nextEpochValuesRequestCount == 0."""
+        if self.spec == BASE_GTRADE_USDC:
+            try:
+                return self.fetch_redemption_request_observation("latest").closed_reason
+            except EPOCH_REPORT_READ_ERRORS:
+                return None
+
         try:
             count = self.open_pnl_contract.functions.nextEpochValuesRequestCount().call()
             if count > 0:
@@ -638,6 +707,12 @@ class GainsVault(ERC4626Vault):  # noqa: PLR0904 - shared vault adapter interfac
 
         - Redemptions open at the start of the next epoch when nextEpochValuesRequestCount resets to 0
         """
+        if self.spec == BASE_GTRADE_USDC:
+            try:
+                return self.fetch_redemption_request_observation("latest").next_open
+            except EPOCH_REPORT_READ_ERRORS:
+                return None
+
         try:
             count = self.open_pnl_contract.functions.nextEpochValuesRequestCount().call()
             if count == 0:

@@ -605,3 +605,21 @@ redemption when settlement authority or liquidity is absent.
 `unsupported_protocol` is a deliberate integration exclusion, not unknown access
 or evidence of an account whitelist. Export and exclude it like a permissioned
 vault. Upgrade client/consumer enums and filters before publishing this new value.
+
+## Reporting redemption requests
+
+The Arbitrum Plutus Hedge and Base gTrade USDC listings export
+`redemption_request_observation` with the observed request status, source
+block and UTC timestamp. The block timestamp comes from the request-gate
+read, so a cached metadata export can carry an older observation. Ticket
+state and owner-specific capacity determine claim eligibility.
+
+For Base gTrade the optional nominal epoch duration and unlock distance
+describe the configured epoch rule. The PnL feed reset establishes the
+actual reopening. Where the nominal boundary has already passed, the
+export leaves the next-open estimate empty.
+
+Migration 108 refreshes the two metadata rows and corrects historical
+Plutus request status and the ownerless cap at verified HedgeVaultV2
+blocks. Preview and apply it with the numbered migration runner on the
+git-stamped image after merging. [Migration runbook](../../.claude/docs/migration-scripts.md)

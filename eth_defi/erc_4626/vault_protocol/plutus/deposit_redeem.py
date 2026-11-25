@@ -202,7 +202,7 @@ class PlutusAsyncDepositManager(ERC4626DepositManager):
         :return:
             ``True`` when redemption requests are paused.
         """
-        return bool(self.vault.vault_contract.functions.withdrawalsPaused().call())
+        return self.vault.fetch_withdrawals_paused()
 
     def create_redemption_request(
         self,

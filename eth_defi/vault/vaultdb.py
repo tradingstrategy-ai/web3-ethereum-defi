@@ -96,6 +96,9 @@ class VaultRow(TypedDict):
     #: Last published onchain NAV time, independent of metadata scan time.
     _nav_timestamp: NotRequired[datetime.datetime | None]
 
+    #: Block-tagged evidence of whether the vault accepts new redemption requests.
+    _redemption_request_observation: NotRequired[dict[str, object] | None]
+
     #: Optional Buoy descriptive source availability; does not affect identity.
     _buoy_metadata_available: NotRequired[bool]
 
