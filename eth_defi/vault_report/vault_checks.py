@@ -4,7 +4,7 @@ Some vaults rank high in the report but are not investable in practice: they
 lend against collateral nobody can sell, their depositors cannot exit, or they
 are scams. The data we collect cannot show this. An LLM agent, Claude CLI or
 Codex CLI running the ``check-top-list-vaults`` skill, researches the
-candidates and decides. See ``.claude/plans/2026-09-26-vault-report-investability-check.md``,
+candidates and decides. See
 ``.claude/skills/check-top-list-vaults/SKILL.md`` and the *Investability check*
 section of ``eth_defi/vault_report/README-vault-report.md``.
 

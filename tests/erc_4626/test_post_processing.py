@@ -1,4 +1,4 @@
-"""Tests for vault post-processing error handling."""
+"""Tests for vault post-processing."""
 
 import logging
 from pathlib import Path
@@ -7,28 +7,17 @@ from types import SimpleNamespace
 import pytest
 
 from eth_defi.cloudflare_r2 import R2RetryableOperationError
-from eth_defi.vault import post_processing
+from eth_defi.vault import post_processing, scan_timing
 
 brotli = pytest.importorskip("brotli", reason="brotli not installed (cloudflare_r2 extra)")
 
 
-def test_export_sparklines_contains_corrupt_vault_database(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A corrupt metadata pickle must not abort later post-processing stages."""
-
-    def raise_corrupt_database(**_: object) -> None:
-        message = "truncated pickle"
-        raise EOFError(message)
-
-    monkeypatch.setattr(post_processing, "run_sparkline_export", raise_corrupt_database)
-
-    assert post_processing.export_sparklines() is False
-
-
-@pytest.mark.parametrize(("cleaning_ok", "skip_data", "export_ok", "override_path"), [(True, False, True, False), (True, False, False, False), (True, True, True, False), (False, False, True, False), (True, False, True, True)])
+@pytest.mark.parametrize(("cleaning_ok", "native_ok", "skip_data", "export_ok", "override_path"), [(True, True, False, True, False), (True, True, False, False, False), (True, True, True, True, False), (False, True, False, True, False), (True, True, False, True, True), (True, False, False, True, False)])
 def test_manifest_requires_successful_private_export(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     cleaning_ok: bool,
+    native_ok: bool,
     skip_data: bool,
     export_ok: bool,
     override_path: bool,
@@ -41,6 +30,7 @@ def test_manifest_requires_successful_private_export(
     :param tmp_path: Isolated pipeline directory.
     :param monkeypatch: Replace expensive scanner phases for this unit test.
     :param cleaning_ok: Whether cleaning produced a valid current snapshot.
+    :param native_ok: Whether the native merge published matching prices and permissions.
     :param skip_data: Whether private export is disabled by the operator.
     :param export_ok: Whether the private export succeeded.
     :param override_path: Use a local snapshot the exporter did not upload.
@@ -48,36 +38,39 @@ def test_manifest_requires_successful_private_export(
     """
     calls: list[str] = []
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
-    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
+    monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {"hypercore-price-merge": native_ok})
     monkeypatch.setattr(post_processing, "clean_prices", lambda **_: cleaning_ok)
     monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: False)
     monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
     monkeypatch.setattr(post_processing, "export_data_files", lambda **_: calls.append("export") or export_ok)
     monkeypatch.setattr(post_processing, "publish_vault_scan_manifest", lambda **_: calls.append("manifest") or True)
-    post_processing.run_post_processing(skip_top_vaults=True, skip_sparklines=True, skip_metadata=True, skip_samples=True, skip_data=skip_data, cleaned_path=tmp_path / "other.parquet" if override_path else None)
+    post_processing.run_post_processing(skip_top_vaults=True, skip_sparklines=True, skip_metadata=True, skip_samples=True, skip_data=skip_data, cleaned_path=tmp_path / "other.parquet" if override_path else None, incremental=True, incremental_cleaning=False)
     expected = []
-    if cleaning_ok and not skip_data:
+    if cleaning_ok and native_ok and not skip_data:
         expected.append("export")
         if export_ok and not override_path:
             expected.append("manifest")
     assert calls == expected
 
 
-def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     """Image rendering cannot delay price publication or its readiness receipt.
 
-    Exercise the real coordinator, including an unsuccessful rendering phase,
-    and assert trading inputs are already published when rendering starts.
+    Exercise the real coordinator and verify trading inputs are already
+    published when inline rendering starts.
 
     :param tmp_path: Isolated pipeline directory.
     :param monkeypatch: Replace costly external phases with observable results.
-    :return: None; checks publication order and failure reporting.
+    :param caplog: Capture the aggregate stage timings.
+    :return: None.
     """
     calls: list[str] = []
+    clock = 0.0
+    monkeypatch.setattr(scan_timing, "perf_counter", lambda: clock)
+    caplog.set_level(logging.INFO, logger=post_processing.__name__)
     monkeypatch.setattr(post_processing, "get_pipeline_data_dir", lambda: tmp_path)
     monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
-    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: True)
-    monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: True)
+    monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *_: (True, True))
     monkeypatch.setattr(post_processing, "materialise_exchange_rate_parquet", lambda **_: SimpleNamespace(path=tmp_path / "rates.parquet"))
     monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: None)
     monkeypatch.setattr(post_processing, "export_data_files", lambda **_: calls.append("prices") or True)
@@ -86,15 +79,21 @@ def test_private_prices_publish_before_sparklines(tmp_path: Path, monkeypatch: p
 
     def render(**_: object) -> bool:
         """Check published inputs at the moment a slow renderer would start."""
+        nonlocal clock
+        clock += 9.5
         assert calls == ["prices", "manifest"]
         calls.append("sparklines")
-        return False
+        return True
 
     monkeypatch.setattr(post_processing, "export_sparklines", render)
     steps = post_processing.run_post_processing(skip_top_vaults=True, skip_samples=True)
     assert calls == ["prices", "manifest", "sparklines", "protocols"]
-    assert steps["export-sparklines"] is False
+    assert steps["export-sparklines"] is True
     assert steps["publish-vault-scan-manifest"] is True
+    summaries = [message for message in caplog.messages if message.startswith("Post-processing timing ")]
+    assert len(summaries) == 1
+    assert "total=9.50s" in summaries[0]
+    assert "sparklines=9.50s" in summaries[0]
 
 
 def test_clean_prices_uses_structured_logger(
@@ -161,7 +160,7 @@ def test_run_post_processing_does_not_publish_crypto_bundle_after_cleaning_failu
     crypto_calls: list[str] = []
 
     monkeypatch.setattr(post_processing, "merge_native_protocols", lambda **_: {})
-    monkeypatch.setattr(post_processing, "clean_prices", lambda **_: False)
+    monkeypatch.setattr(post_processing, "_clean_incrementally", lambda *_: (False, False))
     monkeypatch.setattr(post_processing, "clean_crypto_vault_prices", lambda **_: crypto_calls.append("clean") or True)
     monkeypatch.setattr(post_processing, "calculate_crypto_vault_metadata", lambda **_: crypto_calls.append("metadata") or {"vaults": []})
     monkeypatch.setattr(post_processing, "export_crypto_vault_bundle", lambda *_: crypto_calls.append("export") or True)

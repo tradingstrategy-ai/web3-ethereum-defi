@@ -7,7 +7,9 @@ from functools import cached_property
 from typing import Iterable
 
 from eth_typing import BlockIdentifier, HexAddress
+from requests.exceptions import RequestException
 from web3.contract import Contract
+from web3.exceptions import Web3Exception
 
 from eth_defi.abi import ZERO_ADDRESS_STR, get_deployed_contract
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
@@ -17,9 +19,12 @@ from eth_defi.erc_4626.vault_protocol.plutus.deposit_redeem import PlutusAsyncDe
 from eth_defi.erc_4626.vault_protocol.plutus.tags import STRATEGY_TAGS
 from eth_defi.event_reader.conversion import convert_int256_bytes_to_int
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.utils import from_unix_timestamp
 from eth_defi.vault.base import (
     DEPOSIT_CLOSED_BY_ADMIN,
     REDEMPTION_CLOSED_BY_ADMIN,
+    RedemptionRequestObservation,
     VaultHistoricalRead,
     VaultHistoricalReader,
 )
@@ -37,6 +42,12 @@ PLUTUS_ASYNC_VAULT_ADDRESSES = frozenset(
         "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a",  # Plutus Hedge Token (plvHedge), Arbitrum
     }
 )
+
+
+#: Arbitrum plvHedge switched to the asynchronous implementation in this block.
+#: The EIP-1967 implementation changes from 0x64c976e0c35252740affda1c13bcec70283b3218
+#: to 0xf2b0b9cceaf4a58807168bbf99499c7093bb46d1 between blocks 482012154 and 482012155.
+PLUTUS_HEDGE_V2_BLOCK = 482_012_155
 
 
 class PlutusDepositManager(ERC4626DepositManager):
@@ -122,17 +133,21 @@ class PlutusDepositManager(ERC4626DepositManager):
 
 
 class PlutusHistoricalReader(ERC4626HistoricalReader):
-    """Read Plutus vault core data + deposit/redemption state via maxDeposit/maxRedeem.
+    """Read deposit and redemption gates at each historical block.
 
-    - Plutus vaults are manually opened/closed
-    - Uses ERC-4626 ``maxDeposit(address(0))`` and ``maxRedeem(address(0))``
-      to determine if deposits/redemptions are open
-    - Trading state is not tracked (always ``None``)
+    HedgeVaultV2 accepts queued redemption requests while withdrawals are
+    unpaused. The legacy synchronous vaults use the ownerless ERC-4626 check.
     """
 
     def construct_multicalls(self) -> Iterable[EncodedCall]:
         yield from self.construct_core_erc_4626_multicall()
         yield from self.construct_max_redeem_call()
+        if self.vault.is_async_redemption_deployment():
+            yield EncodedCall.from_contract_call(
+                self.vault.vault_contract.functions.withdrawalsPaused(),
+                extra_data={"function": "withdrawalsPaused", "vault": self.vault.address},
+                first_block_number=max(self.first_block or 0, PLUTUS_HEDGE_V2_BLOCK),
+            )
 
     def construct_max_redeem_call(self) -> Iterable[EncodedCall]:
         """Plutus uses maxRedeem(address(0)) to signal whether redemptions are open."""
@@ -164,11 +179,18 @@ class PlutusHistoricalReader(ERC4626HistoricalReader):
 
         max_redeem = None
         redemption_open = None
-        max_redeem_result = call_by_name.get("maxRedeem")
-        if max_redeem_result and max_redeem_result.success and self.vault.share_token is not None:
-            raw_max_redeem = convert_int256_bytes_to_int(max_redeem_result.result)
-            max_redeem = self.vault.share_token.convert_to_decimals(raw_max_redeem)
-            redemption_open = max_redeem > 0
+        if self.vault.is_async_redemption_deployment() and block_number >= PLUTUS_HEDGE_V2_BLOCK:
+            paused = call_by_name.get("withdrawalsPaused")
+            if paused and paused.success and len(paused.result) == 32:
+                raw_paused = int.from_bytes(paused.result)
+                if raw_paused in (0, 1):
+                    redemption_open = raw_paused == 0
+        else:
+            max_redeem_result = call_by_name.get("maxRedeem")
+            if max_redeem_result and max_redeem_result.success and self.vault.share_token is not None:
+                raw_max_redeem = convert_int256_bytes_to_int(max_redeem_result.result)
+                max_redeem = self.vault.share_token.convert_to_decimals(raw_max_redeem)
+                redemption_open = max_redeem > 0
 
         return VaultHistoricalRead(
             vault=self.vault,
@@ -212,7 +234,7 @@ class PlutusVault(ERC4626Vault):
         :return:
             ``True`` for the upgraded Hedge (``HedgeVaultV2``) deployment.
         """
-        return self.address.lower() in PLUTUS_ASYNC_VAULT_ADDRESSES
+        return self.chain_id == 42161 and self.address.lower() in PLUTUS_ASYNC_VAULT_ADDRESSES
 
     @cached_property
     def vault_contract(self) -> Contract:
@@ -318,12 +340,41 @@ class PlutusVault(ERC4626Vault):
             pass
         return None
 
+    def fetch_withdrawals_paused(self, block_identifier: BlockIdentifier = "latest") -> bool:
+        """Read the HedgeV2 request gate shared by reporting and preflight.
+
+        :param block_identifier: Block number or tag for the pause state.
+        :return: True when new redemption requests are paused.
+        """
+        return self.vault_contract.functions.withdrawalsPaused().call(block_identifier=block_identifier)
+
+    def fetch_redemption_request_observation(self, block_identifier: BlockIdentifier) -> RedemptionRequestObservation | None:
+        if not self.is_async_redemption_deployment():
+            return None
+        header = self.web3.eth.get_block(block_identifier)
+        block_number = header["number"]
+        if block_number < PLUTUS_HEDGE_V2_BLOCK:
+            return None
+        try:
+            paused = self.fetch_withdrawals_paused(block_number)
+        except (Web3Exception, RequestException, ProbablyNodeHasNoBlock, ValueError):
+            logger.debug("Could not read Plutus withdrawals pause at block %d", block_number, exc_info=True)
+            paused = None
+        return RedemptionRequestObservation(
+            block_number,
+            from_unix_timestamp(header["timestamp"]),
+            None if paused is None else not paused,
+            REDEMPTION_CLOSED_BY_ADMIN if paused else None,
+        )
+
     def fetch_redemption_closed_reason(self) -> str | None:
         """Check maxRedeem to determine if redemptions are closed.
 
         Plutus vaults are manually opened/closed by admin.
         """
         try:
+            if self.is_async_redemption_deployment() and self.web3.eth.block_number >= PLUTUS_HEDGE_V2_BLOCK:
+                return REDEMPTION_CLOSED_BY_ADMIN if self.fetch_withdrawals_paused() else None
             max_redeem = self.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
             if max_redeem == 0:
                 return f"{REDEMPTION_CLOSED_BY_ADMIN} (maxRedeem=0)"
@@ -340,8 +391,5 @@ class PlutusVault(ERC4626Vault):
         return None
 
     def can_check_redeem(self) -> bool:
-        """Plutus supports address(0) checks for redemption availability.
-
-        - maxRedeem(address(0)) returns 0 when admin has closed redemptions
-        """
-        return True
+        """Allow ownerless immediate-capacity probes for synchronous deployments."""
+        return not self.is_async_redemption_deployment()

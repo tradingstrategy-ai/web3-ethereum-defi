@@ -196,48 +196,18 @@ prices are not advanced to the current time.
 Migration
 ---------
 
-Run ``scripts/infinit/migrate-infinit.py`` once to recover discovery provenance,
-refresh metadata and backfill Infinit history. It also updates cleaned history
-when that dataset exists. ``DRY_RUN`` is the only operation switch: it defaults
-to ``true`` and performs the complete operation on temporary copies; ``false``
-publishes validated outputs with unique backups under the pipeline lock.
-Unrelated vaults, reader state and discovery cursors are preserved.
+The original Infinit repair refreshed discovery provenance, metadata and raw
+and cleaned price history. Its historical reader used the contiguous range in
+the dense Arbitrum timestamp cache after deployment, bounded by the safe RPC
+head. Incomplete source coverage, unreadable Parquet or an uncheckpointed
+context WAL prevented publication. An interruption between file replacements
+could require restoring backups.
 
-Local use:
-
-.. code-block:: shell
-
-   source .local-test.env
-   DRY_RUN=true poetry run python scripts/infinit/migrate-infinit.py
-   DRY_RUN=false poetry run python scripts/infinit/migrate-infinit.py
-
-For an isolated rehearsal, set ``PIPELINE_DATA_DIR`` to copied pipeline datasets
-and ``TIMESTAMP_CACHE_PATH`` to a directory containing a copy of
-``42161-timestamps.duckdb`` before running those same commands. Existing
-file-path overrides remain available. The script reads the dense Arbitrum
-timestamp cache without changing it and automatically limits history to its
-contiguous cached range after deployment, bounded by the safe RPC head. Restore
-that cache first if it does not cover deployment. Cache preparation uses
-``fetch_block_timestamps_using_hypersync_cached()``.
-There are no stage, cleaning or block-range switches to configure.
-
-Production use, after deploying the intended image and stopping conflicting
-scanner writes, from ``~/vault-scanner/web3-ethereum-defi``:
-
-.. code-block:: shell
-
-   source ~/vault-scanner/vault-rpc.env
-   docker compose stop vault-scanner-looped
-   docker compose run --rm -e DRY_RUN=true --entrypoint poetry vault-scanner-oneshot run python scripts/infinit/migrate-infinit.py
-   docker compose run --rm -e DRY_RUN=false --entrypoint poetry vault-scanner-oneshot run python scripts/infinit/migrate-infinit.py
-
-Review the dry-run summary before apply, then resume the scanner with
-``docker compose up -d vault-scanner-looped``. This uses the
-service's normal persistent mounts and overrides its all-chain entrypoint.
-Do not change ``HOME`` or remove reader state. Publication replaces each file
-atomically; an interrupted multi-file publication can require restoring backups.
-Unreadable Parquet, incomplete source coverage and uncheckpointed context WALs
-abort publication.
+The standalone script is retained as a historical reference. For a new repair, use the
+`numbered migration guide <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md#historical-price-backfills>`__.
+Rehearse on copied datasets and a copy of ``42161-timestamps.duckdb``.
+The `October 2026 rehearsal <https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/infinit/README.md#validation>`__
+records the source coverage and row counts.
 
 Real integration checks
 -----------------------

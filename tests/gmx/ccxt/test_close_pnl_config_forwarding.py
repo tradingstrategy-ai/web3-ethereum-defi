@@ -1,7 +1,6 @@
 """The ccxt close path must forward the configured PnL-payout direction.
 
-Regression for a gap found while reviewing the GMX PnL-token fix
-(``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md``): ``OrderParams``
+``OrderParams``
 and ``DecreaseOrder.create_decrease_order()`` accept
 ``decrease_position_swap_type`` / ``should_unwrap_native_token``, but neither
 ``_convert_ccxt_to_gmx_params()`` nor the ``close_kwargs`` it feeds into

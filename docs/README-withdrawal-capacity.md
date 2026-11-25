@@ -30,17 +30,34 @@ capacity measurement uses direct cash, capped by total asset entitlement.
 Morpho V1 reads the withdrawal queue, supplied market positions and available
 market cash, with stored-interest conservative rounding. Morpho V2 includes only
 the configured ordinary withdrawal route; optional paid recovery is excluded.
+Both catalogue JSON exports also set `capacity_warning` from the latest retained
+[Morpho vault-level `low_liquidity` warning](https://docs.morpho.org/get-started/resources/app-ecosystem/#morpho-warnings).
+The observation records this signal as `morpho_low_liquidity`.
+`capacity_warning_source` is `measured`, `structural`, or `both` for the
+existing checks, `morpho` when Morpho is the sole trigger, and `null` when no
+warning applies. Transient API errors may retain the last
+Morpho warning until another definitive response arrives. The local refresh
+report includes this signal when its input contains the stored Morpho metadata.
 
 IPOR with no instant-withdrawal fuses uses idle assets; configured fuses currently
 produce an explicit partial result because idle cash alone cannot describe their
-market exits. Fluid with zero cash in its configured liquidity contract has zero
-capacity; nonzero cash remains partial until its expanding withdrawal limit is
-resolved. Native fTokens use the Liquidity contract's native balance, identified
-by `NATIVE_TOKEN_ADDRESS()`, instead of its WETH balance. Wrapped-token donations
-or dust do not measure native reserves. An older wrapped-native deployment that
-does not expose this interface remains partial, with its observed native balance
-recorded separately. An unknown chain wrapper mapping also remains partial.
-These limits must not be inferred from a zero-share account's maxima.
+market exits.
+
+For Fluid fTokens, a zero balance in the confirmed withdrawal currency establishes
+zero capacity. Nonzero balances leave capacity unknown until the expanding withdrawal
+limit is resolved. Native fTokens identify the currency with `NATIVE_TOKEN_ADDRESS()`
+and read the Liquidity contract's native balance. If the currency cannot be
+confirmed, the result stays partial. The reader records the observed native
+balance separately when the chain's wrapped native token is known and matches
+the vault denomination.
+
+For the [Fluid Lite USD Vault](https://docs.fluid.instadapp.io/lite-usd/index.html),
+the reader records TVL and idle USDC and leaves capacity unknown. It identifies
+the reviewed Lite implementation at the observation block and skips the fToken
+liquidity checks. The next successful scheduled refresh replaces the previous
+failed observation.
+
+A zero-share account's withdrawal maxima provide no evidence of global capacity.
 At the recorded stcUSD fork, available cash after reserved withdrawal claims is 42.590261 USDC against
 57.010412 USDC TVL, so it does not warn: the earlier 42.953828-USDC limit was a **deposit** limit.
 
@@ -91,8 +108,8 @@ Warnings are assessed when the export is generated. Daily observations expire
 after 26 hours and weekly observations after seven days plus two hours. Legacy
 observations without a recorded interval use 26 hours. Older observations become
 unknown; consumers reusing an exported file must also check its observation
-timestamp. Old rows without an observation remain unknown until the loop reads
-them. No one-off catalogue migration is needed. Trade-executor consumption
+timestamp. For old rows, the measured capacity remains unknown until the loop
+reads them. No one-off catalogue migration is needed. Trade-executor consumption
 remains separate.
 
 Euler EVK vaults use `cash()` (accounted unborrowed assets), bounded by total
@@ -108,7 +125,7 @@ must not be applied to those metavaults.
 the adaptive export freshness limit for all vaults. It does not change the daily
 or weekly acquisition schedule. Leave it unset or empty to use each observation's
 recorded cadence plus grace. Numeric coverage remains partial for IPOR routes
-with configured fuses and Fluid routes with nonzero liquidity.
+with configured fuses, Fluid fToken routes with nonzero liquidity and Fluid Lite.
 
 `tiny_tvl` warns when total USD TVL is strictly below **USD 10,000**; exactly
 USD 10,000 does not warn. It is independent of the 15% withdrawal-buffer rule.

@@ -47,7 +47,7 @@ from eth_defi.types import Percent
 from eth_defi.vault.base import VaultFlowManager, VaultInfo, VaultSpec, WithdrawalDelayType, WithdrawalPeriod, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.deposit_redeem import VaultDepositManagerCapability
 from eth_defi.vault.exception import UnsupportedVaultVersion
-from eth_defi.vault.fee import FeeData
+from eth_defi.vault.fee import FeeData, HighWaterMark
 from eth_defi.vault.flag import MISSING_IN_PROTOCOL_FRONTEND, UNCONFIRMED_PROTOCOL_LISTING, VaultFlag
 from eth_defi.vault.handwritten_metadata import get_handwritten_vault_metadata
 from eth_defi.vault.strategy_tag import StrategyTag
@@ -308,12 +308,13 @@ class AutomatedSafe:
         )
 
     def fetch_trading_strategy_module_version(self) -> str | None:
-        """Perform deployed smart contract probing.
+        """Read the Safe's TradingStrategyModuleV0 ABI version.
 
-        :return:
-            v0.1.0 or v0.1.1.
+        :py:meth:`transact_via_trading_strategy_module` uses this version to
+        select the module's supported ``performCall`` signature.
 
-            None if not TS module associated.
+        :return: The Solidity version string, ``v0.1.0`` for a legacy module
+            whose version probe reverts, or ``None`` when no module is configured.
         """
 
         if not self._trading_strategy_module_address:
@@ -329,19 +330,18 @@ class AutomatedSafe:
 
         try:
             version_bytes = probe_call.call(self._automated_safe_web3, block_identifier="latest")
-            return version_bytes.decode("utf-8")
         except (ValueError, ContractLogicError):
             # getTradingStrategyModuleVersion() was not yet created
             return "v0.1.0"
 
-    @cached_property
-    def trading_strategy_module_version(self) -> str:
-        """Get TradingStrategyModuleV0 contract ABI version.
+        # Solidity ABI-encodes a string with an offset, length and padded data.
+        # Decoding the entire response as UTF-8 includes these words in the version.
+        return eth_abi.decode(["string"], version_bytes)[0]
 
-        - Subject to change, development in progress
-        """
-        version = self.fetch_trading_strategy_module_version()
-        return version
+    @cached_property
+    def trading_strategy_module_version(self) -> str | None:
+        """Cached result of :py:meth:`fetch_trading_strategy_module_version`."""
+        return self.fetch_trading_strategy_module_version()
 
     def transact_via_exec_module(
         self,
@@ -467,6 +467,9 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
     `ERC-7540 <https://eips.ethereum.org/EIPS/eip-7540>`__ for the asynchronous
     request lifecycle.
     """
+
+    #: Performance fees at settlement use the vault-wide high-water mark.
+    high_water_mark = HighWaterMark.vault_shared
 
     def __init__(  # noqa: PLR0917 - Constructor follows the shared vault adapter API.
         self,
@@ -1315,6 +1318,35 @@ class LagoonVault(ERC7540Vault, AutomatedSafe):  # noqa: PLR0904 - Protocol adap
         Lagoon exposes the generic fee fields in one ``feeRates()`` call. Read
         that tuple once so fixed-block scans cannot mix historical vault state
         with current fee state and ordinary scans avoid duplicate RPC calls.
+
+        Lagoon uses :attr:`~eth_defi.vault.fee.VaultFeeMode.internalised_minting`.
+        At settlement the vault pays management and performance fees by issuing
+        shares to the fee recipients. The mint increases the share supply while
+        the vault holds the same assets. The settled price per share therefore
+        already reflects both fees. Deducting either fee again would understate
+        investor returns. Entry and exit fees apply separately.
+
+        The following releases document the settlement calculation.
+
+        - The `legacy v0.0 fee manager <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.1.0/src/vault0.0/FeeManager.sol#L92-L105>`__
+          used the pre-mint price to update the vault-wide high-water mark, then
+          minted the manager's and protocol's shares. The
+          `v0.1.0 fee manager <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.1.0/src/vault/FeeManager.sol#L92-L106>`__
+          minted first and used the diluted price to update the mark. This changed
+          the threshold for future performance fees. The
+          `v0.5.1 fee manager <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.6.0/src/v0.5.1/FeeManager.sol#L94-L111>`__
+          retained this order.
+        - At `v0.6.0 settlement <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.6.0/src/v0.6.0/vault/Vault-v0.6.0.sol#L503-L529>`__,
+          the `fee library <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.6.0/src/v0.6.0/libraries/FeeLib.sol#L145-L225>`__
+          prorates the annual management fee over the elapsed time using the
+          average of the previous and current asset valuations. It charges the
+          performance fee on gains above the shared mark using the price after
+          management fees. It converts both charges to shares, mints them through
+          `ERC7540.forge <https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.6.0/src/v0.6.0/ERC7540.sol#L489-L499>`__
+          and uses the resulting price from ``convertToAssets`` to update the mark.
+
+        The v1 deployment sampled on Base exposed the same five fee-rate fields
+        as v0.6.0. Its fee calculation remains unverified at the Solidity source level.
 
         :return:
             Normalised management, performance, deposit and withdrawal fees.

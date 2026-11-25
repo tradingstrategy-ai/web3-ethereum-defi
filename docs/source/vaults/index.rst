@@ -226,6 +226,7 @@ Supported protocols
    nara/index
    nest/index
    pallas/index
+   pear/index
    plutus/index
    renalta/index
    resolv/index
@@ -253,6 +254,7 @@ Supported protocols
    teller/index
    term_finance/index
    threejane/index
+   buoy/index
    tori/index
    truefi/index
    umami/index

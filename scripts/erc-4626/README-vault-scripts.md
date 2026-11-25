@@ -1,20 +1,12 @@
 # ERC-4626 vault scripts
 
-For new database repairs, use the [numbered migration system](../../.claude/docs/migration-scripts.md).
-The `vault-migrate` command lists, previews and applies pending scripts in order.
-Both preview and apply require `vault-scanner-looped` to be stopped, including
-its sleep intervals. Production uses the one-shot Compose service:
-
-```shell
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-```
-
-Run from the production checkout using a stamped image built as described in
-the migration guide. See [Docker migrations](#run-numbered-database-migrations)
-below for the deployment requirements.
-
-
 Scripts for discovering, scanning, analysing, and debugging ERC-4626 vault data.
+
+With Docker Compose 2.24.6 or later, `docker compose up -d` from the repository
+root reads `../vault-rpc.env` when it exists. Use Compose dotenv syntax for the
+file, such as `export NAME="value"`.
+Exported shell variables and the checkout's `.env` take precedence over the RPC
+file. Compose uses the scanner defaults for settings left unset.
 
 All scripts use environment variables for configuration.
 Run with `poetry run python scripts/erc-4626/<script>.py`.
@@ -25,67 +17,43 @@ For a stateful manual capacity check on one chain, use
 It runs normal due batches against an isolated copy and preserves resumable
 check timestamps without changing the source catalogue.
 
+## Incremental vault price publication
+
+The looped scanner, one-shot scanner and standalone post-processing command skip unchanged native merges and reuse cleaned histories by default. Run them with the usual scanner configuration. For a comparison or recovery run, these optional overrides select which work to repeat.
+
+| Optional override | Behaviour |
+| --- | --- |
+| Neither variable set | Reuse verified native and cleaned histories. |
+| `INCREMENTAL_CLEANING=false` | Reuse unchanged native histories and run the full cleaner. |
+| `INCREMENTAL_POST_PROCESSING=false` | Run the full native merge and cleaner. |
+
+An EVM price write preserves the native source revisions in the combined raw Parquet footer. The scanner compares the configured native sources, including their DuckDB write-ahead logs, before building histories. Lighter Ethereum and Robinhood share a database and have separate content fingerprints. Changed native scopes share one rewrite of the combined raw file. Listings, rankings and exports keep their existing schedules.
+
+ApeX records ranking observations with microsecond timestamps. The raw price file stores milliseconds. The merge matches each ApeX observation by lower-case address and stored millisecond, so a replay updates the existing price. Two source observations in the same millisecond make the price ambiguous and leave the ApeX stage pending. Retained EVM prices can share an address and timestamp across different blocks. A successful top-vault JSON upload is independent of the native merge and does not establish that a new price file was published.
+
+For a raw file affected by the November 2026 ApeX duplication, run [migration 106](../../migration/scripts/106-apex-price-key-collisions.py) with the matching checkpointed ApeX archive. Follow the [production migration runbook](../../.claude/docs/migration-scripts.md#production-runbook). On restart, check the native merge, cleaning and private price export results before considering publication recovered.
+
+The first incremental clean establishes a baseline for the stablecoin hourly, stablecoin daily and combined crypto daily files. When an input changes, the scanner compares raw histories, cleaner metadata and settlements for each chain and vault. A historical correction recalculates the vault's complete history. A changed transform, a missing or replaced output, or changes affecting over half the current eligible raw rows trigger full cleaning. Changing `CRYPTO_VAULTS_MIN_TVL_USD` also invalidates the cleaning baseline. The checkpoint sits beside the hourly file with the suffix `.cleaning.json`.
+
+If an old source database lacks a required column, run its normal schema-owning collector or apply the relevant numbered migration before retrying. A previously published archive that loses a vault or its date range requires a verified source restore or an intentional numbered repair.
+
+If a cycle is interrupted, leave `post-processing-pending.json` in the pipeline data directory. The loop retries interrupted work and failed native merges or cleaning even when no collectors are due. A persistent local failure stops an idle retry before exports. Export-only failures remain pending until the next scheduled publication. The warning gives the failed stages, elapsed time and attempt count. On a fresh scanner, the first EVM price collection creates the combined raw file. Restore or rebuild the EVM history if that file goes missing later. For an intentionally new native-only dataset, run the configured native merge once with `INCREMENTAL_POST_PROCESSING=false` to create the raw file. Subsequent runs use the defaults. For an unexpected canonical-key collision or shortened native archive, inspect the source and last verified file before repairing persisted data. The feature creates its checkpoints on first use. A data repair, if needed, follows the [numbered migration procedure](../../.claude/docs/migration-scripts.md).
+
+To validate a deployment, run the [one-chain comparison and timing procedure](../../docs/claude-plans/2026-11-22-incremental-vault-post-processing.md#manual-test-with-one-chain-due) on an isolated copy of scanner state. Record the complete cycle time alongside the merge and cleaning times.
+
+To diagnose a Base cycle, find a `Scan tick timing` INFO line whose `chains=` list includes Base. It gives wall-clock seconds for preparation, EVM scans and settlements, protocol collectors, retries, withdrawal capacity and shared post-processing. Use the preceding `EVM scan timing chain=Base` for discovery and prices, and `Raw price writer timing chain=8453` for the cost of reading and copying history versus collecting and writing new rows. The writer reports the final counts of retained, removed and new rows after restoring any protected history. `Post-processing timing` splits shared work into native merge, cleaning, listing, crypto metrics and individual export phases, including the names of failed steps. These breakdowns are nested within the tick. Compare the existing `Vault scanner cycle` total against the one-hour budget because it also includes scheduler and lock time.
+
 ## Instructions for migration scripts
 
-Read the [migration documentation](../../.claude/docs/migration-scripts.md)
-before implementing or running a one-off database repair, data/schema
-migration, historical lead repair or refresh of persisted Python accessor data.
-The supported format is `migration/scripts/NNN-name.py`, exporting
-`migrate(context: MigrationContext) -> None`, executed by `vault-migrate`.
-
-**Standalone `migrate-*.py`, `fix-*.py` and one-off backfill scripts are legacy
-format and must not be used for these tasks anymore.** Do not generate another
-`migrate-<protocol>-vaults.py`, copy an old repair or invoke a legacy script to
-bypass the migration runner. Port the required operation into a new numbered
-migration, reusing pure transformation or historical-reader helpers as needed.
-
-- Allocate the next unused counter. The initial 001–009 batch is a historical
-  batch, not a set of commands to rerun for later accessor changes.
-- Freeze the reviewed targets and fields. `DRY_RUN` is the only
-  migration-specific operator input; credentials, worker limits and storage
-  remain infrastructure configuration.
-- Use the shared context for staged metadata, structured reporting and commits.
-  Preview must preserve databases, caches and the journal. Apply must retain
-  recovery evidence and validate committed data.
-- Preserve unrelated metadata, leads, historical prices, timestamp caches and
-  reader state. Add a historical backfill or reader-state change only when the
-  reviewed migration explicitly requires it. Historical price backfills follow
-  the [backfill rules](../../.claude/docs/migration-scripts.md#historical-price-backfills) in the migration guide.
-- Both preview and apply require the daemon and competing writers to be
-  stopped. Use the production Compose command above and follow the
-  documented lifecycle-guard-before-writer-lock order; helpers must not relock.
-
-For local authoring checks, set `PIPELINE_DATA_DIR` to an isolated snapshot
-directory, then use:
-
-```shell
-poetry run vault-migrate list
-DRY_RUN=true poetry run vault-migrate run
-DRY_RUN=false poetry run vault-migrate run
-```
-
-For a worktree using the parent Poetry environment, use the module form and
-`PYTHONPATH="$PWD"` described in the migration guide. The production Compose
-service retains the persistent mounts; the engine reads the image's git stamp.
-Restart the same image afterwards for normal cleaning, exports and uploads.
+For a database repair, persisted accessor refresh or historical backfill, add a [numbered migration](../../.claude/docs/migration-scripts.md#authoring-a-migration). The runner previews and applies pending scripts in order.
 
 ### Pull request run reminder
 
-Every PR adding a migration must include a **Run after merge** comment with
-its numbered filenames, reviewed scope, expected counts, required services,
-exact production Compose preview/apply commands, affected files, recovery
-precautions and post-run validation criteria. Record the deployed commit,
-UTC date and result after execution. Merging a PR does not run it.
-Use the authoring and production runbook in the migration guide as the source
-of truth for these instructions.
+Include the [migration run reminder](../../.claude/docs/migration-scripts.md#pull-request-reminder-and-checks) with the scope, expected changes and production commands.
 
 ### Reading the legacy catalogue
 
-The standalone repair and one-off backfill commands retained below are
-**legacy runbook references**, not the workflow for new maintenance tasks.
-Port a required repair into a numbered migration before running it. Recurring
-scanners, collectors, normal historical readers and read-only tools in this
-catalogue keep their existing commands.
+The standalone repair and one-off backfill sections below document earlier repairs. Port any required operation into a new numbered migration before use. Scheduled collectors and read-only diagnostics retain their normal entry points.
 
 ### Hyperliquid corruption recovery
 
@@ -2075,33 +2043,12 @@ be purged and rescanned.
 
 ### migrate-lagoon-fee-mode.py
 
-Repair stale fee-accounting modes on Lagoon metadata rows. Older rows contain
-the correct management and performance percentages but no fee mode because the
-fee matrix previously used the non-canonical protocol name `Lagoon`. The
-migration sets the mode to `externalised`, allowing the export pipeline to
-calculate net investor returns. It only changes the metadata pickle; vault
-prices, reader state, and the stored fee percentages remain unchanged.
-
-Inspect the proposed migration first:
-
-```shell
-source .local-test.env && \
-DRY_RUN=true \
-poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
-```
-
-Then persist the repair:
-
-```shell
-source .local-test.env && \
-DRY_RUN=false \
-poetry run python scripts/erc-4626/migrate-lagoon-fee-mode.py
-```
-
-Set `VAULT_DB_PATH` to target a downloaded or test metadata pickle. The script
-defaults to dry-run mode and creates a non-overwriting
-`*.bak-lagoon-fee-mode` backup before writing. Run `export-data-files.py`
-afterwards to publish regenerated fee-adjusted metrics.
+Historical repair for the Lagoon scanner protocol name change. It wrote the
+former `externalised` classification. Numbered migration
+[`107-vault-high-water-marks.py`](../../migration/scripts/107-vault-high-water-marks.py)
+updates saved Lagoon vaults to `internalised_minting`. Follow the
+[production migration runbook](../../.claude/docs/migration-scripts.md#production-runbook)
+for the metadata refresh and subsequent export.
 
 ### migrate-lagoon-private-vaults.py
 
@@ -2215,19 +2162,29 @@ poetry run python scripts/erc-4626/clean-prices.py
 
 ### export-sparklines.py
 
-Export eligible vault share-price sparklines to Cloudflare R2. Run after the
-crypto daily file `crypto-vaults/crypto-cleaned-vault-prices-1d.parquet` is
-generated. This standalone operator command neither refreshes that input nor
-checks its age; use `post-process-prices.py` when the current scan must be
-cleaned and validated before publication.
+The looped and one-shot scanners publish eligible vault share-price
+sparklines to Cloudflare R2 during post-processing. If the previous
+deployment started a background publisher, run
+`docker compose stop sparkline-worker` from that deployment's checkout
+before switching to the new Compose configuration.
+The exporter reuses existing publication state. The change requires no data
+migration.
+
+Run the standalone exporter after generating the daily crypto price file
+`crypto-vaults/crypto-cleaned-vault-prices-1d.parquet`. Use
+`post-process-prices.py` to clean and validate the current scan before
+publication. Run manual exports between scanner cycles so they can acquire
+the shared pipeline lock.
 
 A vault is eligible when its denomination is a supported stablecoin, ETH or
 BTC family and it has two valid share-price observations at distinct timestamps,
 including on its first trading day. Low-TVL vaults (below 5,000 stablecoin units, 2.5 ETH or 0.1
 BTC) are successfully published at most once every 72 hours; high-TVL vaults
 are considered on every invocation. The persistent
-`sparkline-export-state.json` file records cadence, input hashes and bounded
-failure backoff, renderer version and the non-secret R2 destination identity.
+`sparkline-export-state.json` file records cadence, input hashes, bounded
+failure backoff, renderer version, confirmed image digests and the non-secret
+R2 destination identity. Existing state gains the optional image digests as
+vaults publish successfully, so the change needs no migration.
 The BTC boundary is the explicit 0.1 BTC native-unit policy; its USD-equivalent
 conversion is only a fixed consistency check, not a live valuation. Set
 `FORCE_SPARKLINE_EXPORT=true` to repair state or remote object drift.
@@ -2238,17 +2195,23 @@ right, while the period before its first observation stays blank. An inactive
 vault whose latest observation is older than the dataset-wide latest timestamp
 is still rendered from its own history. The exporter publishes one 100 × 25
 SVG, one legacy 300 × 300 PNG and one native 300 × 75 table PNG for each vault.
+Pillow draws the square chart at twice its output resolution and downsamples
+with a box filter before [fpng](https://github.com/dofuuz/py-fpng-nb) encodes
+the PNG. Previously published charts adopt these settings on their next render.
 The existing `sparkline-90d-{vault_id}.svg` and `.png` object names remain;
 the new `sparkline-table-90d-{vault_id}.png` rasterises the canonical SVG with
 uniform 3× scaling, including its 3 px stroke, for 72 × 18 blog/email cells.
 All three assets are required before completion state advances. A missing
 variant or partial upload fails that vault and retains its previous completion
-until a complete retry succeeds. Renderer version 5 invalidates previous
-successful input hashes, including low-TVL cadence skips, so unchanged-input
-vaults receive the table PNG on their next export (retry backoff still applies).
-All assets are gzip-compressed, and
-unchanged source images are skipped using the local input digest before any
-rendering or R2 request.
+until a complete retry succeeds.
+All assets are gzip-compressed. During normal exports, matching chart input
+digests for the current renderer and destination skip rendering and R2
+requests. A matching source fingerprint also skips chart preparation.
+When a rendered image differs from its last confirmed digest for the same
+object and destination, the exporter sends it straight to R2. The remote
+check still verifies matching and unknown digests, and runs during forced
+exports and retries. The export summary reports total time and upload wall
+time, including the wait for the last request in each batch.
 
 ```shell
 poetry run python scripts/erc-4626/export-sparklines.py
@@ -2261,7 +2224,7 @@ poetry run python scripts/erc-4626/export-sparklines.py
 | `R2_SPARKLINE_ACCESS_KEY_ID` | Required. R2 access key ID. |
 | `R2_SPARKLINE_SECRET_ACCESS_KEY` | Required. R2 secret access key. |
 | `SPARKLINE_RENDER_WORKERS` | Optional. Number of sparkline preparation and rendering workers. Default: 6 processes; set `SPARKLINE_RENDER_BACKEND=threads` to use threads. |
-| `SPARKLINE_UPLOAD_WORKERS` | Optional. Number of concurrent R2 upload threads. Default: 8. |
+| `SPARKLINE_UPLOAD_WORKERS` | Optional. Number of concurrent R2 upload threads. Default: 16. |
 | `SPARKLINE_RENDER_BACKEND` | Optional. `processes` or `threads`. Default: `processes`. |
 | `SPARKLINE_MAX_WORKERS` | Deprecated. Fallback for upload threads only; it does not increase the default process count. |
 | `SPARKLINE_BATCH_SIZE` | Optional. Vaults retained in one render/upload batch. Default: 100. |
@@ -2433,22 +2396,7 @@ poetry run python scripts/erc-4626/scan-vault-posts.py
 
 ### Run numbered database migrations
 
-Use the [production migration runbook](../../.claude/docs/migration-scripts.md#production-runbook)
-for building the stamped image, stopping writers, preview and recovery. From
-`~/vault-scanner/web3-ethereum-defi`, the production apply command is:
-
-```shell
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-```
-
-Set `DRY_RUN=true` in that command to preview. The installed `vault-migrate`
-entrypoint runs the numbered migration system instead of the normal scanner.
-Stop `vault-scanner-looped`, `post-scanner` and competing metadata writers first.
-The updated daemon's lifetime lock blocks migrations even during sleep. Keep
-the image unchanged through preview, apply and service recreation. Compose
-uses the image's embedded git commit for migration provenance; no Docker image
-hash or exported provenance variable is needed. The optional host launcher
-remains available for Docker status preflight and automatic image pinning.
+Follow the [production runbook](../../.claude/docs/migration-scripts.md#production-runbook) for image preparation, stopping writers, preview, apply and service restart. Both preview and apply require the looped scanner to be stopped.
 
 ### Scanner image and exports
 
@@ -2767,8 +2715,7 @@ admitted. The read-only `check-upshift-usdc.py` reports them as
 `permissioned_excluded`.
 
 Migration 019 changes only the permission field and fails on unresolved reads.
-Its scope and expected counts are documented in the numbered script. The
-[implementation record](../../docs/superpowers/plans/2026-10-30-upshift-trade-executor-support.md#permission-correction-and-rollout) contains validation and the production run reminder.
+See [migration 019](../../migration/scripts/019-upshift-deposit-permissions.py) for its scope and expected counts, and the [31 October 2026 snapshot](../../docs/protocol-research/2026-10-31-upshift-availability.json) for the observed availability.
 
 ### migrate-withdrawal-period-estimates.py
 
@@ -3458,8 +3405,7 @@ contains the reason replayed on the temporary Anvil fork.
 
 ## Reducing and measuring scanner RPC usage
 
-The [RPC reduction plan](../../docs/claude-plans/2026-09-30-vault-scanner-rpc-reduction.md)
-records the incident counts, six changes and acceptance criteria. RPC reductions
+The [October RPC measurements](../../docs/performance/2026-10-23-scanner-rpc/analysis.md) cover historical polling and metadata batching. RPC reductions
 are always enabled: successful node detection is cached, unused timestamps are
 omitted, classification and metadata observations have bounded lifetimes,
 admission is scheduled before adapter construction, ordinary inputs are batched,
@@ -3727,10 +3673,62 @@ A pending publication journal must be recovered by a normal scanner run before
 a manual backfill can rewrite the shared price file. Successful reader-state
 persistence consumes the journal; damaged critical receipts fail loudly.
 
+### Point-in-time NAV on HyperEVM
+
+Each scheduled HyperEVM price scan collects one current observation per
+admitted live-only vault, before sampling the archive-readable vaults. This
+includes classified Pear vaults and the Hyperdrive HYPED deployment. A
+HyperEVM archive node can replay EVM storage while lacking the HyperCore state
+needed to value these vaults. The ERC-4626 reader therefore collects NAV,
+supply, share price and block time together at `latest`. Each row records its
+own execution block and EVM timestamp at the unconfirmed head. The timestamp
+can differ from a header fetched later. Retries at the same head preserve the original row.
+Missed scans leave gaps; explicit block-range repairs preserve these samples.
+
+The [selection rule](../../eth_defi/erc_4626/core.py) accepts a protocol feature
+or a reviewed deployment address. The Multicall gas greylist and the scanner
+blacklist retain their separate roles in batching and admission.
+
+The [manual Pear report](examine-pear-vault-performance.py) runs the numbered
+metadata and historical price migrations in temporary files, then samples current prices. It uses
+verified launch-to-date observations for gross lifetime CAGR and annualised
+Sharpe. The report requires 30 days for CAGR, and at least 14 days and ten
+price samples for Sharpe.
+
+After merge, run the numbered migrations using the [production migration
+procedure](../../.claude/docs/migration-scripts.md). Migration 097 refreshes
+HYPED's native HYPE denomination and current catalogue NAV. Check its
+`legacy_hyped_price_rows_for_unit_review` count before using a series that
+spans the unit correction. The raw file retains those rows for inspection. The cleaner excludes them from published returns.
+
+Migration 098 imports the four reviewed Pear vaults from the public
+[Pear catalogue](https://pro-gateway.pearprotocol.io/vaults). It keeps the last
+funded observation in each UTC hour before the first hour with a usable
+`latest` or `pear_api` observation.
+If the vault has no saved price, the import ends at the start of the current
+UTC hour. The migration keeps existing block observations, refreshes the four
+curator assignments and vault descriptions, and reports row counts per vault.
+Review the `legacy_pear_price_rows_for_review` counts for any older Pear rows
+whose source was unverified. The raw file retains them for inspection.
+Both the cleaner and the manual report exclude them when calculating returns.
+The preview reports vaults missing from the catalogue. Ensure migration 096
+has registered the four targets before applying the price import.
+The API supplies the recorded timestamps and blocks, so no dense timestamp
+cache is needed for this migration. The scheduled scanner reads Pear NAV
+onchain on subsequent runs.
+
+Migration 099 refreshes the HyperCore trading account and investor fee fields
+for the four Pear vaults already registered by migration 096. Run it with the
+same stopped-scanner production procedure as the other migrations. The next
+scanner cycle publishes the updated vault JSON.
+
+Migration 100 refreshes the four vaults' strategy tags from the maintained
+Pear registry. It updates the catalogue without RPC calls or a price backfill.
+
 ### HyperEVM greylist batching and diagnostic check
 
 Reviewed HyperCore-reading targets are isolated by the shared Multicall reader.
-Normal targets retain standard batching; greylisted targets use separate
+In the ordinary block reader, normal targets retain standard batching; greylisted targets use separate
 one-subcall requests, never mixed with normal calls or another greylisted target.
 The documented `greylist_batch_size` function argument defaults to one and can
 be passed to chunked and historical reader functions. No environment toggle is

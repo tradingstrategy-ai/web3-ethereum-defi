@@ -4,7 +4,7 @@
 
 On 2026-04-28 Ostium upgraded their OLP vault proxy
 (`0x20D419a8e12C45f88fDA7c5760bb6923Cee27F98`) to a new implementation
-that **disables the standard ERC-4626 `deposit()` and `mint()` functions**.
+that **disables the standard ERC-4626 `deposit()`, `mint()`, `withdraw()` and `redeem()` functions**.
 The upgrade replaces synchronous deposits with an async
 request/settle/claim flow.
 
@@ -15,7 +15,7 @@ request/settle/claim flow.
 | V1.5.0 implementation deployed | — | ~2026-04-28 | [GitHub commit](https://github.com/0xOstium/smart-contracts-public/commits/main) |
 | Proxy upgraded to V1.5.0 impl `0xd2619e2012a120504e043f61c8acb3ede2472bf7` | 457,238,658 | 2026-04-28 13:03:25 | [Arbiscan tx](https://arbiscan.io/tx/0x3f25d52219c7a9b2469ac3582c6664940ede80da361b987bad6cab6336619363) |
 | Previous impl was | `0x7912cf084eb45e7d2a2c10dda3e98136d12043fb` | — | — |
-| V1.5.0 source published on GitHub | — | 2026-05-07 | [PR #3](https://github.com/0xOstium/smart-contracts-public/commits/main) |
+| V1.5.0 source published on GitHub | — | 2026-05-07 | [PR #3](https://github.com/0xOstium/smart-contracts-public/pull/3) |
 | Our test trade failure | — | 2026-06-05 14:24 | — |
 
 ## What changed in V1.5.0
@@ -49,8 +49,8 @@ interface:
 
 1. `requestDeposit(uint256 assets)` — user submits USDC, queued for next settlement
 2. Settlement executes through permissionless `tryNewSettlement()` once the
-   vault's on-chain settlement interval has elapsed
-3. `claimDeposit()` — user claims OLP shares after settlement
+   vault's onchain settlement interval has elapsed
+3. `claimDeposit(settlementId)` — user claims OLP shares after settlement
 
 Deposits can be cancelled before settlement via `cancelRequestDeposit()`.
 Failed settlements allow reclaiming via `reclaimDeposit()`.
@@ -87,65 +87,25 @@ return `0` when deposits are not possible. This is a bug in V1.5.0.
 
 ## Impact on eth_defi
 
-### Detection (fixed)
+The [Ostium adapter](vault.py) recognises the disabled synchronous entry points. On V1.5 it reports that deposit and withdrawal requests are open. A request can still fail at settlement. Legacy V1 uses the Gains checks for deposit caps and redemption windows.
 
-`GainsVault.fetch_deposit_closed_reason()` now probes the vault with a
-static `deposit(0, address(0))` call. If this reverts with the
-`FunctionDisabled()` selector (`0xbf241488`), it returns
-`DEPOSIT_CLOSED_FUNCTION_DISABLED`. This ensures the vault scanner
-correctly flags Ostium deposits as closed.
-
-### Trading support (not yet implemented)
-
-To resume trading Ostium positions, the following changes are needed
-in `eth_defi`:
-
-1. **New ABI**: Update `eth_defi/abi/gains/OstiumVault.json` with the
-   V1.5.0 ABI that includes `requestDeposit`, `claimDeposit`,
-   `cancelRequestDeposit`, `reclaimDeposit`, `getDepositStatus`,
-   `requestWithdraw`, `claimWithdraw`, `cancelRequestWithdraw`,
-   `reclaimWithdraw`, `getWithdrawStatus`, and the settlement-related
-   functions.
-
-2. **Async deposit manager**: Extend `GainsDepositManager` (or create an
-   `OstiumDepositManager`) to implement the request/settle/claim cycle.
-   This is conceptually similar to ERC-7540 async vaults.
-
-3. **Multi-tick execution**: The current trade executor processes a
-   deposit in a single tick (approve → deposit → done). The new async
-   flow requires:
-   - Tick 1: `requestDeposit(assets)`
-   - Wait for daily settlement (up to 24 h)
-   - Tick 2: `claimDeposit()`
-
-   This may require changes to the trade executor's trade lifecycle to
-   support pending/multi-phase trades.
-
-4. **Guard whitelisting**: The Lagoon `TradingStrategyModuleV0` guard
-   needs `requestDeposit`, `claimDeposit`, `cancelRequestDeposit`, and
-   `reclaimDeposit` call sites whitelisted via a new or updated
-   `whitelistERC4626()` variant. The existing whitelist only covers
-   `deposit`, `withdraw`, `redeem`, and `makeWithdrawRequest`.
-
-5. **Valuation and settlement timing**: Share price changes at
-   settlement, not at deposit time. Valuation models need to account
-   for pending deposits that have not yet converted to shares.
+The [V1.5 deposit manager](deposit_redeem.py) supports both directions. It reads the settlement ID from the request receipt and stores it in a ticket. Use that ticket to check status and claim OLP shares or USDC after settlement. A pending request can be cancelled. If settlement fails, reclaim the escrowed assets.
 
 ## Manual script
 
-`scripts/erc-4626/ostium-v15.py` — combined script for status checking,
+[ostium-v15.py](../../../../scripts/erc-4626/ostium-v15.py) is the script for status checking,
 deposits, and withdrawals. All transaction-sending actions require y/n
 confirmation before broadcast.
 
 | Variable | Description |
 |----------|-------------|
 | `JSON_RPC_ARBITRUM` | Arbitrum RPC URL (space-separated fallback format supported) |
-| `ACTION` | `status` (default), `deposit`, or `withdraw` |
-| `PRIVATE_KEY` | Private key for the signing wallet (required for deposit/withdraw) |
+| `ACTION` | `status` (live default), `deposit`, `cancel_deposit` or `withdraw`. With `SIMULATE=true`, the default is `simulate_all`. |
+| `PRIVATE_KEY` | Private key for the signing wallet (required for live deposit, withdrawal and cancellation) |
 | `VAULT_ADDRESS` | Ostium vault address (default: `0x20d419a8e12c45f88fda7c5760bb6923cee27f98`) |
 | `OWNER_ADDRESS` | Address to check status for (defaults to `PRIVATE_KEY` address) |
 | `AMOUNT` | USDC amount for deposit, OLP share amount for withdrawal |
-| `SETTLEMENT_ID` | Settlement ID for `--claim` / `--reclaim` modes |
+| `SETTLEMENT_ID` | Settlement ID for claims, reclaims and deposit cancellations |
 
 ### Examples
 

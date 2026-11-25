@@ -93,6 +93,18 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
 
 #: Additional classifications restricted to reviewed deployments.
 CHAIN_STRATEGY_TAGS: dict[tuple[int, str], set[StrategyTag]] = {
+    #: Vault: sigmaETH (Morpho V2).
+    #: Added: 2026-11-20.
+    #: Decision material: The governance paper identifies this deployment
+    #: and documents automated WETH allocation across Morpho Blue markets
+    #: based on risk-adjusted yield and the allocation's effect on rates.
+    #: Sources:
+    #: - https://www.sigmalabs.fi/papers/lagoon-governance.pdf
+    #: - https://app.morpho.org/ethereum/vault/0x6B833881A9f083aD2CCACF8c10ABC0dc151cBF32
+    (1, "0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32"): {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.lending_optimisation,
+    },
     #: Vault: Murmurr USDC Blue-Chip (chain 1).
     #: Added: 2026-11-10.
     #: Decision material: The official book links this exact diversified sleeve.

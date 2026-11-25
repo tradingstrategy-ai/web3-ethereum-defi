@@ -1,5 +1,7 @@
 """Maintained strategy classifications for Hyperliquid native vaults."""
 
+from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
+from eth_defi.vault.podcast_tags import add_podcast_available_tag
 from eth_defi.vault.strategy_tag import StrategyTag, combine_strategy_tags
 
 #: Most Hyperliquid native vaults trade perpetual futures.
@@ -55,7 +57,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71
     #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71": {
+        StrategyTag.staff_pick,
         StrategyTag.btc_only,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
@@ -70,7 +74,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/vaults/0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04
     #: - https://stats-data.hyperliquid.xyz/Mainnet/vaults
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
@@ -84,7 +90,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://app.hyperliquid.xyz/tradeHistory/0x4b0eab9444a75a03f1ef340c8beac737afa5ab09
     #: - https://api.hyperliquid.xyz/info
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x4b0eab9444a75a03f1ef340c8beac737afa5ab09": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
     },
@@ -100,14 +108,19 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://www.futurailabs.xyz/#strategy
     #: - https://www.futurailabs.xyz/app.js?v=10
     #: - https://api.hyperliquid.xyz/info (vaultDetails for each address)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
         StrategyTag.directional_trading,
         StrategyTag.martingale_like,
     },
+    #: Vault: FuturAI Labs - High Sharpe, Medium Volatility.
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x53375ca9a649f337d83d0834fec0db97640a2a06": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.mean_reversion,
@@ -121,18 +134,151 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - https://stats-data.hyperliquid.xyz/Mainnet/vaults
     #: - https://api.hyperliquid.xyz/info (vaultDetails)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xbefed76a71682b1dc48cca5a10f397cbc492a216": {
+        StrategyTag.staff_pick,
         StrategyTag.directional_trading,
         StrategyTag.trend_following,
     },
+    # The following position statistics use the Hyperliquid HF archive
+    # (hyperliquid-vaults-hf.duckdb), 13 October to 11 November 2026 UTC.
+    # Exposure and concentration figures are in the freqtrade-strategies
+    # research output data/hyperliquid-ls-vault-pilot/snapshot-risk.csv.
+    # The maintainer assigns algorithmic trading to all ten vaults in this review.
     #: Vault: HyperNeutral #1 on Hypercore (9999).
     #: Added: 2026-11-14.
-    #: Decision material: Maintainer explicitly assigned long-short portfolio.
-    #: The current vault page confirms the address and describes a market
-    #: neutral strategy; no additional strategy tags are inferred.
+    #: Updated: 2026-11-19. Added algorithmic trading, diversified low-exposure, unlevered portfolio and daily rebalance tags.
+    #: Decision material: The maintainer originally assigned long-short portfolio.
+    #: The operator describes a market-neutral strategy.
+    #: In the 13 October to 11 November 2026 Hyperliquid snapshots, median
+    #: gross exposure was 69% of equity across median books of 49 longs and
+    #: 57 shorts. The five largest positions accounted for 28% of gross at the median.
+    #: Daily rebalance: the median gap between multi-market rebalance starts was
+    #: 24.00 hours across 31 bursts, within the inclusive 22 to 26 hour range.
     #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md (rebalance timing, 13 October to 11 November 2026)
     #: - https://tradingstrategy.ai/vaults/hyperneutral-1
-    "0x8bb033130be354eed1110ce7228d7095f001d9fe": {StrategyTag.long_short_portfolio},
+    #: - https://app.hyperliquid.xyz/vaults/0x8bb033130be354eed1110ce7228d7095f001d9fe
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794 (archived position comparison)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    "0x8bb033130be354eed1110ce7228d7095f001d9fe": {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance},
+    #: Vault: Edge & Hedge on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a quantitative
+    #: delta-neutral long-short strategy. The archive shows simultaneous
+    #: exposure throughout the 30-day review, with median books of 26 long
+    #: and 28 short markets.
+    #: Median gross exposure was 299% of equity from 13 October to 11 November 2026,
+    #: within the 280% to 320% band for the 3x portfolio tag.
+    #: The median gap between multi-market rebalance starts was 61.5 hours across 11 bursts.
+    #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md (rebalance timing)
+    #: - https://app.hyperliquid.xyz/vaults/0x060d01aa996003b3731a992462d7f0ba68bf3b04
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    "0x060d01aa996003b3731a992462d7f0ba68bf3b04": {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_3x, StrategyTag.two_and_half_days_rebalance},
+    #: Vault: Quantitative Market Neutral Strategy on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a systematic market-neutral
+    #: mandate. The archive shows broad, near-balanced long and short books
+    #: in every reviewed snapshot, with median exposures of 18% and 19% of
+    #: equity. Median books held 74 longs and 94 shorts. At the median, the
+    #: five largest positions accounted for 14% of gross exposure.
+    #: Median gross exposure was 37% of equity over the review period.
+    #: Daily rebalance: the median gap between multi-market rebalance starts was
+    #: 24.02 hours across 15 bursts, within the inclusive 22 to 26 hour range.
+    #: Bursts started on 15 of 30 days and the 90th-percentile gap was 64.8 hours.
+    #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md (rebalance timing, 13 October to 11 November 2026)
+    #: - https://app.hyperliquid.xyz/vaults/0x14ecb3f4932522b8d508fa6e237e2746a4999feb
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794 (archived position comparison)
+    "0x14ecb3f4932522b8d508fa6e237e2746a4999feb": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance},
+    #: Vault: Abs Return Sophon Quant on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a long-short portfolio of
+    #: liquid crypto assets. Both sides reached 5% of equity in 97% of the
+    #: reviewed snapshots, with median books of nine long and 16 short
+    #: markets.
+    #: Median gross exposure was 41% of equity over the review period.
+    #: Daily rebalance: the median gap between multi-market rebalance starts was
+    #: 24.00 hours across 30 bursts, within the inclusive 22 to 26 hour range.
+    #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md (rebalance timing, 13 October to 11 November 2026)
+    #: - https://app.hyperliquid.xyz/vaults/0x35d92bd6571d0bdc5413250b28692e6be905d67b
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
+    "0x35d92bd6571d0bdc5413250b28692e6be905d67b": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance},
+    #: Vault: AceVault Hyper01 on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes going long high-quality
+    #: assets and shorting underperforming altcoins. The archived positions
+    #: show material exposure on both sides throughout the review, with
+    #: median books of eight long and 58 short markets.
+    #: Median gross exposure was 202.25% of equity from 13 October to 11 November
+    #: 2026, within the 180% to 220% band for the 2x portfolio tag.
+    #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md
+    #: - https://app.hyperliquid.xyz/vaults/0x9e02aca9865e1859bb7865f6f64801e804a173df
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
+    "0x9e02aca9865e1859bb7865f6f64801e804a173df": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_2x},
+    #: Vault: Orbit Value Strategies on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes systematic value trading.
+    #: The long-short classification comes from the persistent two-sided
+    #: positions, with median exposures of 55% of equity long and 49% short.
+    #: Median gross exposure was 102% of equity over the review period.
+    #: The median gap between multi-market rebalance starts was 61.5 hours across 10 bursts.
+    #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md (rebalance timing, 13 October to 11 November 2026)
+    #: - https://app.hyperliquid.xyz/vaults/0x115849ce84370f25cadcf0d348510d73837e1aa5
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
+    "0x115849ce84370f25cadcf0d348510d73837e1aa5": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.two_and_half_days_rebalance},
+    #: Vault: Symphony on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a multi-strategy
+    #: market-neutral mandate. The archive shows sustained long and short
+    #: exposure, with median books of 48 long and 92 short markets.
+    #: At the median, five positions accounted for 49% of gross exposure.
+    #: Median gross exposure was 79% of equity over the review period.
+    #: Daily rebalance: the median gap between multi-market rebalance starts was
+    #: 24.00 hours across 30 bursts, within the inclusive 22 to 26 hour range.
+    #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md (rebalance timing, 13 October to 11 November 2026)
+    #: - https://app.hyperliquid.xyz/vaults/0x9114a5161f18739ced233190861ea275c8b3a99b
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
+    "0x9114a5161f18739ced233190861ea275c8b3a99b": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance},
+    #: Vault: Long HYPE & BTC | Short Garbage on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a HYPE and BTC long book
+    #: against a short basket of high-valuation, high-emission tokens. The
+    #: observed portfolio consistently held both sides, with a median of 36
+    #: short markets.
+    #: Median gross exposure was 216.46% of equity from 13 October to 11 November
+    #: 2026, within the 180% to 220% band for the 2x portfolio tag.
+    #: Sources:
+    #: - docs/protocol-research/hyperliquid-long-short-vaults.md
+    #: - https://app.hyperliquid.xyz/vaults/0xac26cf5f3c46b5e102048c65b977d2551b72a9c7
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
+    "0xac26cf5f3c46b5e102048c65b977d2551b72a9c7": {StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_2x},
+    #: Vault: Buyback Spread Engine on Hypercore (9999).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes trading valuation gaps
+    #: among DeFi buyback tokens. The archive shows offsetting books with a
+    #: median of five markets on each side and gross exposure of about four
+    #: times equity.
+    #: Median gross exposure was 391% of equity from 13 October to 11 November 2026.
+    #: Sources:
+    #: - https://app.hyperliquid.xyz/vaults/0xce71894b42f5c31a6ae6ca4fb77441c68ab15086
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    "0xce71894b42f5c31a6ae6ca4fb77441c68ab15086": {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio},
     #: Vault: Passivbot Canon on Hypercore (9999).
     #: Added: 2026-11-01.
     #: Decision material: The project README links this exact reference vault
@@ -150,7 +296,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://tradingstrategy.ai/vaults/passivbot-canon
     #: - https://app.hyperliquid.xyz/vaults/0x490af7d4a048a81db0f677517ed6373565b42349
     #: - https://api.hyperliquid.xyz/info
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0x490af7d4a048a81db0f677517ed6373565b42349": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.directional_trading,
@@ -252,7 +400,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xc3b1bf1f1e6fb8161ef4dc2f34e2c56f70b94b11": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
@@ -268,7 +418,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.hyperliquid.xyz/vaults/0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0
     #: - https://api.hyperliquid.xyz/info (vaultDetails, checked 2026-11-09)
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.btc_only,
@@ -436,15 +588,25 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Updated: 2026-11-06. User-requested high-frequency, high-win-rate
     #: classification, with its required algorithmic-trading parent. The
     #: published description confirms the grid mandate, not a measured win rate.
+    #: Updated: 2026-11-19. The separate asset selection rules for each side
+    #: and simultaneous long and short baskets in every Hyperliquid HF
+    #: archive snapshot from 13 October to 11 November 2026 UTC support the
+    #: long-short portfolio tag.
+    #: Median gross exposure was 290% of equity from 13 October to 11 November 2026,
+    #: within the 280% to 320% band for the 3x portfolio tag.
     #: Sources:
     #: - https://tradingstrategy.ai/vaults/systemic-strategies-l-s-grids?period=max
     #: - https://app.hyperliquid.xyz/vaults/0x07fd993f0fa3a185f7207adccd29f7a87404689d
-    #: - https://api.hyperliquid.xyz/info
+    #: - https://api.hyperliquid.xyz/info (vaultDetails and clearinghouseState)
+    #: - https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794#issuecomment-7010734163 (position comparison)
     "0x07fd993f0fa3a185f7207adccd29f7a87404689d": {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.portfolio_3x,
+        StrategyTag.long_short_portfolio,
     },
     #: Vault: wmm.club | grid-hype-long-2x.
     #: Added: 2026-08-18.
@@ -514,4 +676,5 @@ def get_strategy_tags(address: str) -> set[StrategyTag]:
     """
     normalised_address = address.lower()
     defaults = frozenset() if normalised_address in NON_PERPETUAL_VAULTS else DEFAULT_STRATEGY_TAGS
-    return combine_strategy_tags(defaults, STRATEGY_TAGS, normalised_address)
+    tags = combine_strategy_tags(defaults, STRATEGY_TAGS, normalised_address)
+    return add_podcast_available_tag(HYPERCORE_CHAIN_ID, normalised_address, tags) or set()

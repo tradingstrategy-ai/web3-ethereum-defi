@@ -53,7 +53,7 @@ class WithdrawalCapacityLimit:
     ``None`` is not evidence of either adequate liquidity or a depleted buffer.
     """
 
-    #: Whether the numeric buffer is low or the structural exit warning applies.
+    #: Whether a measured, structural or Morpho liquidity warning applies.
     capacity_warning: bool | None
     #: Whether an authoritative deposit or withdrawal pause is active.
     pause_warning: bool | None
@@ -79,13 +79,14 @@ class WithdrawalCapacityLimit:
         return {"tiny_tvl": self.tiny_tvl, "capacity_warning": self.capacity_warning, "pause_warning": self.pause_warning, "capacity_reason": self.capacity_reason, "capacity_threshold": self.capacity_threshold, "current_capacity": format(self.current_capacity, "f") if self.current_capacity is not None else None, "current_tvl": format(self.current_tvl, "f") if self.current_tvl is not None else None}
 
 
-def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Percent = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta | None = None) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
+def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Percent = DEFAULT_CAPACITY_THRESHOLD, *, now: datetime | None = None, max_age: timedelta | None = None, morpho_low_liquidity: bool = False) -> WithdrawalCapacityLimit:  # ruff: ignore[too-many-locals] - Keep the related warning decisions in one pure assessor.
     """Evaluate a persisted snapshot without RPCs or modifying its contents.
 
     :param observation: Primitive dictionary from the adapter or ``None`` for an old row.
     :param capacity_threshold: Buffer/TVL fraction; equality does not warn.
     :param now: UTC clock injected by deterministic export tests.
     :param max_age: Explicit age limit, otherwise the observation cadence plus grace.
+    :param morpho_low_liquidity: Whether the latest retained Morpho data warns about vault liquidity.
     :return: Assessment and independently machine-readable pause/warning scope.
     """
     threshold = validate_threshold(capacity_threshold)
@@ -150,7 +151,7 @@ def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Per
     if stale or not stamp or data.get("status") == "failed":
         usd_tvl = None
     tiny_tvl = usd_tvl < TINY_TVL_THRESHOLD_USD if usd_tvl is not None else None
-    warning = True if structural else measured
+    warning = True if structural or morpho_low_liquidity else measured
     source = "both" if structural and measured else "structural" if structural else "measured" if measured else None
     data.update(deposits_paused=deposits, withdrawals_paused=withdrawals, capacity_warning_source=source)
     symbol = str(data.get("denomination_symbol") or "denomination tokens").replace("\n", " ")
@@ -164,6 +165,11 @@ def assess_withdrawal_capacity(observation: dict | None, capacity_threshold: Per
         reasons.append("Withdrawal buffer ratio is unknown")
     if structural:
         reasons.append("40acres withdrawals depend on available cash and borrower repayments without a guaranteed completion date")
+    if morpho_low_liquidity:
+        reasons.append("Morpho reports low vault liquidity")
+        data["morpho_low_liquidity"] = True
+        if source is None:
+            data["capacity_warning_source"] = "morpho"
     if tiny_tvl:
         reasons.append(f"Total vault TVL is {usd_tvl:,f} USD, below the tiny-TVL threshold of {TINY_TVL_THRESHOLD_USD:,f} USD")
     for direction, paused in [("Deposits", deposits), ("Withdrawals", withdrawals)]:
@@ -186,14 +192,14 @@ def fetch_withdrawal_capacity_limit(vault: VaultBase, block_identifier: int | st
 
 
 def enrich_withdrawal_capacity(rows: list[dict], database: Any, *, threshold: Percent = DEFAULT_CAPACITY_THRESHOLD, now: datetime | None = None) -> None:
-    """Attach fresh assessments without changing non-capacity export fields.
+    """Attach withdrawal assessments and apply Morpho's vault liquidity warning.
 
     Legacy records may carry only the combined vault ``id``. Resolve that
     identity without adding fields to the record; unresolvable identities get
     an unknown assessment instead of interrupting catalogue publication.
 
     :param rows: Export records enriched in place, including retained legacy rows.
-    :param database: Catalogue supplying the latest persisted observations.
+    :param database: Catalogue supplying the latest observations and Morpho warnings.
     :param threshold: Minimum withdrawal buffer as a fraction of TVL.
     :param now: Optional UTC clock for observation freshness.
     :return: ``None`` after updating capacity fields on each record.
@@ -219,6 +225,8 @@ def enrich_withdrawal_capacity(rows: list[dict], database: Any, *, threshold: Pe
         if ERC4626Feature.forty_acres_like in (features or ()):
             observation["structural_warning"] = True
             observation.setdefault("status", "unsupported")
-        result = assess_withdrawal_capacity(observation or None, threshold, now=now)
+        morpho_data = source.get("_morpho_offchain_data") or {}
+        morpho_low_liquidity = any(warning.get("type") == "low_liquidity" for warning in morpho_data.get("vault_warnings", []))
+        result = assess_withdrawal_capacity(observation or None, threshold, now=now, morpho_low_liquidity=morpho_low_liquidity)
         row["withdrawal_capacity_limit"] = result.to_dict()
         row["withdrawal_capacity_observation"] = result.observation

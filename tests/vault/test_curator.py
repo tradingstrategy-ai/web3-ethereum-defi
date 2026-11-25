@@ -20,7 +20,7 @@ from eth_defi.tokenised_fund.kaio.constants import CASHX_ETHEREUM
 from eth_defi.tokenised_fund.libeara.constants import LIBEARA_PRODUCTS
 from eth_defi.tokenised_fund.sygnum.constants import FILQ_CURATOR_SLUG, SYGNUM_PRODUCTS_BY_CHAIN
 from eth_defi.vault.base import VaultSpec
-from eth_defi.vault.curator import build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
+from eth_defi.vault.curator import build_curator_index, build_curator_metadata_json, get_curator_available_logos, get_curator_name, identify_curator, is_protocol_curator, load_curator_map
 from eth_defi.vault.strategy_tag import StrategyTag
 
 
@@ -38,7 +38,7 @@ def test_identify_hyperneutral() -> None:
     assert identify_curator(999, "", "Unbranded vault", address, "hyperliquid") is None
     assert get_curator_name("hyperneutral") == "HyperNeutral"
     assert not is_protocol_curator("hyperneutral")
-    assert get_strategy_tags(address) == {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio}
+    assert get_strategy_tags(address) == {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance, StrategyTag.staff_pick}
     yaml_path = Path(__file__).resolve().parents[2] / "eth_defi/data/feeds/curators/hyperneutral.yaml"
     metadata = build_curator_metadata_json(yaml_path)
     assert metadata["twitter"] == "https://x.com/HyprNeutral"
@@ -451,6 +451,24 @@ def test_live_curators_with_verified_artwork_include_generic_logo() -> None:
         assert metadata["logos"]["generic"] == f"https://example.com/curator-metadata/{slug}/generic.png"
 
     assert get_curator_available_logos("wstgbp")["generic"]
+
+
+def test_curator_logos_include_generic_brandmarks() -> None:
+    """Keep curated logo assets visible in page headers.
+
+    A published themed logo needs a generic variant because the curator
+    page header uses that variant, including for protocol curators and aliases.
+    Inherited logo URLs must belong to a slug that the curator export publishes.
+
+    :return: None after checking the exported curator index.
+    """
+    curators = build_curator_index(public_url="https://example.invalid")
+    missing = [curator["slug"] for curator in curators if any(curator["logos"].values()) and not curator["logos"]["generic"]]
+    assert not missing, f"Curators with logos but no generic variant: {', '.join(missing)}"
+
+    published_slugs = {curator["slug"] for curator in curators}
+    logo_slugs = {curator["logos"]["generic"].rsplit("/", 2)[-2] for curator in curators if curator["logos"]["generic"]}
+    assert logo_slugs <= published_slugs, f"Generic logo URLs point to unpublished curator slugs: {', '.join(sorted(logo_slugs - published_slugs))}"
 
 
 def test_curator_brandmarks_are_visible_on_dark_background() -> None:
@@ -913,6 +931,7 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
         "Gami": "gami",
         "Noon": "noon",
         "Syntropia": "syntropia",
+        "\N{GREEK SMALL LETTER SIGMA}-Labs, Ellen Capital": "sigma-labs",
     }
     for manager_name, expected_slug in expected_slugs.items():
         slug = identify_curator(
@@ -936,6 +955,17 @@ def test_identify_lagoon_curator_by_curator_metadata() -> None:
         manager_name="Ellen Capital, \N{GREEK SMALL LETTER SIGMA}-Labs",
     )
     assert slug == "ellen-capital"
+
+
+def test_identify_sigma_labs_vault_without_manager_name() -> None:
+    """Resolve a documented alpha vault even when Lagoon supplies no curator."""
+
+    address = "0x0F30D4CC24024E51BEE5E7805BC7F3E6A88EA59F"
+    assert identify_curator(42161, "cssaUSDC", "Cross-Sectional Statistical Arbitrage", address, "lagoon-finance") == "sigma-labs"
+    assert identify_curator(1, "cssaUSDC", "Cross-Sectional Statistical Arbitrage", address, "lagoon-finance") is None
+    for spelling in ("Sigma Labs", "\N{GREEK SMALL LETTER SIGMA}-Labs"):
+        assert identify_curator(1, "", f"{spelling} vault", address, "lagoon-finance") == "sigma-labs"
+    assert get_curator_name("sigma-labs") == "Sigma Labs"
 
 
 def test_identify_t3tris_curator_by_curator_metadata() -> None:

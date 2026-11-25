@@ -192,10 +192,10 @@ condition. The existing machinery is the mitigation: `MulticallRetryable` batch-
 reduction, provider rotation, and the HyperEVM Alchemy pin described in the
 companion document.
 
-What we do accept is that **historical NAV for HyperCore-reading vaults is only
-obtainable near the head**. Backfilling their share price deep into the past is not
-possible on any provider, so gaps before the HyperCore read window must not be
-"repaired" by rescanning.
+The configured providers could value HYPED near the head. An archive rescan
+cannot recover balances after the provider has lost the corresponding
+HyperCore state. A protocol that recorded its own historical observations
+can still supply a backfill, as Pear does in migration 098.
 
 ## Blacklist audit — every HyperEVM entry reads HyperCore
 
@@ -254,11 +254,11 @@ draws `-32003` from dRPC and intermittently from goldsky, so its history will co
 from the Alchemy pin, and goldsky rejects Altcopy Flagship's four-probe multicall
 even though it answers the same calls individually.
 
-The remaining four stay blacklisted for a different reason than the entries
-originally claimed: not because they are broken or gas-poisonous, but because their
-HyperCore reads make historical valuation unobtainable on every provider, which is
-what the price pipeline needs. When a "head NAV only" path exists, they should be
-revisited — they are live vaults.
+The August audit kept the remaining four entries blacklisted because the
+tested providers could not reproduce their historical valuations. The
+[scheduled point-in-time pass](#scheduled-point-in-time-valuations) now
+serves HYPED and Pear. Admission of any other deployment still follows the
+scanner's existing risk and activity checks.
 
 ## Reproducing
 
@@ -292,6 +292,19 @@ space-separated fallback format only works with `create_multi_provider_web3()`.
 - [`eth_defi/vault/risk.py`](../eth_defi/vault/risk.py) — the Hyperdrive HLP and
   Gamma Symphony blacklist entries that share the `0x18c34104` revert, plus the note
   that `HYPED` is deliberately kept off that list.
+
+## Scheduled point-in-time valuations
+
+The all-chain price phase captures HYPED and Pear at the current HyperEVM head.
+On 20 November 2026 the configured RPC returned HYPED's valuation and the block
+timestamp in one Multicall3 request at block 51,762,707. The pass uses one
+vault per request, since a second vault can raise the provider's gas estimate
+and all components of a share price need to come from the same execution.
+HYPED's `asset()` returns the native asset marker. Its assets and its conversion
+of one share are denominated in HYPE with 18 decimals.
+
+Numbered-block repairs preserve these point-in-time rows. Greylist isolation
+continues to apply to discovery and other ordinary Multicall workloads.
 
 ## Isolated greylist batches
 

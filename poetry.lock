@@ -2602,6 +2602,43 @@ unicode = ["unicodedata2 (>=17.0.0) ; python_version <= \"3.14\""]
 woff = ["brotli (>=1.0.1) ; platform_python_implementation == \"CPython\"", "brotlicffi (>=0.8.0) ; platform_python_implementation != \"CPython\"", "zopfli (>=0.1.4)"]
 
 [[package]]
+name = "fpng"
+version = "0.1.0"
+description = "Very fast .PNG image writer for Python"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "fpng-0.1.0-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:d7cc970c474553239525d7ca4a0bcef12fa5d85c5b045f55160dfc59f121b62a"},
+    {file = "fpng-0.1.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:f5a6a4a75f2c7ef1f429e70e70a28fc497ab8b0523fc50b31ad98a912976acc1"},
+    {file = "fpng-0.1.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:59a795c3874cb668cd0eeefffd1ee96066837adcc24a39b2eb3be7489734e8ca"},
+    {file = "fpng-0.1.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:526497cb3562e5549326939ab80d14857d3636d5e7bea2f0e383e279120cb6a9"},
+    {file = "fpng-0.1.0-cp310-cp310-win_amd64.whl", hash = "sha256:2a8f8f6837de386c7db21ff5dfe66aff8ef48d3b6ad0f937484a93a5b2392218"},
+    {file = "fpng-0.1.0-cp311-cp311-macosx_10_14_x86_64.whl", hash = "sha256:2ec7c07baf0002b58f9993d17ac1d750d3069483c17f56e876fab6f65f2eff66"},
+    {file = "fpng-0.1.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:946408e9fad200c39534925aee786229f4955a5f7563ac0aa25ba7d5af25041d"},
+    {file = "fpng-0.1.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d9f730cea02cefe179192eee7739af25fa354ab1c825260a6b9a11c6c789e3f5"},
+    {file = "fpng-0.1.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:bdd2453def9ce80fc5bc5649bd255ca838abb804e6439af9e6314ff27524252a"},
+    {file = "fpng-0.1.0-cp311-cp311-win_amd64.whl", hash = "sha256:ad9d8373e8e75fcdaf5508f4efb29229d0ec0f5881a6162f8af272046fe749cb"},
+    {file = "fpng-0.1.0-cp312-abi3-macosx_10_14_x86_64.whl", hash = "sha256:17e0e1153fb08c813595d7e7a7a0f5658f5724f30d94a497259065d9669930fb"},
+    {file = "fpng-0.1.0-cp312-abi3-macosx_11_0_arm64.whl", hash = "sha256:bf426433fe7ee87cfe67ea6489b7a4ce8ed1aa61805a67560a83669e0fa19c07"},
+    {file = "fpng-0.1.0-cp312-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f8e9e336f8212b7cbef162078c920c84f9c0791a2b6707c813877d842f78996e"},
+    {file = "fpng-0.1.0-cp312-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:7c7b09b21050ac32a60624086abb076a57f962aa378cb3008e608728f1c50584"},
+    {file = "fpng-0.1.0-cp312-abi3-win_amd64.whl", hash = "sha256:8e8ddbbe07f0c120266826eb26e14da04fb6bd29422a98cacc8c20ecee0c1dea"},
+    {file = "fpng-0.1.0-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:6ad7fab8b76d130817defc3ff3a3bf03d84e8905c54979aa185c496e40b53fce"},
+    {file = "fpng-0.1.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:1eea4e271a500ffd8c58159dae94e312c5eb5e8246de391e69c55b282c8ec5d7"},
+    {file = "fpng-0.1.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:f34a86b16b721fc1a2d213cd7f5406f11fa66af86c0a5489bf938af8f5fee84b"},
+    {file = "fpng-0.1.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:5fe8e5b2bb0e08c8c95b8968ef73365c2fe06e9d6d5f107de5ccb29f6b20b228"},
+    {file = "fpng-0.1.0-cp39-cp39-win_amd64.whl", hash = "sha256:09222b78da6f87bf0b86621c22a678f258140227af804bd1194f4dc9f0f56e35"},
+    {file = "fpng-0.1.0.tar.gz", hash = "sha256:5ed3f96bd531d1af6976e9fc317db14ff7db5ad6ba9597a12b830dbf4363654a"},
+]
+
+[package.dependencies]
+lazy_loader = "*"
+
+[package.extras]
+test = ["Pillow", "numpy", "opencv_python", "pytest"]
+
+[[package]]
 name = "fqdn"
 version = "1.5.1"
 description = "Validates fully-qualified domain names against RFC 1123, so that they are acceptable to modern bowsers"
@@ -4441,7 +4478,7 @@ version = "0.5"
 description = "Makes it easy to load subpackages and functions on demand."
 optional = false
 python-versions = ">=3.9"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "lazy_loader-0.5-py3-none-any.whl", hash = "sha256:ab0ea149e9c554d4ffeeb21105ac60bed7f3b4fd69b1d2360a4add51b170b005"},
     {file = "lazy_loader-0.5.tar.gz", hash = "sha256:717f9179a0dbed357012ddad50a5ad3d5e4d9a0b8712680d4e687f5e6e6ed9b3"},
@@ -6270,7 +6307,6 @@ files = [
     {file = "pillow-12.1.1-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:cb9bb857b2d057c6dfc72ac5f3b44836924ba15721882ef103cecb40d002d80e"},
     {file = "pillow-12.1.1.tar.gz", hash = "sha256:9ad8fa5937ab05218e2b6a4cff30295ad35afd2f83ac592e68c0d871bb0fdbc4"},
 ]
-markers = {main = "extra == \"data\""}
 
 [package.extras]
 docs = ["furo", "olefile", "sphinx (>=8.2)", "sphinx-autobuild", "sphinx-copybutton", "sphinx-inline-tabs", "sphinxext-opengraph"]
@@ -10177,7 +10213,7 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [extras]
 ccxt = ["ccxt"]
 cloudflare-r2 = ["boto3", "brotli"]
-data = ["cairosvg", "ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "pillow", "plotly", "pyarrow", "tenacity", "tqdm"]
+data = ["cairosvg", "ffn", "gql", "jupyter", "kaleido", "matplotlib", "numpy", "plotly", "pyarrow", "tenacity", "tqdm"]
 docs = ["Sphinx", "furo", "nbsphinx", "sphinx-autodoc-typehints", "sphinx-rtd-theme", "sphinx-rtd-theme", "sphinx-sitemap", "sphinx-sitemap", "standard-imghdr", "zope-dottedname"]
 duckdb = ["duckdb"]
 gsheets = ["gspread"]
@@ -10189,4 +10225,4 @@ test = ["pytest-xdist"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4"
-content-hash = "f3ac57ad941ca25f2682b41b7a76015e4c8024d44cc460b38ab93ea846b2f775"
+content-hash = "cc53bba4939a6143449cd90053b90476cd3ca87f34e8e07758ce3b0ffecef665"

@@ -20,6 +20,7 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature, get_va
 from eth_defi.erc_4626.discovery_base import PotentialVaultMatch
 from eth_defi.erc_4626.vault_protocol.morpho.flag_analytics import analyze_morpho_flags
 from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
+from eth_defi.vault.fee import HighWaterMark
 from eth_defi.vault.flag import NOT_IN_MORPHO_API, VaultFlag
 from eth_defi.vault.price_source import PriceSource
 from eth_defi.vault.risk import VaultTechnicalRisk
@@ -92,6 +93,15 @@ class VaultRow(TypedDict):
 
     _detection_data: ERC4262VaultDetection
 
+    #: Last published onchain NAV time, independent of metadata scan time.
+    _nav_timestamp: NotRequired[datetime.datetime | None]
+
+    #: Block-tagged evidence of whether the vault accepts new redemption requests.
+    _redemption_request_observation: NotRequired[dict[str, object] | None]
+
+    #: Optional Buoy descriptive source availability; does not affect identity.
+    _buoy_metadata_available: NotRequired[bool]
+
     _denomination_token: dict
 
     _lockup: datetime.timedelta | None
@@ -105,6 +115,9 @@ class VaultRow(TypedDict):
     features: set[ERC4626Feature]
 
     _flags: set[VaultFlag]
+
+    #: Reviewed performance-fee accounting scope for public export.
+    _high_water_mark: NotRequired[HighWaterMark | None]
 
     #: Maintained investment strategy classifications, or ``None`` where the
     #: vault's strategy information is missing.
@@ -402,13 +415,14 @@ class VaultDatabase:
                 new_row = new_row.copy()
                 new_row["_withdrawal_capacity_observation"] = existing["_withdrawal_capacity_observation"]
 
-            # An adapter may not have a maintained classification yet. Keep a
-            # previously persisted value instead of erasing manual metadata on
-            # every subsequent scan; the explicit migration can still replace
-            # or clear it when a resolver is reviewed.
-            if existing is not None and new_row.get("_strategy_tags") is None and existing.get("_strategy_tags") is not None:
+            # Keep saved classifications when the adapter supplies no strategy.
+            # Podcast coverage can still be present in that case because the
+            # scanner adds it independently of the adapter.
+            scanned_tags = new_row.get("_strategy_tags")
+            saved_tags = existing.get("_strategy_tags") if existing is not None else None
+            if saved_tags is not None and (scanned_tags is None or scanned_tags == {StrategyTag.podcast_available}):
                 new_row = new_row.copy()
-                new_row["_strategy_tags"] = existing["_strategy_tags"]
+                new_row["_strategy_tags"] = saved_tags if scanned_tags is None else scanned_tags.union(saved_tags)
 
             # Missing provider text is not an instruction to delete previously
             # published Lagoon descriptions, including migration-filled rows.

@@ -46,5 +46,12 @@ curatorwatch: https://curatorwatch.com/curator/gauntlet
 This field is a reference link only. It is not a feed source and does not
 produce tracked posts.
 
+Curator logo assets live under `eth_defi/data/vaults/formatted_logos/{slug}/`.
+The curator page header uses `generic.png`. Copy the formatted `light.png`
+to `generic.png` when the generic variant is missing. Aliases with their own
+logo use the same rule. See the [vault logo conventions](../vaults/README.md#formatted-logos).
+
 For the schema, collection behaviour, and configuration details, see
 [`eth_defi/feed/README-feed.md`](../../feed/README-feed.md).
+
+The [April 2026 feed corrections](updated-tracking.md) and [May RSS review](RSS-review.md) document earlier changes to feed sources.

@@ -5,464 +5,67 @@
 [![GMX Tests](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test-gmx.yml/badge.svg)](https://github.com/tradingstrategy-ai/web3-ethereum-defi/actions/workflows/test-gmx.yml)
 
 
-# Web3-Ethereum-Defi
+# web3-ethereum-defi
 
-Web-Ethereum-DeFi (`eth_defi`) allows you to integrate [EVM-compatible](https://tradingstrategy.ai/glossary/evm-compatible) Web3 and DeFi protocols into your Python application.
+Use `eth_defi` to trade on decentralised exchanges, read onchain market data and manage vault positions from Python.
 
-- [Use cases](#use-cases)
-- [Supported protocols, chains and integrations](#supported-protocols-chains-and-integrations)
-- [Prerequisites](#prerequisites)
-- [Install](#install)
-- [Example code](#example-code)
-   * [Uniswap swap example](#uniswap-swap-example)
-- [How to use the library in your Python project](#how-to-use-the-library-in-your-python-project)
-- [Documentation](#documentation)
-- [Development and contributing](#development-and-contributing)
-- [Version history](#version-history)
-- [Support ](#support)
-- [Social media](#social-media)
-- [License ](#license)
+## Supported protocols, chains and integrations
 
-# Use cases
+![Protocols supported by eth_defi](https://raw.githubusercontent.com/tradingstrategy-ai/web3-ethereum-defi/master/docs/source/_static/logo-wall-white.png)
 
-Use cases for this package include
+| Task | Where to start |
+| --- | --- |
+| Swap tokens | [Uniswap v3 swap tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/make-uniswap-v3-swap-in-python.html) |
+| Trade perpetual futures | [GMX](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/gmx/README.md) and [Derive](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/derive/README-derive.md) |
+| Transfer USDC between chains | [Circle CCTP](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/cctp/README-cctp.md) |
+| Discover vaults and read historical prices | [Vault protocol catalogue](https://web3-ethereum-defi.tradingstrategy.ai/vaults/index.html) |
+| Check deposit and redemption support | [Vault adapter capabilities](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/erc_4626/README-vault-protocol-support.md) |
+| Check supported networks | [Chain names and identifiers](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/eth_defi/chain.py) |
+| Find other integrations | [Python API reference](https://web3-ethereum-defi.tradingstrategy.ai/api/index.html) |
 
-- Trading and bots
-- Data research, extraction, transformation and loading
-- Portfolio management and accounting
-- System integrations and backends
-- AI agent interaction for EVM chains
+## Prerequisites
 
-# Supported protocols, chains and integrations
+The package declares support for Python 3.10 and later in the 3.x series. The repository uses Python 3.14 for development. Use Linux, macOS or Windows Subsystem for Linux.
 
-![Supported protocols include Uniswap, Aave, others](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/docs/source/_static/logo-wall-white.png)
-
-| Protocol         | Actions                                                       | Tutorial and API links                                                                                                                                                          |
-|:-----------------|:--------------------------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Uniswap          | Token swaps, data research                                    | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/make-uniswap-v3-swap-in-python.html)                                                                             |
-| Gnosis Safe      | Safe deployment customisation and modules                     | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/safe/index.html)                                                                                                            |
-| Circle USDC      | USDC interactions                                             | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/usdc/index.html)                                                                                                            |
-| Circle CCTP V2   | Cross-chain USDC transfers (burn-and-mint)                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/cctp/index.html)                                                                                                            |
-| LI.FI            | Cross-chain bridge, gas feeding                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/lifi/index.html) [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/lifi-feed-crosschain.html)               |
-| ChainLink        | Read oracle prices, set up oracles                            | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/chainlink-native-token.html)                                                                                     |
-| CoW Swap         | Swaps, vault integration                                      | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/lagoon-cowswap.html)                                                                                             |
-| PancakeSwap      | Token swaps, data research                                    | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/pancakeswap-live-minimal.html)                                                                                   |
-| GMX              | Leveraged trading, spot trading                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/gmx/index.html) [Tutorial](https://github.com/tradingstrategy-ai/gmx-ccxt-freqtrade)                            |
-| Derive           | Perpetuals, options trading                                   | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/derive/index.html)                                                                                                          |
-| gTrade           | Leveraged trading, vaults                                     | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/gains/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/gains-network) |
-| Ostium           | Leveraged trading, vaults                                     | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/gains/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/gains-network) |
-| LFG              | Token swaps, data research                                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/uniswap_v2/index.html)                                                                                                      |
-| Aave             | Credit, borrow, read rates                                    | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/aave-v3-interest-analysis.html)                                                                                  |
-| BENQI            | Credit, borrow, read rates                                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/aave_v2/index.html)                                                                                                         |
-| Lendle           | Credit, borrow, read rates                                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/aave_v2/index.html)                                                                                                         |
-| Sky (MakerDAO)   | Savings vaults                                                | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/sky/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/sky) |
-| Enzyme           | Deposit to vaults, deploy, read vault data                    | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/enzyme-read-vaults.html)                                                                                         |
-| Lagoon           | Deposit to vaults, deploy, read vault data                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/lagoon/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/lagoon-finance) |
-| Velvet           | Deposit to vaults, deploy, read vault data                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/velvet/index.html)                                                                                                          |
-| Morpho           | Read vault data                                               | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/erc-4626-scan-prices.html)                                                                                       |
-| Euler            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/euler/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/euler) |
-| Ethena           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/ethena/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/ethena) |
-| IPOR             | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/ipor/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/ipor) |
-| 1delta           | Open/close leveraged long/short positions                     | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/one_delta/index.html)                                                                                                       |
-| Yearn            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/yearn/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/yearn) |
-| NashPoint        | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/nashpoint/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/nashpoint) |
-| Untangle Finance | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/untangle/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/untangle-finance) |
-| Atoma            | Read data, deposit, request and claim withdrawals through Guard/Safe | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/atoma/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/atoma) |
-| Plutus           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/plutus/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/plutus) |
-| D2 Finance       | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/d2_finance/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/d2-finance) |
-| Umami Finance    | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/umami/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/umami) |
-| Harvest Finance  | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/harvest/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/harvest-finance) |
-| USDAi            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/usdai/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/usdai) |
-| AUTO Finance     | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/auto_finance/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/auto-finance) |
-| Goat Protocol    | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/goat/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/goat-protocol) |
-| Cap              | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/cap/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/cap) |
-| Centrifuge       | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/centrifuge/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/centrifuge) |
-| C-Sigma          | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/csigma/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/csigma-finance) |
-| Deltr            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/deltr/index.html)                                                                                                        |
-| Foxify           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/foxify/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/foxify) |
-| Liquid Royalty   | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/liquid_royalty/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/liquid-royalty) |
-| LLamma           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/llamma/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/llamma) |
-| Maple            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/maple/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/maple) |
-| Silo             | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/silo/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/silo-finance) |
-| Spark            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/spark/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/spark) |
-| Summer           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/summer/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/summer-fi) |
-| Superform        | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/superform/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/superform) |
-| Teller           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/teller/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/teller) |
-| Term Finance     | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/term_finance/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/term-finance) |
-| TrueFi           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/truefi/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/truefi) |
-| Upshift          | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/upshift/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/upshift) |
-| USDD             | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/usdd/index.html)                                                                                                         |
-| Aarna            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/aarna/index.html)                                                                                                        |
-| Accountable      | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/accountable/index.html)                                                                                                  |
-| Altura           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/altura/index.html)                                                                                                       |
-| Avant            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/avant/index.html)                                                                                                        |
-| Brink            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/brink/index.html)                                                                                                        |
-| Curvance         | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/curvance/index.html)                                                                                                     |
-| Dolomite         | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/dolomite/index.html)                                                                                                     |
-| Eth Strategy     | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/eth_strategy/index.html)                                                                                                 |
-| Fluid            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/fluid/index.html)                                                                                                        |
-| Frax             | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/frax/index.html)                                                                                                         |
-| Gearbox          | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/gearbox/index.html)                                                                                                      |
-| Hyperlend        | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/hyperlend/index.html)                                                                                                    |
-| HypurrFi         | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/hypurrfi/index.html)                                                                                                     |
-| InfiniFi         | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/infinifi/index.html)                                                                                                     |
-| Mainstreet       | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/mainstreet/index.html)                                                                                                   |
-| Renalta          | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/renalta/index.html)                                                                                                      |
-| Resolv           | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/resolv/index.html)                                                                                                       |
-| Royco            | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/royco/index.html)                                                                                                        |
-| Sentiment        | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/sentiment/index.html)                                                                                                    |
-| Singularity      | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/singularity/index.html)                                                                                                  |
-| Spectra          | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/spectra/index.html)                                                                                                      |
-| USDx Money       | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/usdx_money/index.html)                                                                                                   |
-| YieldFi          | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/yieldfi/index.html)                                                                                                      |
-| YieldNest        | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/yieldnest/index.html)                                                                                                    |
-| YO               | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/yo/index.html)                                                                                                           |
-| Yuzu Money       | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/yuzu_money/index.html)                                                                                                   |
-| ZeroLend         | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/zerolend/index.html)                                                                                                     |
-| BaseVol          | Read vault data                                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/vaults/basevol/index.html) [Listing](https://tradingstrategy.ai/vaults/protocols/basevol) |
-| Hypersync        | Read historical data fast                                     | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/hypersync/index.html)                                                                                                       |
-| Token Risk       | Glider Token Risk API by Hexens                               | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/token_analysis/_autosummary_token_analysis/eth_defi.token_analysis.tokenrisk.html#module-eth_defi.token_analysis.tokenrisk) |
-| TokenSniffer     | Read token risk core and metricws                             | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/token_analysis/_autosummary_token_analysis/eth_defi.token_analysis.tokensniffer.html)                                       |
-| Foundry          | Compile, deploy and verify smart contracts                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/foundry/_autosummary_forge/eth_defi.foundry.forge.html)                                                                     |
-| Etherscan        | Deploy and verify smart contracts                             | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/etherscan/index.html)                                                                                                       |
-| MEVBlocker       | Frontrun protection                                           | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/mev-blocker.html)                                                                                                |
-| Ethereum mainnet | Frontrun protection, token mapping                            | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/mev-blocker.html)                                                                                                |                                                                                                                                                                                                                                                        |
-| Base             | Frontrun protection, token mapping                            | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/mev-blocker.html)                                                                                                |
-| Arbitrum         | Frontrun protection, token mapping                            | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/mev-blocker.html)                                                                                                |
-| Avalanche        | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |                                                                                                                                                                        |
-| BNB chain        | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| Polygon          | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| BNB Chain        | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |                                                                                                                                                                           |
-| Berachain        | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| Avalanche        | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| Hyperliquid      | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| Mode             | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| Unichain         | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| ZKSync           | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| Soneium          | Token mapping                                                 | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html#module-eth_defi.token)                                                                |
-| Google GCloud    | Support hardware security module wallets                      | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.gcloud_hsm_wallet.html)                                                                          |
-| Hot wallet       | Secure hot wallet handling                                    | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.hotwallet.html)                                                                                  |
-| Multicall3       | Chunked and historical data reading                           | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/multicall3-with-python.html)                                                                                     |
-| Gas              | Ethereum gas management                                       | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.gas.html)                                                                                        |
-| EIP-4626         | Vault analysis                                                | [Tutorial](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/erc-4626-best-vaults.html)                                                                                       |
-| EIP-726          | Message signing and decoding                                  | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.eip_712.html#module-eth_defi.eip_712)                                                            |
-| ERC-20           | High performance reading, data mappings                       | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.token.html)                                                                                      |
-| ABI              | High performance smart contract ABI management                | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.abi.html)                                                                                        |
-| Transactions     | Stack traces and symbolic revert reasons                      | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/core/_autosummary/eth_defi.gas.html)                                                                                        |
-| Anvil            | Mainnet works and local unit testing                          | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/provider/_autosummary_provider/eth_defi.provider.anvil.html)                                                                |
-| LlamaNodes       | Special RPC support                                           | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/provider/_autosummary_provider/eth_defi.provider.llamanodes.html#module-eth_defi.provider.llamanodes)                       |
-| Ankr             | Special RPC support                                           | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/provider/_autosummary_provider/eth_defi.provider.ankr.html)                                                                 |
-| dRPC             | Special RPC support                                           | [API](https://web3-ethereum-defi.tradingstrategy.ai/api/event_reader/_autosummary_enzyne/eth_defi.event_reader.fast_json_rpc.get_last_headers.html?highlight=get_last_headers)      |
-
-
-👉 [Read the full API documentation](https://web3-ethereum-defi.tradingstrategy.ai/).
-
-This is a MIT-licensed open source project. Those who sponsor and contribute get integrations.
-
-# Prerequisites
-
-To use this package you need to
-
-* Have Python 3.10 or newer. Python 3.14 is supported when installing the HyperSync extra through the temporary upstream package `hypersync-temp`.
-* macOS, Linux or Windows Subsystem for Linux (WSL) needed, Microsoft Windows is not officially supported
-  * For WSL, [make sure you have gcc and other tools installed](https://stackoverflow.com/questions/62215963/how-to-install-gcc-and-gdb-for-wslwindows-subsytem-for-linux/63548362#63548362)
-* [Be proficient in Python programming](https://wiki.python.org/moin/BeginnersGuide)
-* [Understand of Web3.py library](https://web3py.readthedocs.io/en/stable/) 
-* [Understand Pytest basics](https://docs.pytest.org/)
- 
-
-# Install
-
-With `uv`:
+## Install
 
 ```shell
-uv pip install "web3-ethereum-defi" --all-extras
+pip install web3-ethereum-defi
 ```
 
-With `pip`:
+For a project managed by uv or Poetry, use `uv add web3-ethereum-defi` or `poetry add web3-ethereum-defi`. For data analysis, install `web3-ethereum-defi[data]`. The [package configuration](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/pyproject.toml) lists the optional dependencies for other integrations.
 
-```shell
-pip install "web3-ethereum-defi[data,test,docs,hypersync,ccxt,cloudflare_r2,duckdb]"
-```
+## Example code
 
-With `poetry`:
+### Uniswap swap example
 
-```shell
-poetry add --extras "data test docs hypersync ccxt cloudflare_r2 duckdb" web3-ethereum-defi
-```
+The [Polygon swap script](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/make-swap-on-uniswap-v3.py) reads token balances, asks for the amount to swap and requests confirmation before signing and broadcasting. It uses `JSON_RPC_POLYGON` for the connection and `PRIVATE_KEY` for the signing account. The [tutorial collection](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/index.html) covers swaps, lending, vaults and historical data.
 
-From master Git branch:
+## Development and contributing
 
-```shell
-git clone git@github.com:tradingstrategy-ai/web3-ethereum-defi.git
-cd web3-ethereum-defi
-poetry shell
-poetry install --all-extras
-```
+Follow the [development instructions](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/docs/source/development.rst) to install the checkout and run focused tests. The [repository guide](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/README.md) links to component READMEs, test fixtures and scanner operations.
 
-# Example code
+## Vault database maintenance
 
-See [the tutorials section in the documentation](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/index.html)
-for full code examples.
+Use the [numbered migration runbook](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/.claude/docs/migration-scripts.md#production-runbook) to stop competing writers, preview pending changes, apply them and restart the scanner.
 
-## Uniswap swap example
+## Version history
 
-- This example shows how to make a trade on Uniswap v3.
-- The example is for Polygon, but works on other chains.
-- See [tutorials](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/index.html) for more Uniswap and other DEX examples
+See the [changelog](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md) and the [releases on PyPI](https://pypi.org/project/web3-ethereum-defi/#history).
 
-```python
-
-import datetime
-import decimal
-import os
-import sys
-from decimal import Decimal
-
-from eth_account import Account
-from eth_account.signers.local import LocalAccount
-from eth_defi.compat import construct_sign_and_send_raw_middleware
-
-from eth_defi.provider.multi_provider import create_multi_provider_web3
-from eth_defi.revert_reason import fetch_transaction_revert_reason
-from eth_defi.token import fetch_erc20_details
-from eth_defi.confirmation import wait_transactions_to_complete
-from eth_defi.uniswap_v3.constants import UNISWAP_V3_DEPLOYMENTS
-from eth_defi.uniswap_v3.deployment import fetch_deployment
-from eth_defi.uniswap_v3.swap import swap_with_slippage_protection
-
-# The address of a token we are going to swap out
-#
-# Use https://tradingstrategy.ai/search to find your token
-#
-# For quote terminology see https://tradingstrategy.ai/glossary/quote-token
-#
-QUOTE_TOKEN_ADDRESS = "0x3c499c542cef5e3811e1192ce70d8cc03d5c3359"  # USDC (native)
-
-# The address of a token we are going to receive
-#
-# Use https://tradingstrategy.ai/search to find your token
-#
-# For base terminology see https://tradingstrategy.ai/glossary/base-token
-BASE_TOKEN_ADDRESS = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619"  # WETH
-
-
-# Connect to JSON-RPC node
-rpc_env_var_name = "JSON_RPC_POLYGON"
-json_rpc_url = os.environ.get(rpc_env_var_name)
-assert json_rpc_url, f"You need to give {rpc_env_var_name} node URL. Check ethereumnodes.com for options"
-
-# Create a Web3 provider with ability to retry failed requests
-# and supporting fallback JSON-RPC nodes. RPC connections
-# are extremely flaky and for production grade usage you need to use multiple
-# JSON-RPC nodes.
-# create_multi_provider_web3() will also take care of any chain-specific
-# RPC setup.
-web3 = create_multi_provider_web3(json_rpc_url)
-
-print(f"Connected to blockchain, chain id is {web3.eth.chain_id}. the latest block is {web3.eth.block_number:,}")
-
-# Grab Uniswap v3 smart contract addreses for Polygon.
-#
-deployment_data = UNISWAP_V3_DEPLOYMENTS["polygon"]
-uniswap_v3 = fetch_deployment(
-    web3,
-    factory_address=deployment_data["factory"],
-    router_address=deployment_data["router"],
-    position_manager_address=deployment_data["position_manager"],
-    quoter_address=deployment_data["quoter"],
-)
-
-print(f"Using Uniwap v3 compatible router at {uniswap_v3.swap_router.address}")
-
-# Read and setup a local private key
-private_key = os.environ.get("PRIVATE_KEY")
-assert private_key is not None, "You must set PRIVATE_KEY environment variable"
-assert private_key.startswith("0x"), "Private key must start with 0x hex prefix"
-account: LocalAccount = Account.from_key(private_key)
-my_address = account.address
-
-# Enable eth_sendTransaction using this private key
-web3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
-
-# Read on-chain ERC-20 token data (name, symbol, etc.)
-base = fetch_erc20_details(web3, BASE_TOKEN_ADDRESS)
-quote = fetch_erc20_details(web3, QUOTE_TOKEN_ADDRESS)
-
-# Native token balance
-# See https://tradingstrategy.ai/glossary/native-token
-gas_balance = web3.eth.get_balance(account.address)
-
-print(f"Your address is {my_address}")
-print(f"Your have {base.fetch_balance_of(my_address)} {base.symbol}")
-print(f"Your have {quote.fetch_balance_of(my_address)} {quote.symbol}")
-print(f"Your have {gas_balance / (10 ** 18)} for gas fees")
-
-assert quote.fetch_balance_of(my_address) > 0, f"Cannot perform swap, as you have zero {quote.symbol} needed to swap"
-
-# Ask for transfer details
-decimal_amount = input(f"How many {quote.symbol} tokens you wish to swap to {base.symbol}? ")
-
-# Some input validation
-try:
-    decimal_amount = Decimal(decimal_amount)
-except (ValueError, decimal.InvalidOperation) as e:
-    raise AssertionError(f"Not a good decimal amount: {decimal_amount}") from e
-
-# Fat-fingering check
-print(f"Confirm swap amount {decimal_amount} {quote.symbol} to {base.symbol}")
-confirm = input("Ok [y/n]?")
-if not confirm.lower().startswith("y"):
-    print("Aborted")
-    sys.exit(1)
-
-# Convert a human-readable number to fixed decimal with 18 decimal places
-raw_amount = quote.convert_to_raw(decimal_amount)
-
-# Each DEX trade is two transactions
-# - ERC-20.approve()
-# - swap (various functions)
-# This is due to bad design of ERC-20 tokens,
-# more here https://twitter.com/moo9000/status/1619319039230197760
-
-# Uniswap router must be allowed to spent our quote token
-# and we do this by calling ERC20.approve() from our account
-# to the token contract.
-approve = quote.contract.functions.approve(uniswap_v3.swap_router.address, raw_amount)
-tx_1 = approve.build_transaction(
-    {
-        # approve() may take more than 500,000 gas on Arbitrum One
-        "gas": 850_000,
-        "from": my_address,
-    }
-)
-
-#
-# Uniswap v3 may have multiple pools per
-# trading pair differetiated by the fee tier. For example
-# WETH-USDC has pools of 0.05%, 0.30% and 1%
-# fees. Check for different options
-# in https://tradingstrategy.ai/search
-#
-# Here we use 5 BPS fee pool (5/10,000).
-#
-#
-# Build a swap transaction with slippage protection
-#
-# Slippage protection is very important, or you
-# get instantly overrun by MEV bots with
-# sandwitch attacks
-#
-# https://tradingstrategy.ai/glossary/mev
-#
-#
-bound_solidity_func = swap_with_slippage_protection(
-    uniswap_v3,
-    base_token=base,
-    quote_token=quote,
-    max_slippage=20,  # Allow 20 BPS slippage before tx reverts
-    amount_in=raw_amount,
-    recipient_address=my_address,
-    pool_fees=[500],   # 5 BPS pool WETH-USDC
-)
-
-tx_2 = bound_solidity_func.build_transaction(
-    {
-        # Uniswap swap should not take more than 1M gas units.
-        # We do not use automatic gas estimation, as it is unreliable
-        # and the number here is the maximum value only.
-        # Only way to know this number is by trial and error
-        # and experience.
-        "gas": 1_000_000,
-        "from": my_address,
-    }
-)
-
-# Sign and broadcast the transaction using our private key
-tx_hash_1 = web3.eth.send_transaction(tx_1)
-tx_hash_2 = web3.eth.send_transaction(tx_2)
-
-# This will raise an exception if we do not confirm within the timeout.
-# If the timeout occurs the script abort and you need to
-# manually check the transaction hash in a blockchain explorer
-# whether the transaction completed or not.
-tx_wait_minutes = 2.5
-print(f"Broadcasted transactions {tx_hash_1.hex()}, {tx_hash_2.hex()}, now waiting {tx_wait_minutes} minutes for it to be included in a new block")
-print(f"View your transactions confirming at https://polygonscan/address/{my_address}")
-receipts = wait_transactions_to_complete(
-    web3,
-    [tx_hash_1, tx_hash_2],
-    max_timeout=datetime.timedelta(minutes=tx_wait_minutes),
-    confirmation_block_count=1,
-)
-
-# Check if any our transactions failed
-# and display the reason
-for completed_tx_hash, receipt in receipts.items():
-    if receipt["status"] == 0:
-        revert_reason = fetch_transaction_revert_reason(web3, completed_tx_hash)
-        raise AssertionError(f"Our transaction {completed_tx_hash.hex()} failed because of: {revert_reason}")
-
-print("All ok!")
-print(f"After swap, you have {base.fetch_balance_of(my_address)} {base.symbol}")
-print(f"After swap, you have {quote.fetch_balance_of(my_address)} {quote.symbol}")
-print(f"After swap, you have {gas_balance / (10 ** 18)} native token left")
-```
-
-# How to use the library in your Python project
-
-Add `web3-ethereum-defi` as a development dependency:
-
-Using [Poetry](https://python-poetry.org/):
-
-```shell
-# Data optional dependencies include pandas and gql, needed to fetch Uniswap v3 data
-poetry add -D "web3-ethereum-defi[data]"
-```
-
-# Documentation
-
-- [Browse API documentation](https://web3-ethereum-defi.tradingstrategy.ai/).
-- [Browse tutorials](https://web3-ethereum-defi.tradingstrategy.ai/tutorials/index.html).
-
-# Development and contributing
-
-- [Read development instructions](https://web3-ethereum-defi.tradingstrategy.ai/development.html).
-
-# Vault database maintenance
-
-Use the [numbered migration system](.claude/docs/migration-scripts.md) to
-discover, preview and apply database repairs and persisted accessor refreshes.
-Standalone ad hoc repair scripts are legacy format and must not be used for
-these tasks anymore; port the reviewed operation into a new numbered script.
-The looped scanner must be stopped for previews and writes; restarting it
-performs normal publication.
-
-Production uses the one-shot Compose service and reads the git commit stamped
-inside the image. No Docker image hash is needed:
-
-```shell
-source ../vault-rpc.env && docker compose run --rm --no-deps -e DRY_RUN=false --entrypoint vault-migrate vault-scanner-oneshot run
-```
-
-# Version history
-
-- [Read changelog](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/CHANGELOG.md).
-- [See releases](https://pypi.org/project/web3-ethereum-defi/#history).
-
-# Support 
+## Support
 
 - [Join Discord for any questions](https://tradingstrategy.ai/community).
 
-# Social media
+## Social media
 
 - [Watch tutorials on YouTube](https://www.youtube.com/@tradingstrategyprotocol)
 - [Follow on Twitter](https://twitter.com/TradingProtocol)
 - [Follow on Telegram](https://t.me/trading_protocol)
 - [Follow on LinkedIn](https://www.linkedin.com/company/trading-strategy/)
 
-# License 
+## Licence
 
-MIT.
+[MIT](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/LICENSE.txt).
 
 [Created by Trading Strategy](https://tradingstrategy.ai).

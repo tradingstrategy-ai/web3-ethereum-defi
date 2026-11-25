@@ -33,6 +33,7 @@ from eth_defi.erc_4626.vault_protocol.kiloex.constants import KILOEX_VAULT_ADDRE
 from eth_defi.erc_4626.vault_protocol.nara.constants import NARAUSD_PLUS_VAULT
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID, NOVA_POOL_ADDRESS
 from eth_defi.erc_4626.vault_protocol.pallas.constants import PALLAS_VAULT_ADDRESSES, PALLAS_VAULTS_BY_CHAIN
+from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_CHAIN_ID, PEAR_VAULT_FACTORY
 from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_ADDRESSES, SHIFT_VAULTS_BY_CHAIN
 from eth_defi.erc_4626.vault_protocol.tori.constants import TORI_CHAIN_ID, TORI_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.tori.vault import ToriVault
@@ -783,6 +784,16 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        if chain_id == PEAR_CHAIN_ID:
+            # Explorer verification does not provide a Pear implementation ABI.
+            yield EncodedCall.from_keccak_signature(
+                address=address,
+                signature=Web3.keccak(text="factory()")[:4],
+                function="pear_factory",
+                data=b"",
+                extra_data=None,
+            )
+
         # Mellow Core Vaults are not ERC-4626, but use this same probe
         # envelope so factory leads and autodetect follow the normal adapter
         # routing path. The two-call signature is intentionally narrow:
@@ -1315,6 +1326,10 @@ def create_probe_calls(
             extra_data=None,
         )
 
+        # Buoy's cached seven-word accounting snapshot; no Core precompile reads.
+        if chain_id == 999:
+            yield EncodedCall.from_keccak_signature(address=address, signature=Web3.keccak(text="getNavSnapshot()")[0:4], function="getNavSnapshot", data=b"", extra_data=None)
+
         # Upshift - TokenizedAccount vaults built on August infrastructure
         # https://etherscan.io/address/0x69fc3f84fd837217377d9dae0212068ceb65818e
         yield EncodedCall.from_keccak_signature(
@@ -1589,6 +1604,13 @@ def identify_vault_features(
     if calls["EVM IS BROKEN SHIT"].success:
         return {ERC4626Feature.broken}
 
+    # Pear conversions read HyperCore precompiles unavailable at some numbered
+    # blocks. The factory getter reads EVM storage and identifies the deployment
+    # independently of the generic conversion test.
+    pear_factory = calls.get("pear_factory")
+    if chain_id == PEAR_CHAIN_ID and pear_factory is not None and pear_factory.success and pear_factory.result == eth_abi.encode(["address"], [PEAR_VAULT_FACTORY]):
+        return {ERC4626Feature.pear_like}
+
     if calls["shareManager"].success and calls["getAssetCount"].success:
         features.add(ERC4626Feature.mellow_like)
 
@@ -1597,6 +1619,10 @@ def identify_vault_features(
     # failure branch and protocol-specific non-ERC-4626 probes below.
     if (compliance_service := calls.get("COMPLIANCE_SERVICE")) and compliance_service.success:
         return {ERC4626Feature.securitize_like}
+
+    buoy_snapshot = calls.get("getNavSnapshot")
+    if chain_id == 999 and buoy_snapshot is not None and buoy_snapshot.success and len(buoy_snapshot.result) == 224:
+        return {ERC4626Feature.buoy_like}
 
     rysk_allocated = calls.get("collateralAllocated")
     rysk_asset = calls.get("collateralAsset")
@@ -2316,7 +2342,11 @@ def create_vault_instance(
         "require_denomination_token": require_denomination_token,
     }
 
-    if ERC4626Feature.mellow_like in features:
+    if ERC4626Feature.buoy_like in features:
+        from eth_defi.erc_4626.vault_protocol.buoy.vault import BuoyVault
+
+        return BuoyVault(web3, spec, **kwargs)
+    elif ERC4626Feature.mellow_like in features:
         from eth_defi.mellow.vault import MellowVault
 
         return MellowVault(web3, spec, **kwargs)
@@ -2953,6 +2983,11 @@ def create_vault_instance(
         from eth_defi.erc_4626.vault_protocol.crystalclear.vault import CrystalClearVault
 
         return CrystalClearVault(web3, spec, **kwargs)
+
+    elif ERC4626Feature.pear_like in features:
+        from eth_defi.erc_4626.vault_protocol.pear.vault import PearVault
+
+        return PearVault(web3, spec, **kwargs)
 
     else:
         # Generic ERC-4626 without fee data

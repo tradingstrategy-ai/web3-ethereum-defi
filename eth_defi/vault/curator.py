@@ -151,6 +151,7 @@ from eth_typing import HexAddress
 
 from eth_defi.erc_4626.vault_protocol.gains.metadata import lookup_gains_vault_metadata
 from eth_defi.erc_4626.vault_protocol.lagoon.constants import KAMUI_LAGOON_VAULTS
+from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_CHAIN_ID, PEAR_CURATORS
 from eth_defi.feed.sources import CuratorIncidentKind, CuratorIncidentSeverity, CuratorRiskStatus, load_feeder_metadata, resolve_canonical_feeder_yaml
 from eth_defi.grvt.constants import GRVT_SYSTEM_VAULT_ADDRESSES
 from eth_defi.hyperliquid.constants import HYPERLIQUID_SYSTEM_VAULT_ADDRESSES
@@ -231,6 +232,7 @@ PROTOCOL_CURATOR_SLUG_ALIASES: dict[str, str] = {
 #: GRVT GLP).
 #: Use :py:func:`is_protocol_curator` to check membership.
 ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
+    "pear",
     "gains-network",
     "nova-markets",
     "auto-finance",
@@ -251,6 +253,7 @@ ALL_PROTOCOL_CURATOR_SLUGS: set[str] = PROTOCOL_CURATED_SLUGS | {
 #: These names are used by :py:func:`get_curator_name` when the curator
 #: slug matches a protocol rather than a third-party curator YAML file.
 PROTOCOL_CURATOR_NAMES: dict[str, str] = {
+    "pear": "Pear",
     "veranta": "Veranta",
     "tori": "Tori Finance",
     "auto-finance": "AUTO Finance",
@@ -297,6 +300,8 @@ CURATOR_NAME_PATTERNS: dict[str, list[str]] = {
     # Retain the historical label without claiming every Waterline-branded
     # deployment (for example the unreviewed Avalanche Waterline USDe vault).
     "waterline-rusd": ["Waterline RUSD"],
+    # Vault names can still use the Greek spelling after the display name changes.
+    "sigma-labs": ["\N{GREEK SMALL LETTER SIGMA}-Labs"],
     "re7-labs": ["RE7"],
     "steakhouse-financial": ["Steakhouse", "Smokehouse"],
     "growi-finance": ["Growi"],
@@ -417,6 +422,11 @@ PROTOCOL_BOUND_CURATOR_SLUGS: set[str] = {
 #: the name. These records still participate in exact manager-name matching;
 #: separately reviewed supplementary aliases remain supported.
 METADATA_ONLY_CURATOR_SLUGS: set[str] = {
+    # Pear publishes operator assignments for specific deployments.
+    "pear",
+    "emporium-ventures",
+    "valkyrie-finance",
+    "moritz-pike",
     #: Product names alone do not establish VOLTA90 management. Use reviewed
     #: operator-linked contracts or exact protocol manager metadata.
     "volta90",
@@ -465,6 +475,7 @@ PROTOCOL_MANAGER_YAML_FIELDS: dict[str, str] = {
 #: carries a co-branded protocol/issuer name that would otherwise win fuzzy
 #: matching.  Keys are ``(chain_id, lowercase_vault_address)``.
 CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
+    **{(PEAR_CHAIN_ID, address): curator for address, curator in PEAR_CURATORS.items()},
     #: Murmurr Morpho lending sleeve, reviewed 2026-11-10. The official
     #: product book links this exact chain/address, including earlier DeTrade branding.
     #: https://murmurr.xyz/
@@ -496,6 +507,21 @@ CURATOR_ADDRESS_OVERRIDES: dict[tuple[int, str], str] = {
     #: https://app.lagoon.finance/api/vault?chainId=1&address=0x7d2c2f54792ad72cb834d298f542145b06b703cb
     #: https://murmurr.xyz/
     (1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb"): "murmurr",
+    #: Sigma Labs publishes these three Lagoon alpha vaults by exact deployment.
+    #: Lagoon's records identify the contracts but leave the curator field empty.
+    #: https://www.sigmalabs.fi/products
+    #: The Base product uses a different address in its URL. Its product
+    #: registry gives the Lagoon vault address used here.
+    #: https://www.sigmalabs.fi/vault/0xd1373084d7c99d8c20c11371e2ea968a7b90e5d6
+    (8453, "0x79238962903c62865f319f660177e75652ee4780"): "sigma-labs",
+    #: https://www.sigmalabs.fi/vault/0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f
+    (42161, "0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f"): "sigma-labs",
+    #: https://www.sigmalabs.fi/vault/0x7d2bd5eb7066957c135585f0f055443451baadad
+    (1, "0x7d2bd5eb7066957c135585f0f055443451baadad"): "sigma-labs",
+    #: The stETH Redemption Carry governance paper identifies this Morpho V2
+    #: deployment as Sigma Labs' lending vault for capital awaiting carry trades.
+    #: https://www.sigmalabs.fi/papers/lagoon-governance.pdf
+    (1, "0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32"): "sigma-labs",
     #: NAVI's otherwise unbranded USDC High Yield vault; reviewed 2026-11-10.
     #: https://app.lagoon.finance/api/vault?chainId=1&address=0x47491305479635357df29fe0cb6f1af10e51d4da
     (1, "0x47491305479635357df29fe0cb6f1af10e51d4da"): "navi",

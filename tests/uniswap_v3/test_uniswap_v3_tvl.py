@@ -8,9 +8,9 @@ from decimal import Decimal
 
 import flaky
 import pytest
-from web3 import HTTPProvider, Web3
+from web3 import Web3
 
-from eth_defi.chain import install_chain_middleware, install_retry_middleware
+from eth_defi.provider.multi_provider import create_multi_provider_web3
 from eth_defi.token import TokenDetails, fetch_erc20_details
 from eth_defi.uniswap_v3.pool import PoolDetails, fetch_pool_details
 from eth_defi.uniswap_v3.tvl import fetch_uniswap_v3_pool_tvl
@@ -21,14 +21,15 @@ pytestmark = pytest.mark.skipif(not JSON_RPC_POLYGON_ARCHIVE, reason="This test 
 
 
 @pytest.fixture()
-def web3():
-    """Live Polygon web3 instance."""
+def web3() -> Web3:
+    """Connect to the configured Polygon archive RPC providers.
+
+    CI may supply a space-separated list of archive fallbacks.
+
+    :return: Web3 connection for the Polygon TVL tests.
+    """
     assert JSON_RPC_POLYGON_ARCHIVE
-    web3 = Web3(HTTPProvider(JSON_RPC_POLYGON_ARCHIVE))
-    web3.middleware_onion.clear()
-    install_chain_middleware(web3)
-    install_retry_middleware(web3)
-    return web3
+    return create_multi_provider_web3(JSON_RPC_POLYGON_ARCHIVE)
 
 
 @pytest.fixture()

@@ -1,0 +1,12 @@
+feeder-id: moritz-pike
+name: Moritz
+role: curator
+twitter: moritzpike
+short_description: Moritz trades pairs of cryptoassets, holding some through longer price swings and aiming to close shorter trades within a week.
+long_description: |
+  [Moritz](https://x.com/moritzpike) manages the Longevity Vault on [Hyperliquid](https://hyperliquid.xyz/) and publishes the trading journal [roundtripping thoughts](https://t.me/moritzpike). Moritz takes opposite positions in two assets, aiming to profit from how their prices move relative to each other.
+
+  The [published mandate](https://pro-gateway.pearprotocol.io/vaults/0x69f2ed780a4cec49e552dbcd35a60f41368bc362) limits the longer-term portfolio to two positions with a combined exposure of at most 1.4 times the value of the vault. For trades expected to last less than a week, the mandate permits up to 2.5 times [leverage](https://tradingstrategy.ai/glossary/leverage), which magnifies gains and losses.
+other-links:
+  - title: Pear catalogue of vault managers and trading mandates
+    url: https://pro-gateway.pearprotocol.io/vaults

@@ -1,0 +1,9 @@
+feeder-id: pear
+name: Pear
+role: curator
+canonical-feeder-id: pear
+short_description: Pear runs an automated vault on Hyperliquid that seeks to profit when price gaps between related cryptoassets narrow.
+long_description: |
+  [Pear](https://www.pear.garden/) runs Agent Pear, its own automated vault on [Hyperliquid](https://hyperliquid.xyz/). Huf, a founder of Pear, outlined a background in trading and investment banking in [Pear’s GMX grant application](https://gov.gmx.io/t/open-grant-application-gmx-pear-protocol/2792).
+
+  The strategy looks for [unusually wide price gaps](https://docs.pear.garden/vaults#the-agent-pear-vault) between assets that usually move together. It takes a position that gains if the relatively cheaper asset rises and another that gains if the relatively more expensive asset falls. It closes both when their price relationship returns towards its usual level, a strategy known as [mean reversion](https://tradingstrategy.ai/glossary/mean-reversion).

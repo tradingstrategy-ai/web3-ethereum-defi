@@ -3,19 +3,27 @@
 import datetime
 import pickle
 import runpy
+from collections.abc import Iterator
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, Mock
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
+from eth_typing import HexAddress
+from web3 import Web3
 
-from eth_defi.erc_4626.vault import VaultReaderState
+from eth_defi.compat import native_datetime_utc_fromtimestamp
+from eth_defi.erc_4626.core import ERC4626Feature
+from eth_defi.erc_4626.vault import ERC4626Vault, VaultReaderState
 from eth_defi.event_reader import multicall_batcher
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
 from eth_defi.hyperliquid.constants import HYPEREVM_MULTICALL_GREYLIST
+from eth_defi.token import NATIVE_ASSET_ADDRESS, TokenDetails
+from eth_defi.vault import historical
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.historical import VaultHistoricalReadMulticaller, scan_historical_prices_to_parquet
 from eth_defi.vault.scan_all_chains import fetch_current_vault_tvl_usd
@@ -35,6 +43,7 @@ class DummyVault:
     spec: VaultSpec
     denomination_token: DummyToken
     first_seen_at_block: int = 1
+    preserve_unavailable_price_history: bool = False
 
     @property
     def address(self) -> str:
@@ -382,7 +391,8 @@ def test_audit_failure_keeps_published_prices_and_continuation(tmp_path: Path, m
 
 
 @pytest.mark.parametrize("chain_id,entrypoint", [(1, "library"), (999, "library"), (999, "standalone")])
-def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chain_id: int, entrypoint: str) -> None:
+@pytest.mark.parametrize("adapter_policy", [False, True])
+def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, chain_id: int, entrypoint: str, adapter_policy: bool) -> None:
     """An injected policy retains unavailable rows independently of the chain.
 
     A file-backed production-schema Parquet exercises the actual atomic writer.
@@ -390,8 +400,10 @@ def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypat
     observation. Only the replacement may retire its saved source row, while
     ordinary vault rows still follow the existing range replacement rules.
     """
-    hyped = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
-    grey = DummyVault(VaultSpec(chain_id, hyped), DummyToken())
+    # Exercise an archive-readable target with a batching restriction. HYPED
+    # now uses the current-state pass and cannot supply replacement archive rows.
+    grey_address = "0x00000000000000000000000000000000000000ab"
+    grey = DummyVault(VaultSpec(chain_id, grey_address), DummyToken(), preserve_unavailable_price_history=adapter_policy)
     normal = DummyVault(VaultSpec(chain_id, "0x0000000000000000000000000000000000000001"), DummyToken())
     start = datetime.datetime(2026, 10, 3)
     rescan = False
@@ -406,13 +418,19 @@ def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypat
                     continue
                 row = reader.make_read(block, start + datetime.timedelta(hours=block))
                 row.total_assets = Decimal(3_000 if rescan else 2_000)
+                if rescan and vault is grey and block == 1 and not adapter_policy:
+                    # Ordinary greylisting permits optional capacity errors
+                    # when all required valuation fields are still valid.
+                    row.errors = ["Optional capacity probe reverted"]
                 if rescan and vault is grey and block == 3:
                     row.share_price = None
+                    if adapter_policy:
+                        row.errors = ["Inconsistent published accounting"]
                 yield row
 
     monkeypatch.setattr(VaultHistoricalReadMulticaller, "read_historical", observations)
     path = tmp_path / "prices.parquet"
-    kwargs = dict(output_fname=path, web3=SimpleNamespace(eth=SimpleNamespace(chain_id=chain_id)), web3factory=None, vaults=[grey, normal], greylist=frozenset({grey.address}), token_cache=SimpleNamespace(filename=tmp_path / "tokens.sqlite"), start_block=1, end_block=4, step=1)
+    kwargs = dict(output_fname=path, web3=SimpleNamespace(eth=SimpleNamespace(chain_id=chain_id)), web3factory=None, vaults=[grey, normal], greylist=frozenset() if adapter_policy else frozenset({grey.address}), token_cache=SimpleNamespace(filename=tmp_path / "tokens.sqlite"), start_block=1, end_block=4, step=1)
     if entrypoint == "standalone":
         # Run the real legacy CLI boundary against the actual atomic writer. Only
         # discovery/connection preparation is replaced, so dropping policy from
@@ -426,6 +444,7 @@ def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypat
         monkeypatch.setenv("PROFILE", "false")
         run_scan = runpy.run_path(str(Path(__file__).parents[2] / "scripts/erc-4626/scan-prices.py"))["_run_scan"]
         namespace = run_scan.__globals__
+        monkeypatch.setitem(namespace, "HYPEREVM_MULTICALL_GREYLIST", kwargs["greylist"])
         metadata_path = tmp_path / "metadata.pickle"
         metadata = SimpleNamespace(rows={vault.get_spec(): {"_detection_data": SimpleNamespace(chain=chain_id, address=vault.address, features=set(), first_seen_at_block=1)} for vault in [grey, normal]})
         metadata_path.write_bytes(pickle.dumps(metadata))
@@ -445,7 +464,7 @@ def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypat
 
         def publish(**arguments: object) -> dict:
             """Keep CLI policy while fixing the tiny fixture's sampling grid."""
-            assert arguments["greylist"] == HYPEREVM_MULTICALL_GREYLIST
+            assert arguments["greylist"] == kwargs["greylist"]
             result = scan_historical_prices_to_parquet(**arguments, step=1)
             reports.append(result)
             return result
@@ -463,17 +482,22 @@ def test_greylisted_failed_rescan_preserves_saved_keys(tmp_path: Path, monkeypat
             return scan_historical_prices_to_parquet(**kwargs)
 
     scan()
-    original = pq.read_table(path).to_pandas()
+    table = pq.read_table(path)
+    original = table.to_pandas()
+    legacy_address = "0x" + grey_address[2:].upper()
+    table = table.set_column(table.schema.get_field_index("address"), "address", pa.array([legacy_address if address == grey_address else address for address in original.address]))
+    pq.write_table(table, path)
     rescan = True
     report = scan()
-    updated = pq.read_table(path).to_pandas().sort_values(["address", "block_number"])
+    updated = pq.read_table(path).to_pandas().sort_values("block_number")
     assert len(updated) == 6
-    assert not updated.duplicated(["chain", "address", "block_number"]).any()
-    grey_rows = updated[updated.address == hyped]
+    assert not updated.assign(address=updated.address.str.lower()).duplicated(["chain", "address", "block_number"]).any()
+    grey_rows = updated[updated.address.str.lower() == grey_address]
+    assert list(grey_rows.address) == [grey_address, legacy_address, legacy_address]
     assert list(grey_rows.total_assets) == [3_000, 2_000, 2_000]
     assert list(updated[updated.address == normal.address].total_assets) == [3_000] * 3
     retained = grey_rows[grey_rows.block_number.isin([2, 3])]
-    old = original[(original.address == hyped) & original.block_number.isin([2, 3])]
+    old = original[(original.address == grey_address) & original.block_number.isin([2, 3])]
     assert list(retained.timestamp) == list(old.timestamp)
     assert list(retained.written_at) == list(old.written_at)
     assert report["rows_deleted"] == 4
@@ -575,3 +599,196 @@ def test_hypercore_optional_revert_and_partial_freshness(monkeypatch: pytest.Mon
     else:
         assert len(rows) == 1
         assert scanner.last_retained_at[address] == timestamp
+
+
+@pytest.mark.parametrize(
+    ("address", "features"),
+    [
+        ("0x" + "34" * 20, {ERC4626Feature.pear_like}),  # future factory deployment
+        ("0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e", {ERC4626Feature.hyperdrive_hl_like}),  # HYPED only
+    ],
+)
+def test_hyperevm_latest_and_numbered_prices_share_the_writer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, address: HexAddress, features: set[ERC4626Feature]) -> None:
+    """Keep the latest observation independent of the archive cursor and protect it during replay.
+
+    Exercise the ordinary ERC-4626 call builder, decoder, adaptive state and
+    Parquet writer. Only token warmup and the two RPC transports are substituted.
+    """
+    offline = Web3()
+    live = ERC4626Vault(offline, VaultSpec(999, address), features=features)
+    ordinary = ERC4626Vault(offline, VaultSpec(999, "0x" + "12" * 20), features={ERC4626Feature.hyperdrive_hl_like})
+    for vault in (live, ordinary):
+        vault.first_seen_at_block = 10
+        token = TokenDetails(vault.vault_contract, symbol="USDC", decimals=6)
+        vault.__dict__.update(share_token=token, denomination_token=token)
+
+    def prepare(_scanner: VaultHistoricalReadMulticaller, vaults: list[ERC4626Vault], stateful: bool, saved_states: dict | None) -> dict:
+        """Use the real readers and restore the supplied state without network warmup."""
+        readers = {}
+        for vault in vaults:
+            reader = vault.get_historical_reader(stateful)
+            if saved_states and vault.get_spec() in saved_states:
+                reader.reader_state.load(saved_states[vault.get_spec()])
+            readers[vault.address] = reader
+        return readers
+
+    def numbered(calls: dict[EncodedCall, object], start_block: int, **_kwargs: object) -> tuple:
+        """Check that only the ordinary vault owns the historical cursor."""
+        assert start_block == 91
+        assert {call.address for call in calls} == {ordinary.address}
+        return ()
+
+    monkeypatch.setattr(VaultHistoricalReadMulticaller, "prepare_readers", prepare)
+    monkeypatch.setattr(historical, "read_multicall_historical_stateful", numbered)
+    multicall = Mock()
+    monkeypatch.setattr(historical, "get_multicall_contract", lambda _web3: multicall)
+    request = multicall.functions.tryBlockAndAggregate.return_value.call
+    epoch = 1760000000
+    outputs = [(True, value.to_bytes(32)) for value in (epoch, 12_500_000_000, 10_000_000_000, 1_250_000, 0)]
+    request.return_value = (110, bytes(32), outputs)
+    path = tmp_path / "prices.parquet"
+    options = dict(output_fname=path, web3=SimpleNamespace(eth=SimpleNamespace(chain_id=999)), web3factory=None, token_cache=SimpleNamespace(filename=tmp_path / "tokens"), max_workers=1, step=1)
+    states = {ordinary.get_spec(): {"last_block": 90}}
+    scan = scan_historical_prices_to_parquet(**options, vaults=[live, ordinary], end_block=100, reader_states=states, include_latest=True)
+    request.assert_called_once_with(block_identifier="latest")
+    (row,) = pq.read_table(path).to_pylist()
+    assert (row["block_number"], row["timestamp"]) == (110, native_datetime_utc_fromtimestamp(epoch))
+    assert row["vault_poll_frequency"] == "latest"
+    assert (row["share_price"], row["total_assets"], row["total_supply"]) == (1.25, 12_500, 10_000)
+    states = scan["reader_states"]
+    assert states[live.get_spec()]["last_block"] == 110
+    assert states[ordinary.get_spec()]["last_block"] == 90
+
+    # A missing cursor must not duplicate a committed block. A new head just
+    # one second later is a new observation, even inside the archive cadence.
+    scan = scan_historical_prices_to_parquet(**options, vaults=[live], end_block=115, include_latest=True)
+    assert scan["rows_written"] == 0
+    request.return_value = (111, bytes(32), [(True, (epoch + 1).to_bytes(32)), *outputs[1:]])
+    scan = scan_historical_prices_to_parquet(**options, vaults=[live, ordinary], end_block=105, reader_states=states, include_latest=True)
+    assert scan["rows_written"] == 1
+    assert scan["reader_states"][live.get_spec()]["last_block"] == 111
+    request.return_value = (120, bytes(32), [(True, (epoch + 7200).to_bytes(32)), (False, b""), *outputs[2:]])
+    scan = scan_historical_prices_to_parquet(**options, vaults=[live, ordinary], end_block=116, reader_states=states, include_latest=True)
+    assert scan["rows_written"] == 0
+    assert scan["reader_states"][live.get_spec()]["last_block"] == 111
+
+    assert scan["reader_states"][live.get_spec()]["rpc_error_count"] == 1
+    request.return_value = (121, bytes(32), [(False, b""), *outputs[1:]])
+    scan = scan_historical_prices_to_parquet(**options, vaults=[live, ordinary], end_block=117, reader_states=states, include_latest=True)
+    assert scan["rows_written"] == 0
+    assert scan["reader_states"][live.get_spec()]["last_block"] == 111
+    assert "timestamp" in scan["reader_states"][live.get_spec()]["last_rpc_error"]
+
+    # A bounded replay covers the observed block. It cannot recreate the snapshot.
+    request.reset_mock()
+    scan_historical_prices_to_parquet(**options, vaults=[live], start_block=10, end_block=150)
+    # A chain-wide replay may omit the live adapter entirely. New factory
+    # deployments are then protected by the saved row's provenance marker.
+    scan_historical_prices_to_parquet(**options, vaults=[ordinary], start_block=91, end_block=150, reader_states=states)
+    request.assert_not_called()
+    assert pq.read_table(path).select(["block_number", "share_price"]).to_pylist() == [{"block_number": 110, "share_price": 1.25}, {"block_number": 111, "share_price": 1.25}]
+
+
+def test_native_hype_vault_values_override_legacy_zero_decimals(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Value native HYPE in wei even when a restored ERC-20 cache has recorded zero decimals."""
+    web3 = Web3()
+    asset = Web3.to_checksum_address(NATIVE_ASSET_ADDRESS)
+    cache = {TokenDetails.generate_cache_key(999, asset): {"decimals": 0, "symbol": None}}
+    vault = ERC4626Vault(web3, VaultSpec(999, "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"), token_cache=cache, default_block_identifier="latest")
+    monkeypatch.setattr(vault, "fetch_denomination_token_address", lambda: asset)
+    denomination = vault.denomination_token
+    assert denomination.address == asset
+    assert denomination.symbol == "HYPE"
+    assert denomination.convert_to_decimals(1_029_250_700_170_993_035) == Decimal("1.029250700170993035")
+
+
+def test_cached_nav_polling_does_not_refresh_valuation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep the real NAV time when unchanged cached storage is polled again.
+
+    A new publication at unchanged price must still survive sparse retention,
+    while reading the same publication two weeks later cannot create freshness.
+
+    :param monkeypatch: Replace only provider execution and reader construction.
+    """
+    origin = datetime.datetime(2026, 1, 1)
+    times = [origin + datetime.timedelta(days=day) for day in (0, 8, 16, 17)]
+    vault = DummyVault(VaultSpec(999, "0x0000000000000000000000000000000000000009"), DummyToken())
+    reader = DummyReader(vault, times)
+    original = reader.make_read
+
+    def make_read(block_number: int, timestamp: datetime.datetime) -> VaultHistoricalRead:
+        """Attach an old publication until the last observed block.
+
+        :param block_number: Actual read block.
+        :param timestamp: Actual chain read timestamp.
+        :return: Observation with independently dated NAV.
+        """
+        row = original(block_number, timestamp)
+        row.nav_timestamp = origin if block_number < 4 else timestamp
+        return row
+
+    monkeypatch.setattr(reader, "make_read", make_read)
+    scanner = make_offline_scan(monkeypatch, reader)
+    call = EncodedCall(func_name="price", address=vault.address, data=b"", extra_data={"vault": vault.address})
+
+    def read_multicall(**_: object):
+        """Emit four real storage observations without calling a provider."""
+        for block, timestamp in enumerate(times, start=1):
+            result = SimpleNamespace(call=call, block_identifier=block, timestamp=timestamp, unavailable_error=None)
+            yield SimpleNamespace(block_number=block, timestamp=timestamp, results=[result])
+
+    rows = list(scanner.read_historical([vault], 1, 5, 1, reader_func=read_multicall))
+    assert [row.block_number for row in rows] == [1, 4]
+    assert rows[0].nav_timestamp == origin
+    assert rows[1].nav_timestamp == times[-1]
+    assert scanner.freshness_rows_written == 0
+    assert scanner.last_retained_at[vault.address] == times[-1]
+
+
+@pytest.mark.parametrize("include_end, end_block, expected", [(True, 11, [2, 7, 10]), (True, 13, [2, 7, 12]), (False, 11, [2, 7])])
+def test_published_nav_reader_retains_final_partial_interval(monkeypatch: pytest.MonkeyPatch, include_end: bool, end_block: int, expected: list[int]) -> None:
+    """Retain first publication after the hourly grid without changing other readers.
+
+    The extra read uses the same multicall/timestamp path at the real endpoint.
+    An endpoint already on the grid is never repeated.
+
+    :param monkeypatch: Replace only provider execution and reader preparation.
+    :param include_end: Reader's explicit endpoint policy.
+    :param end_block: Exclusive historical range boundary.
+    :param expected: Actual source blocks dispatched.
+    :return: None after checking block coverage and priced observation.
+    """
+    vault = DummyVault(VaultSpec(999, "0x" + "66" * 20), DummyToken())
+    reader = DummyReader(vault, [])
+    reader.reader_state = None
+    reader.include_historical_end_sample = include_end
+    scanner = make_offline_scan(monkeypatch, reader)
+    dispatched = []
+    origin = datetime.datetime(2026, 11, 14)
+
+    def source(*, calls: list[EncodedCall], start_block: int, end_block: int, step: int, **kwargs: object) -> Iterator[SimpleNamespace]:
+        """Execute the requested source grid with its genuine block identity."""
+        for block in range(start_block, end_block, step):
+            dispatched.append(block)
+            timestamp = origin + datetime.timedelta(seconds=block)
+            yield SimpleNamespace(block_number=block, timestamp=timestamp, results=[EncodedCallResult(call, True, bytes(32), block, timestamp) for call in calls])
+
+    def decode(block: int, timestamp: datetime.datetime, results: list) -> VaultHistoricalRead:
+        """Publish the first real investment price at the final block."""
+        row = reader.make_read(block, timestamp)
+        if block != end_block - 1:
+            row.share_price = None
+            row.total_supply = Decimal(0)
+        else:
+            row.nav_timestamp = timestamp
+        return row
+
+    monkeypatch.setattr(historical, "read_multicall_historical", source)
+    monkeypatch.setattr(reader, "process_result", decode)
+    rows = list(scanner.read_historical([vault], 2, end_block, 5, reader_func=source))
+    assert dispatched == expected
+    if include_end:
+        assert rows[-1].block_number == end_block - 1
+        assert rows[-1].share_price == Decimal(1)
+        assert rows[-1].nav_timestamp == origin + datetime.timedelta(seconds=end_block - 1)
+    assert scanner.unavailable_observations == 0

@@ -23,6 +23,7 @@ SCRIPT_NAME = "020-passivbot-canon-metadata.py"
 FIELDS = ("_description", "_short_description", "_strategy_tags")
 EXPECTED_TAGS = {
     StrategyTag.perpetual_futures,
+    StrategyTag.staff_pick,
     StrategyTag.algorithmic_trading,
     StrategyTag.high_frequency_high_win_rate,
     StrategyTag.martingale_like,

@@ -38,19 +38,21 @@ from eth_defi.utils import is_good_multichain_address
 from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManagerCapability
 from eth_defi.vault.lower_case_dict import LowercaseDict
 from eth_defi.vault.price_source import PriceSource
+from eth_defi.vault.publication_state import publish_verified_parquet
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.version_info import stamp_parquet_schema_metadata
 
-from .fee import FeeData, VaultFeeMode, get_vault_fee_mode
+from .fee import FeeData, HighWaterMark, VaultFeeMode, get_vault_fee_mode
 from .flag import VaultFlag, get_notes, get_vault_special_flags
 from .risk import VaultTechnicalRisk, get_vault_risk
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit
     import pandas as pd
     import pyarrow
+
+    from eth_defi.vault.withdrawal_capacity import WithdrawalCapacityLimit
 
 BlockRange = Tuple[BlockNumber, BlockNumber]
 
@@ -236,6 +238,47 @@ class WithdrawalDelayType(enum.StrEnum):
     #: A request can be completed only in a protocol-defined epoch window.
     #: D2 Texas Hedge is an example.
     epoch = "epoch"
+
+
+@dataclass(frozen=True, slots=True)
+class RedemptionRequestObservation:
+    """Observe whether a vault accepts new redemption requests at a block.
+
+    The scanner exports this evidence independently of owner balances,
+    outstanding tickets and immediate withdrawal capacity.
+    """
+
+    #: Block used for all reads making up this observation.
+    block_number: int
+    #: Naive UTC block timestamp.
+    observed_at: datetime.datetime
+    #: True when open, false when closed, or None when unreadable.
+    request_open: bool | None
+    #: Public explanation for a known closure.
+    closed_reason: str | None = None
+    #: Estimated next opening, in naive UTC.
+    next_open: datetime.datetime | None = None
+    #: Configured nominal epoch duration, in seconds.
+    nominal_epoch_seconds: int | None = None
+    #: Nominal minimum and maximum unlock distance in epochs.
+    unlock_epochs: tuple[int, int] | None = None
+
+    def export(self) -> dict[str, object]:
+        """Return the JSON-ready request evidence for :py:func:`create_vault_scan_record`."""
+
+        status = "unknown" if self.request_open is None else "open" if self.request_open else "closed"
+        result = {
+            "status": status,
+            "block_number": self.block_number,
+            "observed_at": self.observed_at.isoformat() + "Z",
+        }
+        if self.unlock_epochs is not None:
+            result.update(
+                nominal_epoch_seconds=self.nominal_epoch_seconds,
+                unlock_epochs_min=self.unlock_epochs[0],
+                unlock_epochs_max=self.unlock_epochs[1],
+            )
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -639,19 +682,23 @@ class RawVaultPriceRow(TypedDict, total=False):
     #: the validation function that accepts all these formats.
     address: str
 
-    #: Block number of the on-chain read.
-    #: For native protocols without blocks this is a synthetic sequence number.
+    #: Block number of the onchain read. Native protocols may use a synthetic
+    #: sequence number or a placeholder. ApeX writes zero for every price.
     block_number: int
 
-    #: Naive UTC timestamp of the real source observation, with one-second
-    #: EVM block precision. This, not ``written_at``, determines freshness.
+    #: Naive UTC observation time, stored to milliseconds and used for freshness.
     #:
-    #: Modern high-throughput chains, including Monad, can produce multiple
-    #: blocks in the same second. This value may therefore repeat for the
-    #: same vault; raw-row identity is ``(chain, address, block_number)``, not
-    #: ``timestamp``. The Parquet millisecond logical type is used only for
-    #: compatibility, as one-second precision is sufficient for price scans.
+    #: EVM reads use ``(chain, address, block_number)`` as their key. Distinct
+    #: blocks can share a timestamp for the same vault. Preserve both observations.
+    #:
+    #: Within the ApeX partition, the key is the lower-case vault address and
+    #: stored millisecond. A source observation at ``12:00:00.999500`` replays
+    #: onto ``12:00:00.999``. A match between fresh and stored inputs is a
+    #: correction. Repeated keys within either input make the merge ambiguous.
     timestamp: "pd.Timestamp"
+
+    #: Optional original NAV publication time, distinct from the chain read.
+    nav_timestamp: "pd.Timestamp | None"
 
     #: Share price in denomination token units.
     #:
@@ -777,10 +824,10 @@ class VaultHistoricalRead:
     #: Vault for this result is
     vault: "VaultBase"
 
-    #: block number of the reade
+    #: EVM block at which the vault was read.
     block_number: int
 
-    #: Naive datetime in UTC
+    #: Naive UTC block time. Several blocks may share the same second.
     timestamp: datetime.datetime
 
     #: What was the share price in vault denomination token
@@ -847,6 +894,9 @@ class VaultHistoricalRead:
     #: Only applicable to lending protocol vaults.
     #: Value between 0.0 and 1.0 (0% to 100%).
     utilisation: Percent | None = None
+
+    #: Original NAV publication time; polling never refreshes this valuation.
+    nav_timestamp: datetime.datetime | None = None
 
     def __eq__(self, other: "VaultHistoricalRead | None") -> bool:
         """Check if the read statistics match.
@@ -935,16 +985,20 @@ class VaultHistoricalRead:
             "trading": str(self.trading).lower() if self.trading is not None else "",
             "available_liquidity": float(self.available_liquidity) if self.available_liquidity is not None else _nan,
             "utilisation": float(self.utilisation) if self.utilisation is not None else _nan,
+            "nav_timestamp": self.nav_timestamp,
             "written_at": None,  # Stamped in batch at Parquet write time
         }
         return data
 
     @classmethod
     def to_pyarrow_schema(cls) -> "pyarrow.Schema":
-        """Get parquet schema for writing this data.
+        """Return the shared raw price schema for EVM and native observations.
 
-        - Write multiple chains, multiple vaults, to a single Parquet file
-        - Column semantics are documented in :py:class:`RawVaultPriceRow`
+        :py:class:`RawVaultPriceRow` documents the protocol-specific row keys.
+        Native merges that use the stored timestamp for identity must compare
+        it at this field's precision before deciding which rows to retain.
+
+        :return: Arrow schema for the combined raw price Parquet.
         """
         import pyarrow as pa
 
@@ -953,7 +1007,9 @@ class VaultHistoricalRead:
                 ("chain", pa.uint32()),
                 ("address", pa.string()),  # Lowercase
                 ("block_number", pa.uint64()),
-                ("timestamp", pa.timestamp("ms")),  # s accuracy does not seem to work on rewrite
+                # ApeX uses this precision to match replays. EVM blocks may share this value.
+                ("timestamp", pa.timestamp("ms")),
+                ("nav_timestamp", pa.timestamp("ms")),
                 ("share_price", pa.float64()),
                 ("total_assets", pa.float64()),
                 ("total_supply", pa.float64()),
@@ -1059,10 +1115,11 @@ class VaultHistoricalRead:
     ) -> None:
         """Write a DataFrame to the uncleaned parquet using proper PyArrow types.
 
-        Native protocol merge functions (Hyperliquid, GRVT, Lighter) must use
-        this instead of ``pandas.DataFrame.to_parquet()`` to avoid type
-        promotion (e.g. ``timestamp[ms]`` → ``timestamp[us]``) that breaks
-        :py:meth:`migrate_parquet_schema` on the next EVM scan run.
+        This DataFrame writer and the native Arrow merge both use the canonical
+        Parquet types. Casting timestamps to milliseconds can give distinct source
+        times the same stored value. Callers that merge by timestamp must resolve
+        replays and reject ambiguous keys before writing. EVM block observations
+        may share the resulting timestamp.
 
         Columns present in the canonical schema are cast to their canonical
         types. Extra columns (from native protocols) are kept with their
@@ -1134,7 +1191,7 @@ class VaultHistoricalRead:
                 expected_rows=len(table),
                 expected_schema=table.schema,
             )
-            os.replace(temp_path, str(path))
+            publish_verified_parquet(pathlib.Path(temp_path), path)
         except BaseException:
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
@@ -1162,6 +1219,10 @@ class VaultHistoricalReader(ABC):
 
     #: Retain every successful static Multicall sample, including unchanged NAVs.
     write_all_samples: bool = False
+
+    #: Also sample end_block - 1 in stateless scans, after the regular grid.
+    #: Published NAV readers use this to retain a final partial interval.
+    include_historical_end_sample: bool = False
 
     def __init__(self, vault: "VaultBase"):
         assert isinstance(vault, VaultBase)
@@ -1397,6 +1458,10 @@ class VaultBase(ABC):
     For code examples see `tests/lagoon` and `tests/velvet` on the `Github repository <https://github.com/tradingstrategy-ai/web3-ethereum-defi>`__.
     """
 
+    #: Retain saved source rows unless a successful replacement was observed.
+    #: Opt-in readers return errors without advancing state for invalid data.
+    preserve_unavailable_price_history: bool = False
+
     #: Block number hint when this vault was deployed.
     #:
     #: Must be set externally, as because of shitty Ethereum RPC we cannot query this.
@@ -1424,6 +1489,9 @@ class VaultBase(ABC):
     #: a unit exchange rate for them without inventing a token contract. This
     #: declaration does not assert that a volatile underlying asset is stable.
     synthetic_usd_denomination: ClassVar[bool] = False
+
+    #: Reviewed scope of this adapter's performance-fee accounting.
+    high_water_mark: ClassVar[HighWaterMark | None] = None
 
     def __init__(
         self,
@@ -1942,6 +2010,16 @@ class VaultBase(ABC):
         protocol = self.get_protocol_name()
         return get_vault_fee_mode(protocol, address)
 
+    def get_high_water_mark(self) -> HighWaterMark | None:
+        """Return whose gains determine the vault's performance fee.
+
+        The scanner stores this classification for the vault JSON. Adapters can
+        supply a protocol default or resolve the scope for a specific deployment.
+
+        :return: Investor-level or shared accounting, or None when unspecified.
+        """
+        return self.high_water_mark
+
     def get_fee_data(self, block_identifier: BlockIdentifier = "latest") -> FeeData:
         """Get fee data structure for this vault.
 
@@ -2023,6 +2101,14 @@ class VaultBase(ABC):
             ``True`` when deposits are open, ``False`` when they are closed,
             or ``None`` when the protocol does not expose a reliable global
             availability read.
+        """
+        return None
+
+    def fetch_redemption_request_observation(self, block_identifier: BlockIdentifier) -> RedemptionRequestObservation | None:
+        """Fetch block-tagged request availability when the adapter supports it.
+
+        :param block_identifier: Block number or tag selected by the metadata scanner.
+        :return: A request observation, or None for adapters without this reporting hook.
         """
         return None
 

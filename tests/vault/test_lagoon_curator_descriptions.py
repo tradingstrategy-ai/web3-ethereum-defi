@@ -21,16 +21,22 @@ from eth_defi.erc_4626.vault_protocol.morpho.vault_v2 import MorphoV2Vault
 from eth_defi.research.vault_metrics import calculate_hourly_returns_for_all_vaults, calculate_lifetime_metrics, export_lifetime_row
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.fee import FeeData, VaultFeeMode
-from eth_defi.vault.handwritten_metadata import LAGOON_CURATOR_VAULT_METADATA
+from eth_defi.vault.handwritten_metadata import LAGOON_CURATOR_VAULT_METADATA, SIGMA_LABS_VAULT_METADATA, get_handwritten_vault_metadata
+from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
 
 #: The migration must retain its original fixed inventory on later catalogue edits.
 SCRIPT = "061-lagoon-curator-descriptions.py"
+#: The Sigma Labs refresh has an independent scope and journal entry.
+SIGMA_SCRIPT = "103-sigma-labs-vault-metadata.py"
 #: Representative Lagoon and Morpho deployments for the full scanner/export path.
 SPECS = [VaultSpec(1, "0x7d2c2f54792ad72cb834d298f542145b06b703cb"), VaultSpec(1, "0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac")]
 #: Morpho products have direct lending descriptions, separate from the Lagoon allocator.
 MORPHO_ADDRESSES = {"0x845339546d90e6e21fdb9638cc7d8d15ebb5e4ac", "0x29ca54dd3ae9e43abb10880f5e08da439bf25f99", "0xcda5dbf58a016158ecd4a226109752cc3a627ec8", "0x9f209b43559b13b783eaa0a6686921c7b174f269", "0x3f78bdd48b363ec927dc227d6c80a6e4821c7e10"}
+
+#: New strategy evidence for a vault outside the original migration's scope.
+SIGMA_LPP = VaultSpec(1, "0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb")
 
 #: Reviewed deployments without substantive individual strategy evidence.
 UNDESCRIBED_SPECS = [
@@ -39,7 +45,6 @@ UNDESCRIBED_SPECS = [
     VaultSpec(1, "0x66dcb62da5430d800a1c807822c25be17138fda8"),
     VaultSpec(1, "0x71652d4898de9a7dd35e472a5fe4577ec69d82f2"),
     VaultSpec(1, "0x7d798ce99ee2adc183a865d76b112810d5395ea2"),
-    VaultSpec(1, "0x8595f5ee036e1f7c4f3ca66327ba5f38c21cb7fb"),
     VaultSpec(999, "0x7dd73a986f6188da1baaf68541fd6ebd455abd1d"),
     VaultSpec(8453, "0xfce2064b4221c54651b21c868064a23695e78f09"),
     VaultSpec(42161, "0x99cd0b8b32b15922f0754fddc21323b5278c5261"),
@@ -85,7 +90,7 @@ def test_wrong_chain_retains_provider_copy() -> None:
     assert vault.short_description == "Provider summary."
 
 
-@pytest.mark.parametrize("spec", [*SPECS, UNDESCRIBED_SPECS[0]])
+@pytest.mark.parametrize("spec", [*SPECS, SIGMA_LPP, UNDESCRIBED_SPECS[0]])
 def test_copy_reaches_scanner_and_public_json(spec: VaultSpec, monkeypatch: pytest.MonkeyPatch) -> None:
     """Pass real adapter text through the scanner and individual vault JSON.
 
@@ -135,7 +140,7 @@ def test_copy_reaches_scanner_and_public_json(spec: VaultSpec, monkeypatch: pyte
     first_seen = datetime.datetime(2026, 9, 1)  # noqa: DTZ001 - Repository timestamps are naive UTC.
     detection = ERC4262VaultDetection(chain=spec.chain_id, address=spec.vault_address, first_seen_at_block=1, first_seen_at=first_seen, updated_at=first_seen, features={feature}, deposit_count=10, redeem_count=10)
     record = scan.create_vault_scan_record(web3=None, detection=detection, block_identifier=1, token_cache={})
-    metadata = LAGOON_CURATOR_VAULT_METADATA.get((spec.chain_id, spec.vault_address))
+    metadata = get_handwritten_vault_metadata(spec.chain_id, spec.vault_address)
     expected_long = metadata.description if metadata else None
     expected_short = metadata.short_description if metadata else None
     assert record["_description"] == expected_long
@@ -255,3 +260,86 @@ def test_missing_copy_remains_empty_and_allows_future_provider_text(spec: VaultS
     vault.__dict__["_lagoon_scan_snapshot"] = LagoonMetadataSnapshot({"description": provider_copy, "short_description": provider_copy}, False, "success", None)
     assert vault.description == provider_copy
     assert vault.short_description == provider_copy
+
+
+@pytest.mark.parametrize(
+    ("chain", "address", "adapter", "tags"),
+    [
+        (1, "0x2746f31096f23670caf4043f8b30d8d02405a257", LagoonVault, "algorithmic_trading amm arbitrage carry_trade lending lending_optimisation multistrategy"),
+        (1, "0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89", LagoonVault, "algorithmic_trading lending lending_optimisation"),
+        (1, SIGMA_LPP.vault_address, LagoonVault, "algorithmic_trading amm amm_stablecoin liquidity_provider market_making market_making_amm"),
+        (8453, "0x79238962903c62865f319f660177e75652ee4780", LagoonVault, "algorithmic_trading lending lending_optimisation"),
+        (42161, "0x0f30d4cc24024e51bee5e7805bc7f3e6a88ea59f", LagoonVault, "algorithmic_trading arbitrage delta_neutral long_short_portfolio perpetual_futures statistical_arbitrage"),
+        (1, "0x7d2bd5eb7066957c135585f0f055443451baadad", LagoonVault, "algorithmic_trading carry_trade directional_leverage lending_looping"),
+        (1, "0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32", MorphoV2Vault, "algorithmic_trading lending lending_optimisation"),
+    ],
+)
+def test_sigma_labs_vault_metadata(chain: int, address: str, adapter: type[LagoonVault] | type[MorphoV2Vault], tags: str) -> None:
+    """Expose researched descriptions and exact strategy tags through both adapters.
+
+    The changed deployments have maintained copy even when the provider
+    supplies no descriptions. Strategy tags apply only on the reviewed chain.
+
+    :param chain: Deployment chain ID.
+    :param address: Vault contract address.
+    :param adapter: Adapter selected by scanner detection.
+    :param tags: Space-separated canonical strategy identifiers.
+    :return: None after checking the accessors.
+    """
+    vault = adapter.__new__(adapter)
+    vault.spec = VaultSpec(chain, address)
+    metadata = get_handwritten_vault_metadata(chain, address)
+    assert metadata is not None
+    assert metadata.description.startswith("#### Vault's trading strategy\n\n")
+    assert normalise_vault_description(metadata.description) == metadata.description
+    assert normalise_vault_short_description(metadata.short_description) == metadata.short_description
+    assert vault.description == metadata.description
+    assert vault.short_description == metadata.short_description
+    assert vault.get_strategy_tags() == {StrategyTag(tag) for tag in tags.split()}
+    vault.spec = VaultSpec(31337, address)
+    assert vault.get_strategy_tags() == ({StrategyTag.lending} if adapter is MorphoV2Vault else None)
+
+
+def test_sigma_labs_migration_refreshes_only_reviewed_fields(tmp_path: Path) -> None:
+    """Preview and apply the metadata refresh on an isolated scanner snapshot.
+
+    Check new and revised descriptions and a wrong-chain sentinel.
+    Missing rows should be reported without inserting incomplete records.
+
+    :param tmp_path: Test-owned directory for metadata, scripts and journal.
+    :return: None after checking persisted changes and report counts.
+    """
+    script = next(item for item in runner.discover_migrations() if item.name == SIGMA_SCRIPT)
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / script.name).write_bytes(script.source)
+    path = tmp_path / "vault-metadata-db.pickle"
+    carry = VaultSpec(1, "0x2746f31096f23670caf4043f8b30d8d02405a257")
+    wrong_chain = VaultSpec(8453, SIGMA_LPP.vault_address)
+    timestamp = datetime.datetime(2026, 11, 20)  # noqa: DTZ001 - Scanner timestamps are naive UTC.
+    rows = {}
+    for spec in (SIGMA_LPP, carry, wrong_chain):
+        detection = ERC4262VaultDetection(chain=spec.chain_id, address=spec.vault_address, first_seen_at_block=1, first_seen_at=timestamp, features={ERC4626Feature.lagoon_like}, updated_at=timestamp, deposit_count=1, redeem_count=1)
+        rows[spec] = {"Protocol": "Lagoon Finance", "_detection_data": detection, "_description": "Previous copy", "_notes": "Operator note"}
+    VaultDatabase(rows=rows).write(path)
+
+    args = {"data_dir": tmp_path, "scripts_dir": scripts_dir, "provenance": {"in_docker": False}}
+    before = path.read_bytes()
+    assert runner.run_pending_migrations(dry_run=True, **args) == [script.name]
+    assert path.read_bytes() == before
+    assert runner.run_pending_migrations(dry_run=False, **args) == [script.name]
+
+    result = VaultDatabase.read(path).rows
+    stablecoin = SIGMA_LABS_VAULT_METADATA[1, SIGMA_LPP.vault_address]
+    assert result[SIGMA_LPP]["_description"] == stablecoin.description
+    assert result[SIGMA_LPP]["_short_description"] == stablecoin.short_description
+    assert StrategyTag.amm_stablecoin in result[SIGMA_LPP]["_strategy_tags"]
+    assert result[SIGMA_LPP]["_notes"] == "Operator note"
+    revised = LAGOON_CURATOR_VAULT_METADATA[carry.chain_id, carry.vault_address]
+    assert result[carry] == {**rows[carry], "_description": revised.description, "_short_description": revised.short_description, "_strategy_tags": {StrategyTag.algorithmic_trading, StrategyTag.amm, StrategyTag.arbitrage, StrategyTag.carry_trade, StrategyTag.lending, StrategyTag.lending_optimisation, StrategyTag.multistrategy}}
+    assert result[wrong_chain] == rows[wrong_chain]
+    assert result.keys() == rows.keys()
+    report = json.loads((tmp_path / "migration.json").read_text())[script.name]["other_data"]
+    assert report["inspected_rows"] == 2  # noqa: PLR2004 - Only the two matching deployments are present.
+    assert VaultSpec(1, "0xf02030ab0d7385ce4cc2f7f64b7b44430fb44c89").as_string_id() in report["missing_specs"]
+    assert report["updated_fields"] == 6  # noqa: PLR2004 - Two descriptions and a tag set on each matching vault.

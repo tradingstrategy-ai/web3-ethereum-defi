@@ -10,8 +10,9 @@ import logging
 import math
 import os
 import struct
-from collections.abc import Iterator
-from dataclasses import dataclass
+import time
+from collections.abc import Iterator, Mapping
+from dataclasses import dataclass, field
 from decimal import Decimal
 from itertools import islice
 from pathlib import Path
@@ -56,6 +57,9 @@ _T = TypeVar("_T")
 
 #: Version of the persisted state envelope.
 SPARKLINE_STATE_SCHEMA_VERSION = 1
+
+#: Bump when chart preparation starts using a new source input or setting.
+SPARKLINE_SOURCE_FINGERPRINT_VERSION = 1
 
 #: Maximum age of a low-TVL successful completion.
 SPARKLINE_LOW_TVL_INTERVAL = datetime.timedelta(days=3)
@@ -105,7 +109,10 @@ class RenderData(_RenderVariant):
 class SparklineExportResult:
     """Counters and terminal status from one sparkline export run."""
 
+    #: Whether every attempted publication succeeded.
     success: bool
+
+    #: Outcomes counted during this pass.
     counters: dict[str, int]
 
 
@@ -133,6 +140,28 @@ class SparklineVaultWorkResult:
 
     #: Render error when one vault failed.
     error: str | None = None
+
+
+@dataclass(slots=True)
+class _SparklinePublicationResult:
+    """R2 outcomes for one vault, including any partial uploads."""
+
+    #: Images written to R2.
+    uploaded: int = 0
+
+    #: Images the remote check confirmed were current.
+    unchanged: int = 0
+
+    #: Digests of the source bytes confirmed current, keyed by exact R2 object key.
+    digests: dict[str, str] = field(default_factory=dict)
+
+    #: Error that prevented publication of the complete image set.
+    error: str | None = None
+
+
+def _is_sha256(value: object) -> bool:
+    """Check the persisted lower-case hexadecimal digest format."""
+    return isinstance(value, str) and len(value) == SHA256_HEX_LENGTH and all(character in "0123456789abcdef" for character in value)
 
 
 def _format_timestamp(value: datetime.datetime) -> str:
@@ -169,9 +198,8 @@ def _validate_state_entry(vault_id: str, entry: Any) -> None:
         if entry.get(key) is not None:
             _parse_timestamp(entry[key])
     input_sha256 = entry.get("input_sha256")
-    if input_sha256 is not None:
-        if not isinstance(input_sha256, str) or len(input_sha256) != SHA256_HEX_LENGTH or any(character not in "0123456789abcdef" for character in input_sha256):
-            raise ValueError(f"Invalid sparkline input digest for {vault_id!r}")
+    if input_sha256 is not None and not _is_sha256(input_sha256):
+        raise ValueError(f"Invalid sparkline input digest for {vault_id!r}")
     failures = entry.get("consecutive_failures", 0)
     if isinstance(failures, bool) or not isinstance(failures, int) or failures < 0:
         raise ValueError(f"Invalid sparkline failure count for {vault_id!r}")
@@ -196,7 +224,11 @@ def make_empty_sparkline_state(now: datetime.datetime) -> dict[str, Any]:
 
 
 def load_sparkline_state(path: Path, now: datetime.datetime | None = None) -> dict[str, Any]:
-    """Load and strictly validate the persistent sparkline state."""
+    """Load and validate the persistent sparkline state.
+
+    Optional image digests are checked when used. Missing or invalid hints
+    fall back to checking the R2 object.
+    """
     now = now or native_datetime_utc_now()
     if not path.exists():
         return make_empty_sparkline_state(now)
@@ -371,8 +403,8 @@ def calculate_sparkline_input_digest(sparkline_data: SparklineData) -> str:
     hasher.update(struct.pack("<II", SPARKLINE_SVG_MARGIN_RATIO, SPARKLINE_PNG_MARGIN_RATIO))
     hasher.update(struct.pack("<q", sparkline_data.start_at.value))
     hasher.update(struct.pack("<q", sparkline_data.end_at.value))
-    ordered = sparkline_data.prices_df.sort_index()
-    for timestamp, value in zip(ordered.index, ordered["share_price"].to_numpy(dtype=float), strict=True):
+    ordered = sparkline_data.prices_df["share_price"].sort_index()
+    for timestamp, value in zip(ordered.index, ordered.to_numpy(dtype=float), strict=True):
         hasher.update(struct.pack("<q", int(timestamp.value)))
         hasher.update(struct.pack("<d", float(value)))
     return hasher.hexdigest()
@@ -464,19 +496,48 @@ def upload_sparkline(s3_client: Any, bucket_name: str, render_data: RenderData) 
         ``True`` when an object was uploaded, ``False`` when the remote object
         already matched the source digest.
     """
+    _, _, uploaded = _publish_sparkline_image(s3_client, bucket_name, render_data, {})
+    return uploaded
+
+
+def _publish_sparkline_image(
+    s3_client: Any,
+    bucket_name: str,
+    render_data: RenderData,
+    previous_digests: Mapping[str, object],
+) -> tuple[str, str, bool]:
+    """Publish one image, using its last confirmed digest to avoid redundant reads.
+
+    An image that differs from the recorded version needs a write. With a
+    matching or unknown digest, let R2 confirm the contents and headers.
+
+    :param s3_client:
+        Shared thread-safe S3-compatible client.
+    :param bucket_name:
+        R2 bucket holding the image.
+    :param render_data:
+        Uncompressed image bytes and object naming fields.
+    :param previous_digests:
+        Last confirmed source digests for this destination, keyed by object name.
+    :return:
+        Object key, hexadecimal source digest and whether R2 was written.
+    """
     payload = render_data["payload"]
     prefix = "sparkline-table" if render_data.get("variant") == "table" else "sparkline"
     object_name = f"{prefix}-90d-{render_data['vault_id']}.{render_data['extension']}"
-    return upload_bytes_to_r2(
+    source_digest = calculate_bytes_digest(payload)
+    previous_digest = previous_digests.get(object_name)
+    uploaded = upload_bytes_to_r2(
         s3_client=s3_client,
         payload=gzip.compress(payload, mtime=0),
         bucket_name=bucket_name,
         object_name=object_name,
         content_type=render_data["content_type"],
         content_encoding="gzip",
-        skip_if_current=True,
-        source_digest=calculate_bytes_digest(payload),
+        skip_if_current=not _is_sha256(previous_digest) or previous_digest == source_digest.sha256,
+        source_digest=source_digest,
     )
+    return object_name, source_digest.sha256, uploaded
 
 
 def upload_sparklines(
@@ -487,8 +548,7 @@ def upload_sparklines(
 ) -> tuple[int, int]:
     """Upload a bounded image list using the configured thread count.
 
-    Each task publishes one vault's SVG and PNG while retaining the existing
-    conditional upload and partial-failure behaviour.
+    Each task checks and publishes one image.
 
     This compatibility helper retains the standalone script's previous public
     API. The production coordinator uploads per-vault asset sets directly so one
@@ -647,12 +707,12 @@ def _publish_rendered_vault(
     s3_client: Any,
     bucket_name: str,
     images: list[RenderData],
-) -> tuple[int, int, str | None]:
+    previous_digests: Mapping[str, object],
+) -> _SparklinePublicationResult:
     """Publish one vault's complete image set in one worker task.
 
-    The image set remains the publication unit: a failure after one successful
-    object preserves the partial upload counters but returns an error so the
-    caller does not advance the vault's completion digest.
+    The caller advances the vault's completion record after all three images
+    succeed. On failure the result includes the partial upload counts.
 
     :param s3_client:
         Shared thread-safe S3-compatible client.
@@ -660,22 +720,26 @@ def _publish_rendered_vault(
         Destination R2 bucket.
     :param images:
         Exactly one SVG, square PNG and table PNG render for a vault.
+    :param previous_digests:
+        Last confirmed source digests for this vault and destination, or an
+        empty mapping when the current publication must check remote objects.
     :return:
-        Uploaded count, unchanged count and an optional terminal error string.
+        Confirmed digests, image counts and any error that prevented completion.
     """
-    uploaded = 0
-    unchanged = 0
     if len(images) != SPARKLINE_FORMAT_COUNT or {(image["extension"], image.get("variant")) for image in images} != SPARKLINE_REQUIRED_ASSETS:
-        return 0, 0, "Incomplete sparkline publication: SVG, square PNG and table PNG are required"
+        return _SparklinePublicationResult(error="Incomplete sparkline publication: SVG, square PNG and table PNG are required")
+    result = _SparklinePublicationResult()
     try:
         for image in images:
-            if upload_sparkline(s3_client, bucket_name, image):
-                uploaded += 1
+            object_key, digest, uploaded = _publish_sparkline_image(s3_client, bucket_name, image, previous_digests)
+            result.digests[object_key] = digest
+            if uploaded:
+                result.uploaded += 1
             else:
-                unchanged += 1
+                result.unchanged += 1
     except Exception as exc:
-        return uploaded, unchanged, str(exc)
-    return uploaded, unchanged, None
+        result.error = str(exc) or type(exc).__name__
+    return result
 
 
 def _iter_supported_vault_groups(prices_df: pd.DataFrame, symbols: dict[str, str | None]) -> Iterator[tuple[str, pd.DataFrame, str | None]]:
@@ -800,12 +864,39 @@ def _process_vault_for_export(  # noqa: PLR0914
         return SparklineVaultWorkResult(vault_id, status, latest_assets, classification)
 
     digest = calculate_sparkline_input_digest(sparkline_data)
-    if not force and entry is not None and _has_current_success(entry, digest, publication_target, renderer_state_is_current=renderer_state_is_current):
+    if not force and entry is not None and not entry.get("consecutive_failures") and _has_current_success(entry, digest, publication_target, renderer_state_is_current=renderer_state_is_current):
         return SparklineVaultWorkResult(vault_id, "unchanged", latest_assets, classification)
 
     _vault_id, images, error = _render_one_safe(vault_id, sparkline_data)
     status = "render_failed" if error is not None else "rendered"
     return SparklineVaultWorkResult(vault_id, status, latest_assets, classification, digest, images, error)
+
+
+def _fingerprint_source(prices: pd.DataFrame, symbol: str | None) -> str:
+    """Hash ordered source values before normalising chart history.
+
+    :param prices: Numeric share price and TVL columns with a naive UTC index.
+    :param symbol: Denomination symbol used for eligibility and TVL classification.
+    :return: Versioned digest of the inputs that can affect this vault's chart.
+    """
+    digest = hashlib.sha256(repr((SPARKLINE_SOURCE_FINGERPRINT_VERSION, symbol, resolve_sparkline_tvl_threshold(symbol))).encode())
+    digest.update(prices.index.to_numpy(dtype="datetime64[ns]").tobytes())
+    for column in ("share_price", "total_assets"):
+        digest.update(prices[column].to_numpy(dtype="float64", na_value=np.nan).tobytes())
+    return digest.hexdigest()
+
+
+def _source_receipt(fingerprint: str, entry: dict[str, Any]) -> str:
+    """Bind a source fingerprint to the completion and TVL it represents.
+
+    An older exporter or a throttled pass may update the state entry while
+    retaining unknown fields. Those updates invalidate the old receipt.
+
+    :param fingerprint: Ordered source fingerprint.
+    :param entry: Current persistent state for the vault.
+    :return: Comparable source receipt.
+    """
+    return repr((fingerprint, entry.get("input_sha256"), entry.get("last_completed_at"), entry.get("latest_total_assets")))
 
 
 def _resolve_worker_counts(
@@ -831,7 +922,7 @@ def _resolve_worker_counts(
     """
     legacy = os.environ.get("SPARKLINE_MAX_WORKERS")
     render_default = os.environ.get("SPARKLINE_RENDER_WORKERS") or "6"
-    upload_default = os.environ.get("SPARKLINE_UPLOAD_WORKERS") or legacy or "8"
+    upload_default = os.environ.get("SPARKLINE_UPLOAD_WORKERS") or legacy or "16"
     resolved_render_workers = render_workers if render_workers is not None else max_workers if max_workers is not None else int(render_default)
     resolved_upload_workers = upload_workers if upload_workers is not None else max_workers if max_workers is not None else int(upload_default)
     if resolved_render_workers < 1 or resolved_upload_workers < 1:
@@ -885,6 +976,8 @@ def run_sparkline_export(  # noqa: PLR0914
     :return:
         Run counters and terminal status.
     """
+    started_at = time.monotonic()
+    upload_seconds = 0.0
     if dry_run and (state_path is None or force is not True):
         message = "dry_run=True requires force=True and an explicit scratch state_path"
         raise ValueError(message)
@@ -933,32 +1026,60 @@ def run_sparkline_export(  # noqa: PLR0914
         "r2_unchanged": 0,
         "failed": 0,
         "batches": 0,
+        "skipped_preparation": 0,
     }
 
+    checkpoint_needed = True
     groups = _iter_supported_vault_groups(prices_df, symbols)
     del prices_df, vault_db
     for batch in tqdm(_iter_batches(groups, batch_size), desc="Exporting sparkline batches"):
-        tasks = (
-            delayed(_process_vault_for_export)(
-                vault_id,
-                vault_prices,
-                symbol,
-                state["vaults"].get(vault_id),
-                renderer_state_is_current=renderer_state_is_current,
-                publication_target=publication_target,
-                now=now,
-                force=force,
+        fingerprints = {}
+        tasks = []
+        work_results = []
+        for vault_id, vault_prices, symbol in batch:
+            fingerprint = _fingerprint_source(vault_prices, symbol)
+            fingerprints[vault_id] = fingerprint
+            entry = state["vaults"].get(vault_id)
+            if not force and entry and not entry.get("next_retry_at") and not entry.get("consecutive_failures"):
+                if entry.get("source_receipt") == _source_receipt(fingerprint, entry) and _has_current_success(entry, (entry.get("input_sha256") or ""), publication_target, renderer_state_is_current=renderer_state_is_current):
+                    assets = entry.get("latest_total_assets")
+                    classification = _classify_latest_tvl(symbol, assets)
+                    if classification is not None:
+                        due = _is_due(entry, low_tvl=classification[2], now=now, force=False)
+                        work_results.append(SparklineVaultWorkResult(vault_id, "unchanged" if due else "low_tvl_throttled", assets, classification))
+                        counters["skipped_preparation"] += 1
+                        continue
+            tasks.append(
+                delayed(_process_vault_for_export)(
+                    vault_id,
+                    vault_prices,
+                    symbol,
+                    entry,
+                    renderer_state_is_current=renderer_state_is_current,
+                    publication_target=publication_target,
+                    now=now,
+                    force=force,
+                )
             )
-            for vault_id, vault_prices, symbol in batch
-        )
-        work_results = Parallel(n_jobs=render_workers, prefer=render_backend)(tqdm(tasks, total=len(batch), desc="Preparing and rendering sparkline batch"))
+        if tasks:
+            work_results.extend(Parallel(n_jobs=render_workers, prefer=render_backend)(tqdm(tasks, desc="Preparing and rendering sparkline batch")))
         rendered = [result for result in work_results if result.status == "rendered"]
         if dry_run or not rendered:
-            publication_results = {result.vault_id: (0, 0, None) for result in rendered}
+            publication_results = {result.vault_id: _SparklinePublicationResult() for result in rendered}
         else:
-            assert all(result.images is not None for result in rendered), "Successful renders must have complete image sets"
-            publication_tasks = (delayed(_publish_rendered_vault)(s3_client, bucket_name, result.images) for result in rendered)
+            publication_tasks = []
+            for result in rendered:
+                assert result.images is not None, "Successful renders must have complete image sets"
+                entry = state["vaults"].get(result.vault_id)
+                previous_digests = {}
+                if not force and entry and entry.get("publication_target") == publication_target and entry.get("last_completed_at") and not (entry.get("consecutive_failures") or entry.get("next_retry_at")):
+                    digests = entry.get("published_asset_digests")
+                    if isinstance(digests, dict):
+                        previous_digests = digests
+                publication_tasks.append(delayed(_publish_rendered_vault)(s3_client, bucket_name, result.images, previous_digests))
+            upload_started_at = time.monotonic()
             publication_values = Parallel(n_jobs=upload_workers, prefer="threads")(tqdm(publication_tasks, total=len(rendered), desc=f"Uploading sparkline batch to {bucket_name}"))
+            upload_seconds += time.monotonic() - upload_started_at
             publication_results = {result.vault_id: publication_result for result, publication_result in zip(rendered, publication_values, strict=True)}
 
         eligible_in_batch = False
@@ -998,6 +1119,7 @@ def run_sparkline_export(  # noqa: PLR0914
             entry["last_attempted_at"] = _format_timestamp(now)
             if result.status == "unchanged":
                 entry.update({"last_completed_at": _format_timestamp(now), "consecutive_failures": 0, "next_retry_at": None})
+                entry["source_receipt"] = _source_receipt(fingerprints[result.vault_id], entry)
                 counters["unchanged"] += 1
                 continue
             if result.status == "render_failed":
@@ -1007,13 +1129,13 @@ def run_sparkline_export(  # noqa: PLR0914
                 continue
             assert result.status == "rendered" and result.digest is not None, f"Unexpected sparkline worker status: {result.status}"
             counters["rendered"] += 1
-            uploaded_count, unchanged_count, publication_error = publication_results[result.vault_id]
-            counters["uploaded"] += uploaded_count
-            counters["r2_unchanged"] += unchanged_count
-            if publication_error is not None:
+            publication = publication_results[result.vault_id]
+            counters["uploaded"] += publication.uploaded
+            counters["r2_unchanged"] += publication.unchanged
+            if publication.error is not None:
                 _record_failure(entry, now)
                 counters["failed"] += 1
-                logger.warning("Sparkline publication failed for vault %s; retry after %s: %s", result.vault_id, entry["next_retry_at"], publication_error)
+                logger.warning("Sparkline publication failed for vault %s; retry after %s: %s", result.vault_id, entry["next_retry_at"], publication.error)
                 continue
             entry.update(
                 {
@@ -1025,19 +1147,25 @@ def run_sparkline_export(  # noqa: PLR0914
                     "next_retry_at": None,
                 }
             )
-            if uploaded_count:
+            entry["source_receipt"] = _source_receipt(fingerprints[result.vault_id], entry)
+            if publication.digests:
+                entry["published_asset_digests"] = publication.digests
+            if publication.uploaded:
                 entry["last_uploaded_at"] = _format_timestamp(now)
         if eligible_in_batch:
             counters["batches"] += 1
+            checkpoint_needed = True
+        if rendered or any(result.status == "render_failed" for result in work_results):
+            # Preserve upload completions and failure backoff between batches.
+            # Routine cadence updates can share the final checkpoint.
             save_sparkline_state(state, state_path, now)
+            checkpoint_needed = False
 
-    if counters["batches"] == 0:
-        # Give retention a chance to prune state even when this input snapshot
-        # contains no vault with enough history to form a render batch.
+    if checkpoint_needed:
         save_sparkline_state(state, state_path, now)
 
     logger.info(
-        "Sparkline export complete: eligible=%d insufficient_history=%d invalid_tvl=%d throttled=%d retry_deferred=%d unchanged=%d rendered=%d uploaded=%d r2_unchanged=%d failed=%d dry_run=%s render_backend=%s render_workers=%d upload_workers=%d",
+        "Sparkline export complete: eligible=%d insufficient_history=%d invalid_tvl=%d throttled=%d retry_deferred=%d unchanged=%d rendered=%d uploaded=%d r2_unchanged=%d failed=%d skipped_preparation=%d dry_run=%s render_backend=%s render_workers=%d upload_workers=%d upload_seconds=%.2f total_seconds=%.2f",
         counters["eligible"],
         counters["insufficient_history"],
         counters["invalid_tvl"],
@@ -1048,9 +1176,12 @@ def run_sparkline_export(  # noqa: PLR0914
         counters["uploaded"],
         counters["r2_unchanged"],
         counters["failed"],
+        counters["skipped_preparation"],
         dry_run,
         render_backend,
         render_workers,
         upload_workers,
+        upload_seconds,
+        time.monotonic() - started_at,
     )
     return SparklineExportResult(success=counters["failed"] == 0, counters=counters)

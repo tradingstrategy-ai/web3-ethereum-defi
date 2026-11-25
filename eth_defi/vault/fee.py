@@ -2,7 +2,7 @@
 
 import enum
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from numbers import Real
 
 from eth_typing import HexAddress
@@ -12,8 +12,8 @@ class VaultFeeMode(enum.Enum):
     """How a vault protocol accounts for its fees.
 
     - Externalised fees: fees are charged to individual holdings, periodically or at entry/exit.
-    - Internalised fees: fees are baked into the share price (asset amount) and continuously taken from the profit.
-      There are no fees on withdrawal.
+    - Internalised fees: management and performance fees are reflected in the
+      share price. Separate entry or exit fees can still apply.
     """
 
     #: Vault fees are baked into the share price (asset amount).
@@ -26,15 +26,16 @@ class VaultFeeMode(enum.Enum):
 
     #: Vault fees are baked into the share price (asset amount).
     #:
-    #: Fees are taken from the profit at the moment profit is made.
-    #: and corresponding number of shares is minted to the vault owner.
+    #: The vault mints shares to fee recipients, diluting existing shares.
+    #: For Lagoon's settlement calculations across contract versions, see
+    #: :py:meth:`~eth_defi.erc_4626.vault_protocol.lagoon.vault.LagoonVault.get_fee_data`.
     #:
-    #: Example protocols: AUTO Finance
+    #: Example protocols: AUTO Finance, Lagoon Finance.
     internalised_minting = "internalised_minting"
 
     #: Vault fees are taken from individual holdings, periodically or at deposit/redemption.
     #:
-    #: Example protocols: Lagoon Finance.
+    #: Example protocols: Pear.
     externalised = "externalised"
 
     #: This protocol has no fees.
@@ -43,6 +44,41 @@ class VaultFeeMode(enum.Enum):
     def is_internalised(self) -> bool:
         """Are the fees internalised in the share price?"""
         return self != VaultFeeMode.externalised
+
+
+class HighWaterMark(enum.StrEnum):
+    """Identify whose gains determine the performance fee.
+
+    The exported value describes the accounting scope. The contract determines
+    when the fee crystallises, meaning when an eligible gain becomes a fee.
+
+    .. list-table::
+       :header-rows: 1
+
+       * - Fee accounting
+         - Pear
+         - Lagoon
+       * - Crystallisation
+         - When an immediate withdrawal executes or a queued withdrawal settles.
+         - When the curator settles a valuation, even without investor exits.
+       * - Profit basis
+         - Gain above the exiting investor's proportional deposit cost.
+         - Vault gains above the shared high-water mark per share.
+       * - Fee payment
+         - USDC deducted from the investor's payout, alongside the withdrawal fee.
+         - Fee shares minted at settlement. The extra shares dilute existing
+           holders and the settled price per share reflects the fee.
+
+    See the `Pear vault review <https://github.com/shieldify-security/audits-portfolio/blob/main/reports/PearProtocol-Vault-V2-Upgrade-Security-Review.pdf>`__,
+    a `Pear withdrawal settlement <https://hyperevmscan.io/tx/0xc1dafe5f89f7bfb7831dff83fb88a198e052dffba408457a45754bcf5a310a5b>`__,
+    and the `Lagoon fee documentation <https://docs.lagoon.finance/vault/fees>`__.
+    """
+
+    #: Each investor's cost basis determines the gain on their redemption.
+    investor_level = "investor_level"
+
+    #: The vault maintains one high-water mark per share for all investors.
+    vault_shared = "vault_shared"
 
 
 #: Different vault fee extraction methods by different protocols
@@ -58,6 +94,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # https://docs.neutral.trade/additional-info/fees-+-redemption-period
     # https://github.com/neutral-trade/sdk/blob/7d8b41044e757c378d9a20eddfafa507ee2ec15c/src/extensions/fees.ts
     "Neutral Trade": VaultFeeMode.externalised,
+    # Verified Buoy high-water-mark fees mint shares; fixed HYPE request fees are separate.
+    "Buoy": VaultFeeMode.internalised_minting,
     # Withdrawal charges reduce the payout rather than the quoted share price.
     # https://docs.veranta.xyz/liquidity-providers/risk-management
     "Veranta": VaultFeeMode.externalised,
@@ -80,11 +118,11 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     "Euler": VaultFeeMode.internalised_skimming,
     "Morpho": VaultFeeMode.internalised_skimming,
     "Enzyme": VaultFeeMode.internalised_skimming,
-    # ``get_vault_protocol_name()`` returns this display name for
-    # ``lagoon_like`` vaults. Keep the historical short matrix key as a
-    # compatibility alias for callers of ``get_vault_fee_mode()``.
-    "Lagoon Finance": VaultFeeMode.externalised,
-    "Lagoon": VaultFeeMode.externalised,
+    # Settlement mints management and performance fee shares, diluting the
+    # share price. Entry and exit charges are separate from that dilution.
+    # https://github.com/hopperlabsxyz/lagoon-v0/blob/v0.6.0/src/v0.6.0/libraries/FeeLib.sol#L178-L225
+    "Lagoon Finance": VaultFeeMode.internalised_minting,
+    "Lagoon": VaultFeeMode.internalised_minting,  # Legacy scanner name.
     # T3tris fees are represented as fee shares. Entry/exit fees reduce the
     # user's net deposit/redeem, while management and high-water-mark
     # performance fees accrue as shares for the fee recipient.
@@ -313,6 +351,8 @@ VAULT_PROTOCOL_FEE_MATRIX = {
     # CrystalClear - 20% performance fee charged at redemption (externalised)
     # Fee is deducted from withdrawal proceeds via WithdrawalClaimed event
     "CrystalClear": VaultFeeMode.externalised,
+    # Both performance and withdrawal fees reduce the investor's exit proceeds.
+    "Pear": VaultFeeMode.externalised,
     # Aave - v4 Tokenization Spoke has no explicit deposit/withdrawal or performance fee.
     # Suppliers earn the Hub interest spread; Aave protocol revenue is taken as a reserve
     # factor on borrow interest, so yield is internalised in the Hub-derived share price.
@@ -338,29 +378,18 @@ VAULT_PROTOCOL_FEE_MATRIX = {
 
 @dataclass
 class FeeData:
-    """Track vault fee parameters
+    """Vault fee rates expressed as fractions of one.
 
-    - Offer methods to calculate gross/net fees based on the vault fee mode
-    - `None` means fee unknown: the protocol is not recognised or authoritative
-      fee data is unavailable. Adapters must use ``0.0`` when an authoritative
-      configuration proves that a fee class is disabled.
+    In vault JSON, ``gross_fees`` reports the configured rates. The
+    ``net_fees`` schedule gives the rates still to apply when calculating an
+    investor's return from share prices. For example, Lagoon's settled price
+    already reflects management and performance fees. Only its separate
+    entry and exit fees affect that calculation.
 
-    **How fees are presented**:
-
-    - **Gross fees** are what vaults track internally. They are not exposed to an investor,
-      and only useful for internal profit calculations of the vault. Gross fees have
-      already been deducted when the vault share price is updated.
-
-    - **Net fees** are deduced at a redemption. A vault investor receives less than the value of their shares back.
-
-    - For comparing the profitability of vaults, you need to reduce the net fees of an investment period
-      from the vault share price.
-
-    - Common vault fee mechanisms implementations are: externalised (net fees, deducted from an investor at a redemption),
-       skimming (redirected from profits at the time of trade) and minting (new shares minted to the vault owner at the time of trade).
+    An unknown rate is ``None``. Use ``0.0`` for a fee known to be zero.
     """
 
-    #: Determines is the vault share price is fees-net or fees-gross
+    #: How the vault accounts for fees in this schedule.
     fee_mode: VaultFeeMode | None
 
     #: Fee for this class
@@ -379,7 +408,9 @@ class FeeData:
     #:
     #: Most protocols do not expose a separate protocol charge, so this is
     #: optional. An adapter can retain it alongside an aggregate management
-    #: fee, allowing consumers to calculate a manager-only breakdown.
+    #: fee, allowing consumers to calculate a manager-only breakdown. Charging
+    #: bases are protocol-specific: Buoy includes its referral component in
+    #: performance instead. Never add an included component a second time.
     protocol: float | None = None
 
     def __post_init__(self) -> None:
@@ -413,11 +444,19 @@ class FeeData:
 
         return self.fee_mode.is_internalised() if self.fee_mode else None
 
-    def get_net_fees(self) -> "FeeData":
-        """Get net fees paid by the user on deposit/withdraw.
+    def get_net_fees(self, *, vault_protocol_name: str | None = None) -> "FeeData":
+        """Return the fees still to apply to a share-price return.
 
-        - Determined by the vault fee mode
+        :param vault_protocol_name: The scanner's protocol name when known.
+            Pear's withdrawal minimum needs a redemption amount, and its
+            performance fee needs the investor's cost basis. Percentage rates
+            alone cannot determine that return.
+        :return: For internalised fees, a new schedule with only the entry
+            and exit rates retained. For Pear, a copy with an unknown net mode
+            to suppress percentage-only estimates. Otherwise, the original schedule.
         """
+        if vault_protocol_name == "Pear":
+            return replace(self, fee_mode=None)
         if self.internalised:
             return FeeData(
                 fee_mode=self.fee_mode,

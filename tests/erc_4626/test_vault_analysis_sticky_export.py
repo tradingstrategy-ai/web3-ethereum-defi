@@ -88,6 +88,31 @@ def make_export_record(module, **kwargs) -> dict:
     return module.export_lifetime_row(pd.Series(make_metrics_row(**kwargs)))
 
 
+def test_pear_export_removes_name_prefix_and_preserves_route() -> None:
+    """Shorten published Pear names on both fresh export and cached replay.
+
+    The route still uses the original slug. An unrelated protocol with the
+    same prefix keeps its full display name.
+    """
+    now = datetime.datetime.fromisoformat("2026-06-24T12:00:00")
+    state = top_vaults_json.make_empty_sticky_export_state(now)
+    name = "Pear Vault Agent Pear"
+    pear = make_metrics_row(chain_id=999, protocol_slug="pear", name=name)
+    pear["vault_slug"] = "pear-vault-agent-pear"
+    unrelated = make_metrics_row(name=name)
+    options = {"now": now, "threshold_tvl": 5_000.0, "stale_warning_age_days": 14}
+
+    first = top_vaults_json.apply_sticky_export_state(make_lifetime_df(pear, unrelated), state, **options)
+    replay = top_vaults_json.apply_sticky_export_state(make_lifetime_df(), first.state, **options)
+
+    for result in (first, replay):
+        by_protocol = {record["protocol_slug"]: record for record in result.vaults}
+        assert by_protocol["pear"]["name"] == "Agent Pear"
+        assert by_protocol["pear"]["vault_slug"] == "pear-vault-agent-pear"
+        assert by_protocol["morpho"]["name"] == name
+    assert replay.stats.sticky_fallback_exports == 2
+
+
 def test_strategy_category_export_includes_labels_and_tvl_weighted_one_month_apy() -> None:
     """Export every category with two-sentence rules and additive aggregates.
 
@@ -269,10 +294,8 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert set(STRATEGY_TAG_METADATA) == set(StrategyTag)
     assert all(metadata["label"] and "[" not in metadata["label"] for metadata in STRATEGY_TAG_METADATA.values())
     descriptions_by_tag = {tag: re.sub(r"\]\([^)]*\)", "]", metadata["description"]) for tag, metadata in STRATEGY_TAG_METADATA.items()}
-    #: These maintainer-requested categories include fuller risk explanations;
-    #: risk-premium harvesting and stablecoin AMM market making also link to
-    #: a concrete vault example.
-    detailed_tags = {StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest, StrategyTag.amm_stablecoin}
+    #: These categories include fuller risk explanations, linked examples or related categories.
+    detailed_tags = {StrategyTag.staff_pick, StrategyTag.high_frequency_high_win_rate, StrategyTag.risk_premium_harvest, StrategyTag.amm_stablecoin, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_2x, StrategyTag.portfolio_3x, StrategyTag.unlevered_portfolio}
     short_descriptions = [description for tag, description in descriptions_by_tag.items() if tag not in detailed_tags]
     #: Bitcoin-only copy retains the maintainer's exact text without a final stop.
     assert all(description.count(".") == (0 if tag == StrategyTag.btc_only else 1) for tag, description in descriptions_by_tag.items() if tag not in detailed_tags)
@@ -281,6 +304,16 @@ def test_strategy_tag_metadata_covers_every_tag_with_short_descriptions() -> Non
     assert all("the vault" not in description.lower() and "this vault" not in description.lower() for description in descriptions)
     assert all("we " not in description.lower() for description in descriptions)
     assert all("documented assets" not in description.lower() for description in descriptions)
+
+
+def test_long_short_category_links_in_public_export() -> None:
+    """Keep the parent, subtype and example navigable in the exported Markdown."""
+    categories = top_vaults_json.build_strategy_categories_for_export([])
+    parent = categories["long_short_portfolio"]["description"]
+    subtype = categories["diversified_low_exposure_long_short_portfolio"]["description"]
+    assert "(https://tradingstrategy.ai/vaults/strategies/diversified-low-exposure-long-short-portfolio)" in parent
+    assert "(https://tradingstrategy.ai/vaults/strategies/long-short-portfolio)" in subtype
+    assert "[HyperNeutral #1](https://tradingstrategy.ai/vaults/hyperneutral-1)" in subtype
 
 
 @pytest.mark.parametrize("has_vault", [False, True], ids=["empty-category", "tagged-vault"])
@@ -1205,3 +1238,18 @@ def test_sticky_state_writer_rejects_non_finite_value(tmp_path: Path) -> None:
         top_vaults_json.save_sticky_export_state({"vaults": {"bad": {"value": float("nan")}}}, path)
 
     assert path.read_text(encoding="utf-8") == "previous state"
+
+
+def test_sticky_export_buoy_five_hundred_dollar_threshold() -> None:
+    """Index Buoy at $500 while keeping smaller and ordinary vaults excluded.
+
+    The real sticky export path applies protocol thresholds before building
+    persisted state, so a global $5,000 bar must not hide qualifying Buoy rows.
+
+    :return: None after checking the inclusive protocol-specific threshold.
+    """
+    module = get_top_vaults_json_module()
+    now = datetime.datetime(2026, 11, 14)
+    rows = [make_metrics_row(address="0x" + f"{number:040x}", name=name, peak_nav=tvl, protocol_slug=protocol) for number, name, tvl, protocol in ((1, "Buoy eligible", 500, "buoy"), (2, "Buoy too small", 499, "buoy"), (3, "Control", 500, "morpho"))]
+    result = module.apply_sticky_export_state(make_lifetime_df(*rows), module.make_empty_sticky_export_state(now), now=now, threshold_tvl=5_000.0, stale_warning_age_days=14)
+    assert {row["name"] for row in result.vaults} == {"Buoy eligible"}

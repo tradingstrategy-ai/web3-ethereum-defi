@@ -18,11 +18,11 @@ Usage:
 
 .. code-block:: shell
 
-    # Run full post-processing (merge + clean + export)
+    # Run incremental cleaning and export with the configured native sources
     source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
 
-    # Skip native protocol merges (just clean + export)
-    source .local-test.env && poetry run python scripts/erc-4626/post-process-prices.py
+    # Force full materialisation of configured sources for comparison or recovery
+    source .local-test.env && INCREMENTAL_POST_PROCESSING=false poetry run python scripts/erc-4626/post-process-prices.py
 
     # Include all native protocol merges
     source .local-test.env && \\
@@ -53,7 +53,16 @@ Pipeline control:
 - ``MERGE_HIBACHI``: Merge Hibachi native vault data (default: ``false``)
 - ``MERGE_APEX``: Merge ApeX native vault data (default: ``false``)
 - ``MERGE_DERIVE_V3``: Merge Derive v3 mainnet native vault data (default: ``false``)
-- ``SKIP_CLEANING``: Skip price cleaning step (default: ``false``)
+- ``INCREMENTAL_POST_PROCESSING``: Set to ``false`` for full native merging and cleaning (default: ``true``)
+- ``INCREMENTAL_CLEANING``: Set to ``false`` for full cleaning only (default: ``true``)
+- ``SKIP_CLEANING``: Reuse the existing cleaned stablecoin price files
+  (default: ``false``). Use ``true`` for a manual export retry after cleaning
+  has already succeeded for the intended snapshot. The crypto cleaner still
+  runs using the existing stablecoin prices. If newer raw observations exist,
+  downstream exports, including sparklines, can use older stablecoin data.
+  Leave this unset for scheduled scans. Incremental cleaning already reuses
+  unchanged vault histories and recalculates histories that changed. To retry
+  only chart publication, use ``scripts/erc-4626/export-sparklines.py``.
 - ``SKIP_TOP_VAULTS``: Skip top-vaults JSON generation and R2 upload (default: ``false``)
 - ``SKIP_SPARKLINES``: Skip sparkline image export to R2 (default: ``false``)
 - ``SKIP_METADATA``: Skip protocol/stablecoin metadata export to R2 (default: ``false``)
@@ -62,7 +71,7 @@ Pipeline control:
 - ``UPLOAD_PREFIX``: Prefix for uploaded data file keys, e.g. ``test-`` (default: ``""``). Applies to all R2 uploads including the top-vaults JSON.
 - ``SPARKLINE_RENDER_WORKERS``: Sparkline renderer process/thread count
   (default: ``6``)
-- ``SPARKLINE_UPLOAD_WORKERS``: Sparkline R2 upload thread count (default: ``8``)
+- ``SPARKLINE_UPLOAD_WORKERS``: Sparkline R2 upload thread count (default: ``16``)
 - ``SPARKLINE_RENDER_BACKEND``: ``processes`` or ``threads`` (default:
   ``processes``)
 - ``SPARKLINE_MAX_WORKERS``: Deprecated fallback for sparkline upload threads
@@ -129,7 +138,7 @@ from pathlib import Path
 from tabulate import tabulate
 
 from eth_defi.core3.constants import CORE3_DATABASE_PATH
-from eth_defi.utils import setup_console_logging
+from eth_defi.utils import setup_console_logging, wait_other_writers
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
 from eth_defi.vault.settlement_data import get_default_vault_settlement_database_path
 from eth_defi.vault.vaultdb import get_pipeline_data_dir
@@ -137,7 +146,7 @@ from eth_defi.vault.vaultdb import get_pipeline_data_dir
 logger = logging.getLogger(__name__)
 
 
-def _read_boolean(name: str) -> bool:
+def _read_boolean(name: str, *, default: bool = False) -> bool:
     """Read one conventional true/false environment flag.
 
     Values other than the case-insensitive string ``true`` are false, matching
@@ -145,10 +154,11 @@ def _read_boolean(name: str) -> bool:
 
     :param name:
         Environment variable name.
+    :param default: Value used when the variable is unset.
     :return:
         ``True`` when the configured value is ``true``.
     """
-    return os.environ.get(name, "false").lower() == "true"
+    return os.environ.get(name, str(default)).lower() == "true"
 
 
 def main() -> None:
@@ -191,7 +201,7 @@ def main() -> None:
     # Without explicit paths, run_post_processing() falls back to the
     # frozen module-level defaults resolved at import time from Path.home(),
     # which silently ignore PIPELINE_DATA_DIR.
-    data_dir = get_pipeline_data_dir()
+    data_dir = get_pipeline_data_dir().resolve()
     pipeline_paths = {
         "vault_db_path": data_dir / "vault-metadata-db.pickle",
         "uncleaned_parquet_path": data_dir / "vault-prices-1h.parquet",
@@ -219,12 +229,15 @@ def main() -> None:
     # the "merge this native protocol's data" flags. We keep the
     # MERGE_* env var names that this debug script has always documented
     # and map them at the call site — no behavioural change for operators.
-    steps = run_post_processing(
-        **merge_options,
-        **skip_options,
-        **pipeline_paths,
-        core3_db_path=core3_db_path,
-    )
+    with wait_other_writers(data_dir / "scan-pipeline", timeout=60):
+        steps = run_post_processing(
+            **merge_options,
+            **skip_options,
+            **pipeline_paths,
+            core3_db_path=core3_db_path,
+            incremental=_read_boolean("INCREMENTAL_POST_PROCESSING", default=True),
+            incremental_cleaning=_read_boolean("INCREMENTAL_CLEANING", default=True),
+        )
 
     rows = [[step_name, "OK" if success else "FAILED"] for step_name, success in steps.items()]
 

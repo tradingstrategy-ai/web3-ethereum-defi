@@ -353,7 +353,9 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: current identity and strategy were verified against the live listing;
     #: its 180-day price history through 2026-10-27 has 96.6% positive non-flat
     #: days. This curve statistic is not a trade-level win rate.
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
     "vlt:38exn6urqqrjk6hnypihgxo2oro": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.arbitrage,
         StrategyTag.delta_neutral,

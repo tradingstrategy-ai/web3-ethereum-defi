@@ -29,6 +29,7 @@ from eth_defi.chain import get_chain_name
 from eth_defi.compat import native_datetime_utc_now
 from eth_defi.core3.vault_protocol import Core3ExportRecord, Core3VaultSection, build_core3_vault_section
 from eth_defi.erc_4626.classification import HARDCODED_PROTOCOLS
+from eth_defi.erc_4626.vault_protocol.buoy.constants import BUOY_MIN_TVL_USD
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.antarctic.constants import ANTARCTIC_BY_ADDRESS, ANTARCTIC_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.arcus.tags import get_strategy_tags as get_arcus_strategy_tags
@@ -41,7 +42,7 @@ from eth_defi.research.k_ratio import MINIMUM_K_RATIO_OBSERVATIONS, calculate_k_
 from eth_defi.research.value_table import format_grouped_series_as_multi_column_grid
 from eth_defi.research.wrangle_vault_prices import forward_fill_vault, sanitise_share_price_observations
 from eth_defi.token import is_stablecoin_like, normalise_token_symbol
-from eth_defi.vault.base import VaultSpec, WithdrawalPeriod
+from eth_defi.vault.base import MAX_VAULT_PRICE_ROW_AGE, VaultSpec, WithdrawalPeriod
 from eth_defi.vault.curator import get_curator_name, identify_curator, is_protocol_curator
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.fee import FeeData, VaultFeeMode, get_vault_fee_mode
@@ -500,6 +501,16 @@ class VaultMetricsRecord(TypedDict, total=False):
 
     #: Source used to produce the share-price series.
     share_price_source: str | None
+
+    #: Performance-fee scope from :py:class:`~eth_defi.vault.fee.HighWaterMark`, or None when unspecified.
+    high_water_mark: str | None
+
+    #: Original NAV publication time for explicitly publication-priced vaults.
+    nav_timestamp: pd.Timestamp | None
+    #: Age of the published NAV at export time, in seconds.
+    nav_age_seconds: float | None
+    #: Whether an explicit NAV publication is stale or unverifiable.
+    nav_stale: bool | None
 
     #: Current net asset value in USD
     current_nav: float | None
@@ -3357,17 +3368,24 @@ def _calculate_vault_record_from_arrays(
     deployment = vault_metadata.get("_deployment")
     deployment_chain_id = vault_metadata.get("_deployment_chain_id")
 
+    protocol = vault_metadata["Protocol"]
+    vault_address = vault_metadata["Address"]
+    is_lagoon = protocol in ("Lagoon Finance", "Lagoon")
     fee_data: FeeData | None = vault_metadata.get("_fees")
 
     if fee_data is None:
-        # Legacy, unit tests,etc.
-        # _fees not in the exported pickle we use for testing
+        # Older catalogues store scalar rates. Lagoon records can use either
+        # withdrawal column name, with "Withdrawal fee" taking precedence.
+        withdrawal_fallback = vault_metadata.get("Withdraw fee", 0) if is_lagoon else 0
         fee_data = FeeData(
-            fee_mode=VaultFeeMode.externalised,
+            # Reviewed Buoy fee shares are already reflected in published
+            # prices, including when old metadata has only scalar fee columns.
+            fee_mode=VaultFeeMode.internalised_minting if ERC4626Feature.buoy_like in detection.features else VaultFeeMode.externalised,
             management=_normalise_fee_for_fee_data(vault_metadata["Mgmt fee"], "management fee"),
             performance=_normalise_fee_for_fee_data(vault_metadata["Perf fee"], "performance fee"),
             deposit=_normalise_fee_for_fee_data(vault_metadata.get("Deposit fee", 0), "deposit fee"),  # Rare: assume 0 if not explicitly set
-            withdraw=_normalise_fee_for_fee_data(vault_metadata.get("Withdrawal fee", 0), "withdrawal fee"),  # Rare: assume 0 if not explicitly set
+            withdraw=_normalise_fee_for_fee_data(vault_metadata.get("Withdrawal fee", withdrawal_fallback), "withdrawal fee"),
+            protocol=_normalise_fee_for_fee_data(vault_metadata.get("Protocol fee"), "protocol fee"),
         )
     else:
         # Pickle deserialisation does not call FeeData.__post_init__(). Repair
@@ -3379,21 +3397,18 @@ def _calculate_vault_record_from_arrays(
             performance=_normalise_fee_for_fee_data(fee_data.performance, "performance fee"),
             deposit=_normalise_fee_for_fee_data(fee_data.deposit, "deposit fee"),
             withdraw=_normalise_fee_for_fee_data(fee_data.withdraw, "withdrawal fee"),
+            protocol=_normalise_fee_for_fee_data(getattr(fee_data, "protocol", None), "protocol fee"),
         )
 
-    gross_fee_data = fee_data
-
-    vault_address = vault_metadata["Address"]
-    protocol = vault_metadata["Protocol"]
-
     fee_mode = fee_data.fee_mode
-    if fee_mode is None:
-        # Cached scan data may pre-date the fee matrix entry for this protocol.
-        # Re-derive from the current matrix so updates take effect without rescanning.
+    if fee_mode is None or (fee_mode is VaultFeeMode.externalised and is_lagoon):
+        # Older rows can lack a fee mode. Saved Lagoon rows can also retain an
+        # externalised mode for fees already reflected in settled share prices.
         fee_mode = get_vault_fee_mode(protocol, vault_address)
         fee_data.fee_mode = fee_mode
 
-    net_fee_data = fee_data.get_net_fees()
+    gross_fee_data = fee_data
+    net_fee_data = fee_data.get_net_fees(vault_protocol_name=protocol)
 
     mgmt_fee = fee_data.management
     perf_fee = fee_data.performance
@@ -3518,6 +3533,13 @@ def _calculate_vault_record_from_arrays(
         # for the maximum normal wait, rather than exposing a contradictory
         # generic adapter estimate beside the explicit range.
         lockup = max_withdrawal_period
+
+    redemption_request_observation = vault_metadata.get("_redemption_request_observation")
+    if isinstance(redemption_request_observation, dict) and "unlock_epochs_min" in redemption_request_observation:
+        # The older range and its lockup alias used the sampling interval as
+        # an epoch. Report the unlock distance and preserve any independent
+        # settlement estimate used by historical consumers.
+        lockup = min_withdrawal_period = max_withdrawal_period = withdrawal_delay_type = None
 
     # These values are captured by the vault scanner through VaultBase's
     # source-proven decimal accessors. Keep an absent legacy field as None:
@@ -3674,6 +3696,9 @@ def _calculate_vault_record_from_arrays(
     if protocol == "Neutral Trade":
         other_data["neutral_trade"] = vault_metadata.get("_neutral_trade")
 
+    if protocol == "Pear" and (pear_data := vault_metadata.get("_pear")) is not None:
+        other_data["pear"] = pear_data
+
     if protocol == "Derive":
         # Native vault accounting is USD even when the accepted deposit
         # asset is ETH, BTC or another token. Keep the source asset separate
@@ -3750,6 +3775,8 @@ def _calculate_vault_record_from_arrays(
     timestamp_ns = vault.timestamp_ns
     columns = vault.columns
     flows = {name: columns[name] for name in (*FLOW_AMOUNT_COLUMNS, *FLOW_COUNT_COLUMNS, FLOW_VALUE_COLUMN) if name in columns}
+    if ERC4626Feature.buoy_like in detection.features:
+        flows = {}
 
     # The regular daily frame contains aligned ERC-4626 total assets, supply
     # and share prices. Use these states for a simple net-flow estimate when a
@@ -3760,7 +3787,7 @@ def _calculate_vault_record_from_arrays(
     # EVM deployment block. A positive block is therefore the persisted marker
     # for an EVM-scanned vault, including legacy records without source metadata.
     first_seen_block = detection.first_seen_at_block
-    supports_erc4626_flow_estimate = first_seen_block is not None and first_seen_block > 0 and is_stablecoin_like(normalised_denomination)
+    supports_erc4626_flow_estimate = first_seen_block is not None and first_seen_block > 0 and is_stablecoin_like(normalised_denomination) and ERC4626Feature.buoy_like not in detection.features
     # A direct flow feed always takes precedence. Only a vault without one
     # gets the state-based estimate, which then becomes its signed flow
     # column. The flow windows below check for usable flow data again, on
@@ -3825,6 +3852,23 @@ def _calculate_vault_record_from_arrays(
         now_=now_,
     )
     period_results = list(apply_period_gap_exclusions(vault_spec, period_results))
+    nav_timestamp = None
+    nav_age_seconds = None
+    nav_stale = None
+    if ERC4626Feature.buoy_like in detection.features:
+        raw_nav_at = observation_vault.sorted_value("nav_timestamp", valid_rows[-1]) if observation_vault.has_column("nav_timestamp") else None
+        if pd.notna(raw_nav_at):
+            nav_timestamp = pd.Timestamp(raw_nav_at)
+            publication_horizon = pd.Timestamp(native_datetime_utc_now())
+            nav_age_seconds = (publication_horizon - nav_timestamp).total_seconds()
+            read_age = publication_horizon - pd.Timestamp(observation_vault.timestamps[-1])
+            nav_stale = nav_age_seconds < 0 or nav_age_seconds > MAX_VAULT_PRICE_ROW_AGE.total_seconds() or read_age < pd.Timedelta(0) or read_age > MAX_VAULT_PRICE_ROW_AGE
+        else:
+            nav_stale = True
+        if nav_stale:
+            for period_metric in period_results:
+                period_metric.error_reason = "Published NAV is stale or its publication time is unknown"
+
     flow_current_day_is_provisional = vault_metadata.get("_daily_flow_current_day_is_provisional", False)
     _attach_period_flow_metrics(
         period_results,
@@ -3965,6 +4009,10 @@ def _calculate_vault_record_from_arrays(
 
     # First and last rows with a usable share price. Block numbers are read
     # from the source column so they keep their exported integer type.
+    if nav_stale:
+        one_month_returns = one_month_returns_net = one_month_cagr = one_month_cagr_net = None
+        one_month_start = one_month_end = one_month_samples = None
+
     last_updated_at = lifetime_end_date
     last_updated_block = observation_vault.sorted_value("block_number", valid_rows[-1])
     last_share_price = observation_prices[-1]
@@ -4025,6 +4073,7 @@ def _calculate_vault_record_from_arrays(
             "deposit_fee": deposit_fee,
             "withdraw_fee": withdrawal_fee,
             "fee_mode": fee_mode,
+            "high_water_mark": vault_metadata.get("_high_water_mark"),
             "fee_internalised": fee_mode.is_internalised() if fee_mode else None,
             "gross_fees": gross_fee_data,
             "net_fees": net_fee_data,
@@ -4041,6 +4090,9 @@ def _calculate_vault_record_from_arrays(
             "risk_numeric": risk_numeric,
             "vault_poll_frequency": vault_poll_frequency,
             "share_price_source": share_price_source,
+            "nav_timestamp": nav_timestamp,
+            "nav_age_seconds": nav_age_seconds,
+            "nav_stale": nav_stale,
             "id": id_val,
             "start_date": lifetime_start_date,
             "end_date": lifetime_end_date,
@@ -4074,6 +4126,7 @@ def _calculate_vault_record_from_arrays(
             "deposit_closed_reason": deposit_closed_reason,
             "deposits_open": deposits_open,
             "redemption_closed_reason": redemption_closed_reason,
+            "redemption_request_observation": redemption_request_observation,
             "deposit_next_open": deposit_next_open,
             "redemption_next_open": redemption_next_open,
             # Static adapter support, distinct from the live closed-reason
@@ -4315,6 +4368,8 @@ def calculate_vault_rankings(
     - They are disabled GMX products retained only for historical continuity
     - Their period TVL is below the applicable ranking threshold
 
+    Buoy uses its protocol-specific $500 minimum for every ranking cohort.
+
     :param results_df:
         DataFrame from calculate_lifetime_metrics()
 
@@ -4350,6 +4405,7 @@ def calculate_vault_rankings(
     deposit_closed_col = results_df["deposit_closed_reason"].tolist() if "deposit_closed_reason" in results_df.columns else [None] * len(results_df)
     chain_col = results_df["chain"]
     protocol_slug_col = results_df["protocol_slug"]
+    ranking_tvl_overrides = [float(BUOY_MIN_TVL_USD) if slug == "buoy" else None for slug in protocol_slug_col]
     curator_slug_col = results_df["curator_slug"]
     min_tvl_chain_protocol_col = [min_tvl_chain_protocol_by_protocol_slug.get(slug, min_tvl_chain_protocol) for slug in protocol_slug_col.tolist()]
 
@@ -4375,18 +4431,22 @@ def calculate_vault_rankings(
             tvl = pm.tvl_end if pd.notna(pm.tvl_end) else 0
             has_no_cagr = cagr is None or cagr == 0 or pd.isna(cagr)
 
-            # Chain/protocol rankings use lower TVL threshold,
-            # with per-protocol overrides (e.g. Hyperliquid native vaults)
-            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_chain_protocol_col[i] or has_no_cagr):
+            override = ranking_tvl_overrides[i]
+            chain_protocol_threshold = override if override is not None else min_tvl_chain_protocol_col[i]
+            curator_threshold = override if override is not None else min_tvl_curator
+            overall_threshold = override if override is not None else min_tvl_overall
+
+            # Chain/protocol rankings use lower TVL threshold.
+            if not (is_blacklisted or is_disabled_gmx or tvl < chain_protocol_threshold or has_no_cagr):
                 cagr_values_chain_protocol[i] = cagr
 
             # Curator rankings include smaller vaults, but still omit unknown
             # curators because there is no meaningful comparison group.
-            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_curator or has_no_cagr):
+            if not (is_blacklisted or is_disabled_gmx or tvl < curator_threshold or has_no_cagr):
                 cagr_values_curator[i] = cagr
 
             # Overall rankings use higher TVL threshold
-            if not (is_blacklisted or is_disabled_gmx or tvl < min_tvl_overall or has_no_cagr):
+            if not (is_blacklisted or is_disabled_gmx or tvl < overall_threshold or has_no_cagr):
                 cagr_values_overall[i] = cagr
 
         cagr_series_chain_protocol = pd.Series(cagr_values_chain_protocol, index=results_df.index)
@@ -4675,6 +4735,13 @@ def format_lifetime_table(df: pd.DataFrame, add_index: bool = False, add_address
     for column in ("min_withdrawal_period", "max_withdrawal_period", "estimated_settlement"):
         if column in df.columns:
             df[column] = df[column].apply(_format_withdrawal_period)
+    if "redemption_request_observation" in df.columns:
+        observations = df.pop("redemption_request_observation")
+        if observations.map(lambda value: isinstance(value, dict)).any():
+            df["Redemption request status"] = observations.map(lambda value: f"{value['status']} ({value['observed_at']})" if isinstance(value, dict) else "---")
+            uses_epochs = observations.map(lambda value: isinstance(value, dict) and "unlock_epochs_min" in value)
+            if uses_epochs.any():
+                df["Withdrawal unlock epochs"] = observations.map(lambda value: f"{value['unlock_epochs_min']}–{value['unlock_epochs_max']}" if isinstance(value, dict) and "unlock_epochs_min" in value else "---")
     df["flags"] = df["flags"].apply(_str_enum_set)
 
     # Format lending protocol statistics
@@ -4739,6 +4806,7 @@ def format_lifetime_table(df: pd.DataFrame, add_index: bool = False, add_address
     _del("features")
     _del("strategy_tags")
     _del("fee_mode")
+    _del("high_water_mark")
     _del("fee_internalised")
     _del("gross_fees")
     _del("net_fees")
@@ -4829,6 +4897,9 @@ def format_lifetime_table(df: pd.DataFrame, add_index: bool = False, add_address
             "risk": "Risk",
             "vault_poll_frequency": "Scan cycle",
             "share_price_source": "Share price source",
+            "nav_timestamp": "NAV published at",
+            "nav_age_seconds": "NAV age seconds",
+            "nav_stale": "NAV stale",
             # "end_date": "Latest deposit",
             "name": "Name",
             "lockup": "Lock up est. days",
@@ -5788,6 +5859,8 @@ def export_lifetime_row(row: pd.Series) -> dict:
 
     The ``share_price_source`` column is retained as a stable
     :py:class:`eth_defi.vault.price_source.PriceSource` string value.
+    The ``high_water_mark`` column is a
+    :py:class:`eth_defi.vault.fee.HighWaterMark` string, or null when unspecified.
 
     The ``denomination_token_rate`` dataclass from
     :py:class:`eth_defi.feed.stablecoin_rate.DenominationTokenRate` is converted

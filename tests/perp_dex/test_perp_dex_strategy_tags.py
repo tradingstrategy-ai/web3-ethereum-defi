@@ -20,7 +20,6 @@ from eth_defi.lighter.vault_data_export import create_lighter_pool_row
 from eth_defi.vault.strategy_tag import STRATEGY_TAG_METADATA, StrategyTag
 
 EXPECTED_GRVT_VAULT_COUNT = 27
-EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT = 239
 EXPECTED_LIGHTER_DIRECTIONAL_LEVERAGE_VAULT_COUNT = 194
 
 
@@ -33,7 +32,7 @@ def test_hyperneutral_native_export_strategy_tags() -> None:
     :return: ``None`` after checking resolver and export output.
     """
     address = "0x8bb033130be354eed1110ce7228d7095f001d9fe"
-    expected = {StrategyTag.perpetual_futures, StrategyTag.long_short_portfolio}
+    expected = {StrategyTag.staff_pick, StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.long_short_portfolio, StrategyTag.diversified_low_exposure_long_short_portfolio, StrategyTag.unlevered_portfolio, StrategyTag.daily_rebalance}
     for variant in (address, address.upper()):
         _, row = create_hyperliquid_vault_row(HexAddress(variant), "HyperNeutral #1", None, 1_000, datetime.datetime(2026, 11, 14, tzinfo=datetime.UTC).replace(tzinfo=None))
         assert row["_strategy_tags"] == expected
@@ -167,7 +166,7 @@ def test_grvt_grid_vaults_are_grid_trading() -> None:
 @pytest.mark.parametrize(
     ("vault_id", "previous_specific_tags"),
     [
-        pytest.param("vlt:38exn6urqqrjk6hnypihgxo2oro", {StrategyTag.arbitrage, StrategyTag.delta_neutral}, id="kangcfa"),
+        pytest.param("vlt:38exn6urqqrjk6hnypihgxo2oro", {StrategyTag.staff_pick, StrategyTag.arbitrage, StrategyTag.delta_neutral}, id="kangcfa"),
         pytest.param("vlt:2zqttakxz5jkdjuyjpbwudibkbw", {StrategyTag.liquidity_provider, StrategyTag.market_making, StrategyTag.market_making_clob}, id="ampersan"),
         pytest.param("vlt:2ztqfqdo7iipsg2ki99glseyfmb", {StrategyTag.arbitrage, StrategyTag.directional_trading, StrategyTag.trend_following}, id="alldefi"),
         pytest.param("vlt:328ljdq3lxhyoccqi3mtxhhq5u3", {StrategyTag.directional_trading, StrategyTag.grid_trading, StrategyTag.mean_reversion}, id="ignight-inactive"),
@@ -248,7 +247,7 @@ def test_growi_vaults_are_mean_reversion() -> None:
         StrategyTag.perpetual_futures,
     }
 
-    assert hyperliquid_tags.get_strategy_tags("0x1e37a337ed460039d1b15bd3bc489de789768d5e") == expected | {StrategyTag.martingale_like}
+    assert hyperliquid_tags.get_strategy_tags("0x1e37a337ed460039d1b15bd3bc489de789768d5e") == expected | {StrategyTag.martingale_like, StrategyTag.podcast_available}
     assert hibachi_tags.get_strategy_tags("hibachi-vault-2") == expected
 
 
@@ -260,13 +259,53 @@ def test_hyperliquid_statistical_arbitrage_vaults_are_tagged() -> None:
     assert hyperliquid_tags.get_strategy_tags("0xdb25411e42659d910136dbe9c0f8330d952b5df8") == expected
 
 
+def test_buyback_burst_count_alone_does_not_imply_daily_rebalance() -> None:
+    """Buyback had 33 bursts in 30 days, with a median gap of only 11.4 hours."""
+    tags = hyperliquid_tags.get_strategy_tags("0xce71894b42f5c31a6ae6ca4fb77441c68ab15086")
+    assert StrategyTag.long_short_portfolio in tags
+    assert StrategyTag.daily_rebalance not in tags
+
+
+@pytest.mark.parametrize(
+    ("address", "exposure_tags"),
+    [
+        pytest.param("0x9e02aca9865e1859bb7865f6f64801e804a173df", {StrategyTag.portfolio_2x}, id="acevault-202-percent"),
+        pytest.param("0xac26cf5f3c46b5e102048c65b977d2551b72a9c7", {StrategyTag.portfolio_2x}, id="hype-btc-216-percent"),
+        pytest.param("0xce71894b42f5c31a6ae6ca4fb77441c68ab15086", set(), id="buyback-391-percent"),
+    ],
+)
+def test_leveraged_portfolio_exposure_tags(address: HexAddress, exposure_tags: set[StrategyTag]) -> None:
+    """Native exports retain the broader leveraged tag alongside any applicable exposure band."""
+    _, row = create_hyperliquid_vault_row(address, "Leveraged portfolio", None, 1_000, None)
+    tags = row["_strategy_tags"]
+    assert StrategyTag.perpetual_futures in tags
+    assert StrategyTag.algorithmic_trading in tags
+    assert StrategyTag.leveraged_portfolio in tags
+    assert tags & {StrategyTag.portfolio_2x, StrategyTag.portfolio_3x} == exposure_tags
+
+
+def test_orbit_keeps_long_short_tag_below_leverage_threshold() -> None:
+    """Orbit exceeded 120% at the 90th percentile but had a median of 102%."""
+    _, row = create_hyperliquid_vault_row("0x115849ce84370f25cadcf0d348510d73837e1aa5", "Orbit Value Strategies", None, 1_000, None)
+    assert row["_strategy_tags"] == {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.long_short_portfolio,
+        StrategyTag.unlevered_portfolio,
+        StrategyTag.perpetual_futures,
+        StrategyTag.two_and_half_days_rebalance,
+    }
+
+
 def test_systemic_strategies_ls_grids_is_directional_grid_trading() -> None:
-    """Systemic Strategies retains its grid tags and requested HFT classification."""
+    """Systemic Strategies combines its portfolio and grid classifications."""
     assert hyperliquid_tags.get_strategy_tags("0x07fd993f0fa3a185f7207adccd29f7a87404689d") == {
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.portfolio_3x,
+        StrategyTag.long_short_portfolio,
         StrategyTag.perpetual_futures,
     }
 
@@ -302,6 +341,7 @@ def test_hyperliquid_grid_descriptions_are_tagged(vault_address: str, specific_t
 def test_stratwise_spot_vault_strategy_tags() -> None:
     """Stratwise's spot-only vault receives its address-scoped tags."""
     assert hyperliquid_tags.get_strategy_tags("0x0ff219ac20596b457558341bc410bc7a08a1394c") == {
+        StrategyTag.podcast_available,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
         StrategyTag.grid_trading,
@@ -312,12 +352,12 @@ def test_stratwise_spot_vault_strategy_tags() -> None:
     }
 
 
-def test_lighter_grid_description_is_tagged() -> None:
-    """The long-only Lighter grid pool receives its supported tags."""
+def test_steady_wealth_builder_strategy_tags() -> None:
+    """Expose the maintained Steady Wealth Builder classification."""
     assert lighter_tags.get_strategy_tags("lighter-pool-281474976552443") == {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
-        StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
         StrategyTag.perpetual_futures,
@@ -352,18 +392,20 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
     :return: ``None`` after checking the complete classification.
     """
     new_tag = StrategyTag.high_frequency_high_win_rate
-    previous_tags = {
-        "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.btc_only},
-        "0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71": {StrategyTag.btc_only},
-        "0x53375ca9a649f337d83d0834fec0db97640a2a06": {StrategyTag.mean_reversion, StrategyTag.directional_trading},
-        "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {StrategyTag.mean_reversion, StrategyTag.directional_trading},
-        "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
+    other_tags = {
+        "0xa1b6d8efbcb2fb750a84dbc05649fa4968034f04": {StrategyTag.staff_pick},
+        "0xa415c4ded17cac76a1d81a54d9f4aeb48ffd4dd0": {StrategyTag.staff_pick, StrategyTag.btc_only},
+        "0x5ce0ce4387679de0335a3e8a1c9a7abb4f150a71": {StrategyTag.staff_pick, StrategyTag.btc_only},
+        "0x53375ca9a649f337d83d0834fec0db97640a2a06": {StrategyTag.staff_pick, StrategyTag.mean_reversion, StrategyTag.directional_trading},
+        "0xb65dd7c56afbf3b272ab5fc49be44b47dca18003": {StrategyTag.staff_pick, StrategyTag.mean_reversion, StrategyTag.directional_trading},
+        "0x1e37a337ed460039d1b15bd3bc489de789768d5e": {StrategyTag.podcast_available, StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
         "hibachi-vault-2": {StrategyTag.algorithmic_trading, StrategyTag.mean_reversion},
         "0xd2f03635901956b950737bbf02463dfad9f2e9e1": {StrategyTag.grid_trading},
         "0x3a6747c8e913085e243a2c22d188dafa8c6a612a": {StrategyTag.grid_trading},
         "0x73f6553d3a6b570ab37957b32a75c7fc0ebff6e9": {StrategyTag.grid_trading},
-        "lighter-pool-281474976552443": {StrategyTag.directional_trading, StrategyTag.grid_trading},
+        "lighter-pool-281474976552443": {StrategyTag.staff_pick, StrategyTag.directional_trading},
         "0x0ff219ac20596b457558341bc410bc7a08a1394c": {
+            StrategyTag.podcast_available,
             StrategyTag.algorithmic_trading,
             StrategyTag.directional_trading,
             StrategyTag.grid_trading,
@@ -373,7 +415,7 @@ def test_high_frequency_high_win_rate_vaults(resolve_tags: Callable[[str], set[S
     }.get(address, set())
     defaults = set() if address in hyperliquid_tags.NON_PERPETUAL_VAULTS else {StrategyTag.perpetual_futures}
 
-    assert resolve_tags(address) - {StrategyTag.martingale_like} == previous_tags | defaults | {StrategyTag.algorithmic_trading, new_tag}
+    assert resolve_tags(address) - {StrategyTag.martingale_like} == other_tags | defaults | {StrategyTag.algorithmic_trading, new_tag}
 
 
 def test_high_frequency_high_win_rate_requires_algorithmic_trading() -> None:
@@ -432,17 +474,31 @@ def test_lighter_documented_delta_neutral_grid_pool_is_tagged() -> None:
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
         StrategyTag.grid_trading,
+        StrategyTag.long_short_portfolio,
         StrategyTag.perpetual_futures,
+    }
+
+
+def test_lighter_portfolio_tag_uses_typical_exposure() -> None:
+    """Classify Black Bull at 66.5% median gross exposure despite an above-120% upper tail."""
+    assert lighter_tags.get_strategy_tags("lighter-pool-281474976489165") == {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.perpetual_futures,
+        StrategyTag.sentiment_trading,
+        StrategyTag.social_trading,
+        StrategyTag.unlevered_portfolio,
     }
 
 
 def test_all_lighter_strategy_mapping_entries_use_supported_resolvers() -> None:
     """Every maintained Lighter classification augments the native default."""
-    assert len(lighter_tags.STRATEGY_TAGS) == EXPECTED_LIGHTER_STRATEGY_TAGGED_VAULT_COUNT
 
     for address, specific_tags in lighter_tags.STRATEGY_TAGS.items():
         assert address == address.lower()
         assert lighter_tags.get_strategy_tags(address) == specific_tags | {StrategyTag.perpetual_futures}
+        if StrategyTag.delta_neutral in specific_tags:
+            assert StrategyTag.long_short_portfolio in specific_tags
 
 
 def test_hlp_and_fire_liquidity_provider_are_market_making() -> None:

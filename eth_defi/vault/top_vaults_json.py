@@ -44,6 +44,7 @@ import psutil
 import pyarrow.parquet as pq
 from atomicwrites import atomic_write
 
+from eth_defi.erc_4626.vault_protocol.buoy.constants import BUOY_MIN_TVL_USD
 from eth_defi.chain import CHAIN_NAMES
 from eth_defi.neutral_trade.constants import SOLANA_DATASET_CHAIN_ID, is_public_metadata as is_neutral_trade_public_metadata
 from eth_defi.compat import native_datetime_utc_now
@@ -127,6 +128,7 @@ TOP_PER_CHAIN = int(os.getenv("TOP_PER_CHAIN", "99999"))  # Top N vaults per cha
 #: default once ApeX vaults gain real traction.
 PROTOCOL_MIN_TVL_OVERRIDES: dict[str, float] = {
     "apex": float(os.getenv("APEX_MIN_TVL", "499")),
+    "buoy": float(BUOY_MIN_TVL_USD),
 }
 
 
@@ -135,7 +137,7 @@ def resolve_export_threshold_tvl(record: dict, default_threshold: float) -> floa
 
     Most vaults use the global :py:data:`THRESHOLD_TVL`, but protocols listed
     in :py:data:`PROTOCOL_MIN_TVL_OVERRIDES` use their own bar. The lookup is by
-    exported ``protocol_slug`` so it does not depend on any protocol package.
+    exported ``protocol_slug`` rather than a deployment address.
 
     :param record:
         Exported vault row, expected to carry ``protocol_slug``.
@@ -1092,8 +1094,14 @@ def apply_sticky_export_state(
 
     state["last_current_filter_count"] = stats.current_filter_passed
     state["updated_at"] = now_text
+    vaults = [record for _, record in vaults_by_key.values()]
+    for record in vaults:
+        if record.get("protocol_slug") == "pear" and isinstance(name := record.get("name"), str):
+            # The receipt token adds a redundant brand prefix. Edit the public
+            # name after replay so both fresh and cached rows keep their URLs.
+            record["name"] = name.removeprefix("Pear Vault ")
     return StickyExportResult(
-        vaults=[record for _, record in vaults_by_key.values()],
+        vaults=vaults,
         state=state,
         stats=stats,
     )
@@ -1330,6 +1338,10 @@ def main(
     registered best-effort export cleanup hooks. Hook failures are logged and
     contained so this function can still publish the existing vault data.
 
+    Stablecoin eligibility and TVL thresholds use the catalogue's canonical
+    vault IDs to match the cleaned Parquet. Pear's checksummed detection
+    addresses previously excluded its vaults from this selection.
+
     :param data_dir:
         Pipeline data directory. When ``None``, falls back to the
         ``DATA_DIR`` env var (default ``~/.tradingstrategy/vaults``).
@@ -1417,13 +1429,10 @@ def main(
     assert errors == 0, f"Data Cross-check found: {errors} errors"
     phase_diagnostics.log("parquet-read")
 
-    usd_vaults = [v for v in vault_db.values() if is_stablecoin_like(v["Denomination"])]
-    logger.info("The report covers %d stablecoin-denominated vaults out of %d total vaults", len(usd_vaults), len(vault_db))
+    usd_vaults_by_id = {spec.as_string_id(): row for spec, row in vault_db.rows.items() if is_stablecoin_like(row["Denomination"])}
+    logger.info("The report covers %d stablecoin-denominated vaults out of %d total vaults", len(usd_vaults_by_id), len(vault_db))
 
-    # Build chain-address strings for vaults we are interested in.
-    # Remove Silo vaults that cause havoc after xUSD incident.
-    allowed_vault_ids = [str(v["_detection_data"].chain) + "-" + v["_detection_data"].address for v in usd_vaults]
-    allowed_vault_id_set = set(allowed_vault_ids)
+    allowed_vault_id_set = set(usd_vaults_by_id)
     stablecoin_mask = gate_df["id"].isin(allowed_vault_id_set)
     logger.info("Filtered stablecoin-denominated price data has %d rows", int(stablecoin_mask.sum()))
 
@@ -1440,7 +1449,7 @@ def main(
     del gate_df
     free_memory()
     family_by_id = {vault_id: DenominationFamily.stablecoin.value for vault_id in seen_vault_ids}
-    export_threshold_by_id = {vault_id: resolve_export_threshold_tvl({"protocol_slug": slugify_protocol(v["Protocol"])}, THRESHOLD_TVL) for vault_id, v in zip(allowed_vault_ids, usd_vaults)}
+    export_threshold_by_id = {vault_id: resolve_export_threshold_tvl({"protocol_slug": slugify_protocol(row["Protocol"])}, THRESHOLD_TVL) for vault_id, row in usd_vaults_by_id.items()}
     due_vault_ids, skipped_vault_ids = partition_due_vault_ids(
         seen_vault_ids,
         metrics_state,

@@ -130,7 +130,9 @@ def test_plutus(
     max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
     assert max_deposit > 0  # Deposits are open
     assert max_redeem == 0  # Redemptions are closed
-    assert vault.can_check_redeem() is True
+    # The live adapter's capability describes HedgeVaultV2. The historical
+    # reader uses the legacy ownerless check at this pre-upgrade block.
+    assert vault.can_check_redeem() is False
 
 
 @pytest.fixture(scope="module")

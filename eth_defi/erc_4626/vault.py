@@ -1226,6 +1226,7 @@ class ERC4626Vault(VaultBase):
                 chain_id=self.spec.chain_id,
                 raise_on_error=False,
                 cause_diagnostics_message=f"Vault {self.__class__.__name__} {self.address} denominating token lookup",
+                native_vault_asset=True,
                 cache=self.token_cache,
             )
             if result is None:

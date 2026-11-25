@@ -60,8 +60,8 @@ Primary key: `(instrument, ts)`
 | `instrument` | `VARCHAR` | Instrument name (e.g. `ETH-PERP`) |
 | `ts` | `BIGINT` | Timestamp in milliseconds since epoch |
 | `open_interest` | `DOUBLE` | OI in base currency units (e.g. ETH for ETH-PERP) |
-| `perp_price` | `DOUBLE` | Mark/perp price in USD (18-decimal fixed-point on-chain) |
-| `index_price` | `DOUBLE` | Spot/index price in USD (18-decimal fixed-point on-chain) |
+| `perp_price` | `DOUBLE` | Mark/perp price in USD (18-decimal fixed-point onchain) |
+| `index_price` | `DOUBLE` | Spot/index price in USD (18-decimal fixed-point onchain) |
 
 Primary key: `(instrument, ts)`
 
@@ -196,11 +196,11 @@ Tests use the public Derive Chain RPC and REST API (no credentials needed).
 
 ### Legacy statistics API and open interest
 
-- **Statistics endpoint ignores timestamps**: The `POST /public/statistics` endpoint accepts `end_time` and `end_timestamp` parameters but always returns the current live open interest. Tested with millisecond timestamps, second timestamps, and both parameter names — all return identical current values. This is why on-chain reads are used instead.
+- **Statistics endpoint ignores timestamps**: The `POST /public/statistics` endpoint accepts `end_time` and `end_timestamp` parameters but always returns the current live open interest. Tested with millisecond timestamps, second timestamps, and both parameter names — all return identical current values. This is why onchain reads are used instead.
 - **Function selectors**: The correct selector for `openInterest(uint256)` is `0x88e53ec8` (the parameterless `openInterest()` selector `0xfa5a2e62` reverts). `getPerpPrice()` is `0x90f76b18` and `getIndexPrice()` is `0x58c0994a` — both return `(uint256 price, uint256 confidence)` tuples.
 - **Error handling**: Only `ContractLogicError` (contract revert at pre-deployment blocks) is caught. Transient RPC errors (timeouts, rate limits) propagate to prevent silent holes in history — the sync loop aborts rather than advancing the watermark past missing data.
 
-## On-chain data source details
+## Onchain data source details
 
 The open-interest scanner reads legacy v2 state directly from perp contracts on Derive Chain. It is not a current v3 data source:
 
@@ -224,7 +224,7 @@ The open-interest scanner reads legacy v2 state directly from perp contracts on 
 | Operation | Time | Details |
 |---|---|---|
 | Full funding rate sync (12 instruments) | ~2-3 min | REST API, 2 req/s, 28-day chunks |
-| Full OI backfill (12 instruments, ~800 days) | ~20 min | On-chain, 2 workers, hourly resolution |
+| Full OI backfill (12 instruments, ~800 days) | ~20 min | Onchain, 2 workers, hourly resolution |
 | Incremental sync (either dataset) | seconds | Only fetches new data since last sync |
 
 Bottleneck is RPC latency (~1.4s per multicall round-trip). Increase `MAX_WORKERS` for faster backfill at the cost of more RPC load.

@@ -13,8 +13,8 @@ It reports, grouped by severity:
 - INFO — content gaps (missing links / long_description)
 
 and the metadata↔feed drift (twitter handle, website) that needs a human
-decision. See ``eth_defi/data/stablecoins/TODO_STABLECOIN_DATA_FIXES_NEEDED.md``
-for the triaged backlog.
+decision. See ``docs/protocol-research/stablecoin-data-audit-2026-06-10.md``
+for the findings from June 2026.
 
 No network access; safe to run any time::
 

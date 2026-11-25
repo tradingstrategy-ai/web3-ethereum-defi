@@ -63,6 +63,7 @@ class StrategyTag(str, enum.Enum):
     A vault may have more than one strategy tag. Tags describe its economic
     strategy, instrument, execution venue, or asset exposure rather than its
     smart-contract implementation, risk level, or current trading state.
+    Staff picks and podcast coverage add editorial context.
     String values are stable identifiers suitable for persisted vault metadata
     and public data exports.
     """
@@ -70,6 +71,12 @@ class StrategyTag(str, enum.Enum):
     #: Research established that the vault's strategy is unknown.
     #: Example vault: none currently mapped.
     unknown = "unknown"
+
+    #: Trading Strategy staff found the vault particularly interesting.
+    staff_pick = "staff_pick"
+
+    #: The Trading Strategy podcast covers this vault.
+    podcast_available = "podcast_available"
 
     #: Takes directional exposure to one or more markets.
     #: Example vault: AllDeFi Quant Directional Strategy (GRVT).
@@ -79,6 +86,38 @@ class StrategyTag(str, enum.Enum):
     #: assets expected to fall, seeking returns from their relative performance.
     #: Market neutrality depends on how the two legs are sized and hedged.
     long_short_portfolio = "long_short_portfolio"
+
+    #: Spreads long and short positions across many markets, with a modest share
+    #: in the largest holdings. Gross exposure usually stays below portfolio equity.
+    #: Pair with :attr:`long_short_portfolio`. Example vault: HyperNeutral #1.
+    diversified_low_exposure_long_short_portfolio = "diversified_low_exposure_long_short_portfolio"
+
+    #: Portfolio strategies whose median gross exposure exceeds 120% of equity
+    #: over the review period. Use complete position snapshots with positive equity,
+    #: counting long and short positions at their absolute notionals. Example: Buyback Spread Engine.
+    leveraged_portfolio = "leveraged_portfolio"
+
+    #: Pair with :attr:`leveraged_portfolio` when the unrounded median gross exposure
+    #: is between 180% and 220% of equity inclusive. Example: AceVault Hyper01.
+    portfolio_2x = "portfolio_2x"
+
+    #: Pair with :attr:`leveraged_portfolio` when the unrounded median gross exposure
+    #: is between 280% and 320% of equity inclusive. Example: Edge & Hedge.
+    portfolio_3x = "portfolio_3x"
+
+    #: Portfolio strategies whose median gross exposure is strictly below 120% of equity
+    #: in complete position snapshots with positive equity. Example: Orbit Value Strategies.
+    unlevered_portfolio = "unlevered_portfolio"
+
+    #: Tag a portfolio when the unrounded median gap between consecutive rebalance starts
+    #: is 22 to 26 hours inclusive. On Hyperliquid, count bursts in at least two markets,
+    #: splitting at gaps of more than 30 minutes between order starts. Days may be skipped.
+    daily_rebalance = "daily_rebalance"
+
+    #: The observed median gap between consecutive rebalance starts is about two
+    #: and a half days. Use the same multi-market burst measure as :attr:`daily_rebalance`
+    #: on Hyperliquid. Edge & Hedge and Orbit Value Strategies both had a median of 61.5 hours.
+    two_and_half_days_rebalance = "two_and_half_days_rebalance"
 
     #: Maintains a fixed long or short exposure to one underlying asset using
     #: leverage. This is direct market exposure, not a trading signal,
@@ -221,7 +260,9 @@ class StrategyTag(str, enum.Enum):
     #: Example vault: Axis Origin USDx (Upshift).
     multistrategy = "multistrategy"
 
-    #: Tracks a predefined market or asset index in an index-fund style.
+    #: Passively tracks a defined basket using equal weights, market
+    #: capitalisation or a comparable weighting rule. Classify active
+    #: strategies by how they trade.
     #: Example vault: Mantle Index Four (Securitize).
     index = "index"
 
@@ -318,7 +359,7 @@ class StrategyTagMetadata(TypedDict):
     #: Human-readable category label without Markdown links.
     label: str
 
-    #: Short, plain-language summary of the investment activity.
+    #: Markdown description of the investment activity, including linked examples where useful.
     description: str
 
 
@@ -335,13 +376,53 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
         "label": "Unknown strategy",
         "description": "The investment approach is unknown.",
     },
+    StrategyTag.staff_pick: {
+        "label": "Staff pick",
+        "description": """Trading Strategy staff highlight vaults they find particularly interesting. There are no specific performance requirements or other selection criteria.
+
+Follow the [Trading Strategy podcast](https://tradingstrategy.ai/podcast) for vault interviews.""",
+    },
+    StrategyTag.podcast_available: {
+        "label": "Podcast available",
+        "description": "Covered in an episode of the [Trading Strategy podcast](https://tradingstrategy.ai/podcast).",
+    },
     StrategyTag.directional_trading: {
         "label": "Directional trading",
         "description": "Takes [long or short positions](https://tradingstrategy.ai/glossary/directional-strategy) to profit from rising or falling markets.",
     },
     StrategyTag.long_short_portfolio: {
         "label": "Long-short portfolio",
-        "description": "Pairs [long and short positions](https://tradingstrategy.ai/glossary/directional-strategy), seeking returns from how they perform relative to each other.",
+        "description": "Pairs [long and short positions](https://tradingstrategy.ai/glossary/directional-strategy), seeking returns from how they perform relative to each other. A [diversified low-exposure portfolio](https://tradingstrategy.ai/vaults/strategies/diversified-low-exposure-long-short-portfolio) spreads those positions across many markets and usually keeps their combined size below its equity.",
+    },
+    StrategyTag.diversified_low_exposure_long_short_portfolio: {
+        "label": "Diversified low-exposure long–short portfolio",  # noqa: RUF001 - The public label uses an en dash.
+        "description": """This [long-short portfolio](https://tradingstrategy.ai/vaults/strategies/long-short-portfolio) spreads positions across many markets, with a modest share in its largest holdings. **Gross exposure**, the value of longs and shorts added together, usually stays below portfolio equity. Losses can arise when longs underperform the assets sold short or when fees and funding costs outweigh trading gains.
+
+For example, [HyperNeutral #1](https://tradingstrategy.ai/vaults/hyperneutral-1) held a median of 49 longs and 57 shorts from 13 October to 11 November 2026, with median gross exposure of 69% of equity.""",
+    },
+    StrategyTag.leveraged_portfolio: {
+        "label": "Leveraged portfolio",
+        "description": "During the period reviewed, median gross exposure exceeded 120% of portfolio equity. Gross exposure adds the sizes of long and short positions, counting both as positive. This [leverage](https://tradingstrategy.ai/glossary/leverage) can magnify gains and losses relative to the capital in the portfolio.",
+    },
+    StrategyTag.portfolio_2x: {
+        "label": "2x portfolio",
+        "description": "During the period reviewed, median gross exposure was 180% to 220% of portfolio equity, inclusive. For example, a portfolio with $100 of equity, $100 in long positions and $100 in short positions has 200% gross exposure.",
+    },
+    StrategyTag.portfolio_3x: {
+        "label": "3x portfolio",
+        "description": "During the period reviewed, median gross exposure was 280% to 320% of portfolio equity, inclusive. For example, a portfolio with $100 of equity, $150 in long positions and $150 in short positions has 300% gross exposure.",
+    },
+    StrategyTag.unlevered_portfolio: {
+        "label": "Unlevered portfolio",
+        "description": "During the period reviewed, median gross exposure was below 120% of portfolio equity. Gross exposure adds the sizes of long and short positions, counting both as positive. A portfolio can qualify even when its positions are worth slightly more than its equity.",
+    },
+    StrategyTag.daily_rebalance: {
+        "label": "Daily rebalance",
+        "description": "Typically rebalances daily (median gap of 22 to 26 hours), though some days may be skipped.",
+    },
+    StrategyTag.two_and_half_days_rebalance: {
+        "label": "Two and half days rebalance",
+        "description": "The observed median gap between rebalance starts is about two and a half days.",
     },
     StrategyTag.directional_leverage: {
         "label": "Directional leverage",
@@ -457,7 +538,7 @@ STRATEGY_TAG_METADATA: dict[StrategyTag, StrategyTagMetadata] = {
     },
     StrategyTag.index: {
         "label": "Index",
-        "description": "Tracks a defined basket of assets to mirror its overall market performance.",
+        "description": "Passively tracks a basket with equal, market-capitalisation or other rule-based weights.",
     },
     StrategyTag.perpetual_futures: {
         "label": "Perpetual futures",

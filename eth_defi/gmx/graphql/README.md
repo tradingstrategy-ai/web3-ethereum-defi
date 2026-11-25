@@ -201,7 +201,7 @@ position_key, position = list(positions.items())[0]
 # CRITICAL: Use raw value for exact match
 position_size_usd_raw = position["position_size_usd_raw"]
 
-# Close position with exact on-chain value
+# Close position with exact onchain value
 trading.close_position(
     size_delta_usd=position_size_usd_raw,  # Exact raw value
     # ... other parameters

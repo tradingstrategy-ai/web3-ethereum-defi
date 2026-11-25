@@ -190,9 +190,10 @@ def create_apex_vault_row(
 def build_raw_prices_dataframe(db: ApexMetricsDatabase) -> pd.DataFrame:
     """Build raw shared-pipeline price rows from the ApeX DuckDB.
 
-    Every actual ranking or history timestamp is retained. The resulting
-    columns match :class:`eth_defi.vault.base.RawVaultPriceRow`; ApeX has no
-    native block number, so ``block_number`` is zero.
+    Keep the original observation time for point-in-time metric joins.
+    The native merge derives a separate millisecond key for matching against
+    stored prices. Columns match :class:`eth_defi.vault.base.RawVaultPriceRow`.
+    ApeX has no native block number, so ``block_number`` is zero.
 
     :param db:
         Open owner-thread ApeX metrics database.

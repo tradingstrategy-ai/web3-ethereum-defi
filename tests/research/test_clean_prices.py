@@ -13,6 +13,7 @@ import pyarrow.dataset as ds
 import pyarrow.parquet as pq
 import pytest
 import zstandard as zstd
+from web3 import Web3
 
 import eth_defi.research.wrangle_vault_prices as vault_price_wrangle
 from eth_defi.research.wrangle_vault_prices import (
@@ -31,7 +32,9 @@ from eth_defi.research.wrangle_vault_prices import (
     replace_cleaned_vault_histories,
 )
 from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
+from eth_defi.vault.post_processing import _clean_incrementally, clean_crypto_vault_prices, clean_prices
 from eth_defi.vault.settlement_data import VaultSettlement, VaultSettlementDatabase
+from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.version_info import PARQUET_VERSION_METADATA_KEY
 
 
@@ -83,8 +86,9 @@ def test_clean_vault_price_data(
 ) -> None:
     """Test cleaning vault price data.
 
-    Clean the pinned raw Hemi snapshot and verify that the daily derivative
-    preserves observations and carries the current observation-policy version.
+    Clean the pinned raw Hemi snapshot with checksummed detection addresses.
+    Verify that the daily derivative preserves observations and carries the
+    current observation-policy version.
 
     :param vault_db:
         Pickled metadata fixture path.
@@ -95,6 +99,16 @@ def test_clean_vault_price_data(
     :return:
         ``None`` after checking schema, source rows and sidecar metadata.
     """
+
+    database = VaultDatabase.read(vault_db)
+    checksummed_ids = set()
+    for spec, row in database.rows.items():
+        if spec.chain_id == 43111:
+            address = Web3.to_checksum_address(spec.vault_address)
+            row["_detection_data"] = dataclasses.replace(row["_detection_data"], address=address)
+            if address != spec.vault_address:
+                checksummed_ids.add(spec.as_string_id())
+    database.write(vault_db)
 
     dst = tmp_path / "cleaned-vault-prices.parquet"
     daily_dst = tmp_path / "cleaned-vault-prices-1d.parquet"
@@ -109,6 +123,8 @@ def test_clean_vault_price_data(
     assert "raw_share_price" in df.columns
     assert "share_price" in df.columns
     assert len(df["id"].unique()) == 4
+    assert set(df["id"]).issubset(checksummed_ids)
+    assert len(df) == 8307
 
     # Vault state columns should always be present in cleaned output,
     # even when raw scan data predates these fields
@@ -1518,3 +1534,174 @@ def test_arrow_dataset_filter_preserves_chain_address_pairs() -> None:
 
     assert selected["row"].to_pylist() == ["selected"]
     assert empty.num_rows == 0
+
+
+def test_hyperevm_legacy_nav_sources() -> None:
+    """Exclude unverified Pear and native HYPE rows while preserving unrelated prices."""
+    pear = "0x65c9f4665c7d9ce96f53aafc67796dcad46f4096"
+    hyped = "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"
+    prices = pd.DataFrame(
+        [
+            (999, pear, "latest", 1.1),
+            (999, pear, "pear_api", 1.2),
+            (999, pear, None, 0.8),
+            (999, hyped, "latest", 1.03),
+            (999, hyped, "pear_api", 1e18),
+            (999, hyped, "first_read", 1e18),
+            (1, pear, None, 1.9),
+            (999, "other", None, 2.2),
+        ],
+        columns=["chain", "address", "vault_poll_frequency", "share_price"],
+    )
+    assert vault_price_wrangle.filter_verified_hyperevm_prices(prices)["share_price"].tolist() == [1.1, 1.2, 1.03, 1.9, 2.2]
+    assert vault_price_wrangle.filter_verified_hyperevm_prices(prices.drop(columns="vault_poll_frequency"))["share_price"].tolist() == [1.9, 2.2]
+
+
+@pytest.mark.parametrize(
+    ("block_numbers", "allow_same_timestamp_blocks", "error"),
+    [
+        ((123, 123), True, "require distinct positive block numbers"),
+        ((0, 123), True, "require distinct positive block numbers"),
+        ((None, 123), True, "require distinct positive block numbers"),
+        (None, True, "Invalid or duplicate cleaned replacement price keys"),
+        ((123, 124), False, "Invalid or duplicate cleaned replacement price keys"),
+    ],
+)
+def test_replacement_rejects_ambiguous_same_timestamp_prices(
+    tmp_path: Path,
+    block_numbers: tuple[int | None, int] | None,
+    allow_same_timestamp_blocks: bool,
+    error: str,
+) -> None:
+    """Keep the existing file when prices lack distinct permitted identities."""
+    vault_id = "42161-0x0000000000000000000000000000000000000001"
+    timestamp = pd.Timestamp("2026-11-14 19:44:14")
+    prices = pd.DataFrame({"id": [vault_id, vault_id], "timestamp": [timestamp, timestamp]})
+    if block_numbers is not None:
+        prices["block_number"] = block_numbers
+    destination = tmp_path / "cleaned.parquet"
+    prices.iloc[-1:].to_parquet(destination, index=False)
+    original = destination.read_bytes()
+
+    with pytest.raises(ValueError, match=error):
+        vault_price_wrangle.replace_cleaned_price_rows(
+            destination,
+            {vault_id},
+            prices,
+            logger=logging.getLogger(__name__).info,
+            allow_same_timestamp_blocks=allow_same_timestamp_blocks,
+        )
+
+    assert destination.read_bytes() == original
+
+
+def test_replace_combined_daily_histories_uses_only_price_columns(tmp_path: Path) -> None:
+    """Replace interleaved denomination histories without persisting row labels."""
+    stablecoin_id = "42161-0x0000000000000000000000000000000000000002"
+    native_id = "42161-0x0000000000000000000000000000000000000001"
+    timestamp = pd.Timestamp("2026-11-14 19:44:14")
+    prices = pd.DataFrame({"id": [stablecoin_id, native_id], "timestamp": [timestamp, timestamp], "share_price": [1.1, 2.2]})
+    destination = tmp_path / "crypto-daily.parquet"
+    prices.iloc[0:0].to_parquet(destination, index=False)
+
+    replaced = vault_price_wrangle.replace_cleaned_price_rows(destination, {stablecoin_id, native_id}, prices, logger=logging.getLogger(__name__).info)
+
+    assert replaced == len(prices)
+    pd.testing.assert_frame_equal(pd.read_parquet(destination), prices.reset_index(drop=True))
+
+
+def test_incremental_cleaning_matches_rebuild_after_corrections(
+    vault_db: Path,
+    raw_price_df: Path,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Reconcile mixed-case history, additions, removals and metadata changes."""
+    catalogue = VaultDatabase.read(vault_db)
+    raw = tmp_path / "raw.parquet"
+    settlement = tmp_path / "settlements.duckdb"
+    hourly = tmp_path / "hourly.parquet"
+    daily = tmp_path / "cleaned-vault-prices-1d.parquet"
+    crypto = tmp_path / "crypto.parquet"
+    prices = pd.read_parquet(raw_price_df)
+    prices.to_parquet(raw, index=False)
+    assert _clean_incrementally(raw, vault_db, settlement, hourly, crypto) == (True, True)
+    caplog.set_level(logging.INFO)
+
+    def assert_targeted_matches_full() -> None:
+        """Compare all three files with independent full builders after each mutation."""
+        caplog.clear()
+        assert _clean_incrementally(raw, vault_db, settlement, hourly, crypto) == (True, True)
+        assert "Replaced" in caplog.text
+        assert "establish a current output baseline" not in caplog.text
+        reference_dir = tmp_path / "reference"
+        reference_dir.mkdir(exist_ok=True)
+        reference_hourly = reference_dir / hourly.name
+        reference_daily = reference_dir / daily.name
+        reference_crypto = reference_dir / crypto.name
+        assert clean_prices(vault_db, raw, reference_hourly, settlement)
+        assert clean_crypto_vault_prices(vault_db_path=vault_db, uncleaned_path=raw, cleaned_path=reference_crypto, cleaned_stablecoin_path=reference_hourly, cleaned_stablecoin_daily_path=reference_daily, settlement_db_path=settlement)
+        for actual, expected in ((hourly, reference_hourly), (daily, reference_daily), (crypto, reference_crypto)):
+            pd.testing.assert_frame_equal(pd.read_parquet(actual, dtype_backend="pyarrow"), pd.read_parquet(expected, dtype_backend="pyarrow"))
+
+    baseline = pd.read_parquet(hourly).reset_index()
+    counts = baseline.groupby("id").size().sort_values()
+    target_id = counts.index[0]
+    target = VaultSpec.parse_string(target_id)
+    previous = baseline.loc[baseline["id"] == target_id].iloc[-1]
+    raw_mask = prices["address"] == target.vault_address
+    previous_mask = raw_mask & (prices["timestamp"] == previous["timestamp"])
+    prices.loc[previous_mask, "address"] = Web3.to_checksum_address(target.vault_address)
+    corrected_share_price = previous["raw_share_price"] * 1.001
+    prices.loc[previous_mask, "share_price"] = corrected_share_price
+    addition = prices.loc[previous_mask].copy()
+    addition["address"] = target.vault_address
+    addition["timestamp"] += pd.Timedelta(days=1)
+    addition["timestamp"] = addition["timestamp"].astype(prices["timestamp"].dtype)
+    addition["block_number"] += 10_000
+    # Consecutive EVM blocks can have the same timestamp in the price archive.
+    same_second = addition.assign(block_number=addition["block_number"] + 1, share_price=addition["share_price"] * 1.001)
+    pd.concat([prices, addition, same_second], ignore_index=True).to_parquet(raw, index=False)
+
+    database = VaultSettlementDatabase(settlement)
+    try:
+        database.upsert_settlements([VaultSettlement(chain_id=target.chain_id, address=target.vault_address, block_number=int(previous["block_number"]), protocol="test", block_hash="0x" + "11" * 32, timestamp=previous["timestamp"].to_pydatetime(), tx_hash="0x" + "22" * 32, event_name="SettleDeposit")])
+    finally:
+        database.close()
+
+    assert_targeted_matches_full()
+    after = pd.read_parquet(hourly).reset_index()
+    selected = after.loc[after["id"] == target_id].set_index("timestamp")
+    assert selected.loc[previous["timestamp"], "raw_share_price"] == pytest.approx(corrected_share_price)
+    assert selected.loc[previous["timestamp"], "vault_settlement_at"] == previous["timestamp"]
+    assert list(selected["address"].unique()) == [target.vault_address]
+    assert len(selected) == counts.iloc[0] + 2
+    same_timestamp = addition["timestamp"].iloc[0]
+    assert selected.loc[same_timestamp, "block_number"].tolist() == [addition["block_number"].iloc[0], same_second["block_number"].iloc[0]]
+    daily_rows = pd.read_parquet(daily).reset_index()
+    daily_close = daily_rows.loc[(daily_rows["id"] == target_id) & (daily_rows["timestamp"] == same_timestamp)]
+    assert daily_close["block_number"].tolist() == [same_second["block_number"].iloc[0]]
+
+    # A case alias at the *same* instant cannot be resolved by row order.
+    committed = hourly.read_bytes()
+    collision = pd.read_parquet(raw)
+    alias = addition.assign(address=Web3.to_checksum_address(target.vault_address))
+    pd.concat([collision, alias], ignore_index=True).to_parquet(raw, index=False)
+    assert _clean_incrementally(raw, vault_db, settlement, hourly, crypto) == (False, False)
+    assert hourly.read_bytes() == committed
+    collision.to_parquet(raw, index=False)
+
+    # A denomination move updates both the public and crypto products.
+    catalogue.rows[target]["Name"] = "Updated vault name"
+    catalogue.rows[target]["Denomination"] = "ETH"
+    catalogue.write(vault_db)
+    prices = pd.read_parquet(raw)
+    prices.loc[prices["timestamp"] != addition["timestamp"].iloc[0]].to_parquet(raw, index=False)
+    assert_targeted_matches_full()
+
+    assert target_id not in set(pd.read_parquet(hourly, columns=["id"])["id"])
+    prices = pd.read_parquet(raw)
+    prices.loc[prices["address"].str.lower() != target.vault_address].to_parquet(raw, index=False)
+    assert_targeted_matches_full()
+    for output in (hourly, daily, crypto):
+        assert target_id not in set(pd.read_parquet(output, columns=["id"])["id"])

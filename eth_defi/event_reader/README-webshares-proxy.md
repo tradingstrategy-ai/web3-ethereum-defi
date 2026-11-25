@@ -72,6 +72,13 @@ through the full account pool.
 The proxy state file is local to the machine running the scanner. Clearing it on
 one host does not clear status on another host.
 
+The post scanner and vault scanner share this failure state in the production
+Compose setup. The feed collector can record a proxy failure when Requests
+raises `ProxyError` and the collector rotates. If another worker has already
+rotated, the collector skips the write to avoid blocking the wrong proxy.
+HTTP 404 and 410 end the fetch immediately. HTTP 403, 408, 429, 500, 502, 503
+and 504 can trigger rotation and a direct retry without blocking the proxy.
+
 ## Diagnostics and how to reset
 
 The proxy state file is:

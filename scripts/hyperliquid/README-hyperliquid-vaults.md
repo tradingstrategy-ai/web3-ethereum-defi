@@ -1,5 +1,7 @@
 # Hyperliquid native vault metrics pipeline
 
+See the [affected vaults and valuation examples](../../eth_defi/hyperliquid/problem-vaults.md) for cases where the reported share price is approximate.
+
 ## Overview
 
 Scans Hyperliquid native (non-EVM) vaults, records synthetic scanner prices,
@@ -570,17 +572,7 @@ proceed normally.
 
 ### Setting up the sheet and service account
 
-In the Trading Strategy Google Workspace environment, there is one step
-Claude Code cannot currently automate via the Claude-in-Chrome plugin:
-sharing the target spreadsheet with the service account email as
-`Editor`. Every other step of the setup — creating the GCP project,
-enabling the Sheets API, creating the service account, generating the
-JSON key, renaming the worksheet tab via a one-off
-[`google-api-python-client`](https://github.com/googleapis/google-api-python-client)
-call — is automatable, and Claude will pause at the share step and ask
-you to unblock it.
-
-See the operator playbook: [`.claude/docs/gspread.md`](../../.claude/docs/gspread.md).
+Enable the Google Sheets API and share the spreadsheet with the service account as **Editor**. The [Google Sheets test setup](../../.claude/docs/gspread.md) lists the separate credentials and worksheet settings used by the integration tests.
 
 ### Integration tests
 

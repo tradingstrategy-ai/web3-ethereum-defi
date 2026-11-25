@@ -14,7 +14,7 @@ from web3.exceptions import BadFunctionCallOutput, ContractLogicError, Mismatche
 from web3.types import BlockIdentifier
 
 from eth_defi.erc_4626.classification import create_vault_instance
-from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol
+from eth_defi.erc_4626.core import get_vault_protocol_name, is_lending_protocol, uses_hyperevm_latest_nav
 from eth_defi.erc_4626.discovery_base import ERC4262VaultDetection
 from eth_defi.erc_4626.vault_protocol.lagoon.vault import LagoonVault
 from eth_defi.erc_4626.vault_protocol.morpho.vault_v1 import MorphoV1Vault
@@ -29,6 +29,7 @@ from eth_defi.vault.base import VaultBase, WithdrawalPeriod, flatten_vault_text,
 from eth_defi.vault.deposit_redeem import VaultDepositPermission
 from eth_defi.vault.exception import UnsupportedVaultVersion, UnsupportedVaultProtocol
 from eth_defi.vault.fee import BROKEN_FEE_DATA, FeeData
+from eth_defi.vault.podcast_tags import add_podcast_available_tag
 from eth_defi.vault.rpc_batch import is_metadata_snapshot_compatible
 from eth_defi.vault.rpc_scan_state import classify_rpc_scan_failure, is_contract_read_failure
 
@@ -40,6 +41,7 @@ OPTIONAL_READ_EXCEPTIONS = (AttributeError, NotImplementedError, ValueError)
 BEST_EFFORT_READ_EXCEPTIONS = (
     *OPTIONAL_READ_EXCEPTIONS,
     ConnectionError,
+    ProbablyNodeHasNoBlock,
     KeyError,
     RuntimeError,
     TimeoutError,
@@ -230,7 +232,7 @@ def _export_denomination_token(vault: VaultBase) -> dict | None:
     return exported_token
 
 
-def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> dict[str, object]:
+def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None, block_identifier: BlockIdentifier = "latest") -> dict[str, object]:
     """Fetch current deposit status and sizeable-vault activity fields.
 
     Deposit availability is always collected when an adapter has an
@@ -243,6 +245,9 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
     :param total_assets:
         Human-readable denomination-token TVL.
 
+    :param block_identifier:
+        Source block for adapters with block-tagged redemption request status.
+
     :return:
         Private scan-row status fields.
     """
@@ -251,6 +256,7 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
         "_deposits_open": None,
         "_deposit_closed_reason": None,
         "_redemption_closed_reason": None,
+        "_redemption_request_observation": None,
         "_deposit_next_open": None,
         "_redemption_next_open": None,
     }
@@ -266,9 +272,15 @@ def _fetch_activity_status(vault: VaultBase, total_assets: Decimal | None) -> di
         return status
 
     status["_deposit_closed_reason"] = _best_effort_vault_read(vault.fetch_deposit_closed_reason)
-    status["_redemption_closed_reason"] = _best_effort_vault_read(vault.fetch_redemption_closed_reason)
     status["_deposit_next_open"] = _best_effort_vault_read(vault.fetch_deposit_next_open)
-    status["_redemption_next_open"] = _best_effort_vault_read(vault.fetch_redemption_next_open)
+    observation = _best_effort_vault_read(lambda: vault.fetch_redemption_request_observation(block_identifier))
+    if observation is not None:
+        status["_redemption_request_observation"] = observation.export()
+        status["_redemption_closed_reason"] = observation.closed_reason
+        status["_redemption_next_open"] = observation.next_open
+    else:
+        status["_redemption_closed_reason"] = _best_effort_vault_read(vault.fetch_redemption_closed_reason)
+        status["_redemption_next_open"] = _best_effort_vault_read(vault.fetch_redemption_next_open)
 
     return status
 
@@ -374,7 +386,8 @@ def create_vault_scan_record(
 ) -> dict:
     """Read adapter metadata and assemble one vault catalogue row.
 
-    Discovery workers and queue recovery call this at a numeric source block.
+    Discovery workers and queue recovery pass the source block or the latest
+    tag for a current-state read.
     It returns a record for the caller to persist rather than writing the
     catalogue itself. Known unsupported contracts become explicit broken rows;
     transport failures and programming defects must remain visible to the
@@ -409,6 +422,7 @@ def create_vault_scan_record(
         "Link": None,
         "_detection_data": detection,
         "_fees": None,
+        "_high_water_mark": None,
         "_flags": {},
         "_strategy_tags": None,
         "_notes": None,
@@ -496,9 +510,11 @@ def create_vault_scan_record(
             logger.warning("Failed to read strategy tags for vault %s: %s", detection.address, error, exc_info=True)
             strategy_tags = None
 
+        strategy_tags = add_podcast_available_tag(detection.chain, detection.address, strategy_tags)
+
         link = vault.get_link()
         protocol_name = get_vault_protocol_name(detection.features)
-        activity_status = _fetch_activity_status(vault, total_assets)
+        activity_status = _fetch_activity_status(vault, total_assets, block_identifier)
         lending_stats = _fetch_lending_stats(vault, detection, total_assets, block_identifier)
         description = normalise_vault_description(vault.description)
         short_description = normalise_vault_short_description(vault.short_description)
@@ -534,6 +550,7 @@ def create_vault_scan_record(
             "_denomination_token": denomination_token,
             "_share_token": vault.share_token.export() if vault.share_token else None,
             "_fees": fees,
+            "_high_water_mark": vault.get_high_water_mark(),
             "_flags": flags,
             "_strategy_tags": strategy_tags,
             "_lockup": lockup,
@@ -607,7 +624,8 @@ def fetch_vault_scan_record_in_worker(
     """Read one metadata candidate using a reusable worker connection.
 
     Worker-local connections and token caches serve threaded or process callers.
-    Explicit historical blocks stay pinned; current HyperEVM reads refresh the
+    Explicit historical blocks stay pinned. Live HyperCore-dependent valuations
+    use the literal latest tag. Other current HyperEVM reads refresh the
     safe head to stay inside its short execution window.
 
     :param web3factory: Phase-owned factory with optional request accounting.
@@ -644,12 +662,17 @@ def fetch_vault_scan_record_in_worker(
         token_cache = _metadata_worker_cache.token_cache = TokenDiskCache()
 
     try:
-        if current_state and detection.chain == 999:
-            block_number = get_safe_cached_latest_block_number(web3, chain_id=999)
+        source_block: BlockIdentifier = block_number
+        if current_state and uses_hyperevm_latest_nav(detection.chain, detection.address, detection.features):
+            # Use the same HyperCore valuation rule as the point-in-time price pass.
+            # Numbered historical reads retain their original source block.
+            source_block = "latest"
+        elif current_state and detection.chain == 999:
+            source_block = get_safe_cached_latest_block_number(web3, chain_id=999)
         return create_vault_scan_record(
             web3,
             detection,
-            block_number,
+            source_block,
             token_cache=token_cache,
             **({"metadata_snapshot": metadata_snapshot} if metadata_snapshot is not None else {}),
         )

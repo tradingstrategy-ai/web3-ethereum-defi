@@ -2,6 +2,38 @@
 
 - feat: Pin GMX to the v2.2.1 contracts and vendored ABIs, read Reader results by field name, decode v2.2.1 custom errors, refuse orders when the resolved ExchangeRouter is not whitelisted on the vault guard, and run GMX fork tests at a fixed post-deployment Arbitrum block (2026-11-17, [#1789](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1789)).
 
+- fix: Install the sparkline PNG encoder and Pillow with core eth-defi so vault metadata loading works without the data extra (2026-11-24).
+
+- feat: Reduce sparkline R2 requests for changed images, use 16 upload workers by default, and log upload wall time (2026-11-24).
+
+- fix: Decode the Lagoon Safe trading module's Solidity version string when selecting its `performCall` signature (2026-11-24, [#1823](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1823)).
+
+- feat: Export the performance-fee high-water mark scope for Pear and Lagoon, and correct Lagoon net returns to account for fees already reflected in its share price (2026-11-24, [#1823](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1823)).
+
+- fix: Restore inline vault sparkline publishing, speed up square PNG downsampling and encoding, and reduce state writes (2026-11-23).
+
+- feat: Publish vault sparklines in the background and skip chart preparation for unchanged vault inputs (2026-11-23).
+
+- feat: Load an optional `../vault-rpc.env` at Docker Compose scanner startup while preserving exported shell overrides (2026-11-23, [#1811](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1811)).
+
+- fix: Match ApeX replays at stored millisecond precision, preserve same-second EVM block observations and repair historical ApeX duplicates with migration 106 (2026-11-23).
+- feat: Surface Morpho vault liquidity warnings through the withdrawal-capacity flag in vault JSON exports (2026-11-23).
+- feat: Make the vault scanner skip unchanged native price merges and recalculate only affected vault histories by default (2026-11-23).
+
+- feat: Complete σ-Labs curator attribution, descriptions and strategy tags for seven vaults, and add migrations to refresh metadata and backfill early hourly prices (2026-11-20).
+
+- fix: Preserve reported protocol fee components in vault JSON exports when normalising fee metadata; complete Buoy fee fields and document HYPE request charges outside read-only analytics (2026-11-20, [#1801](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1801)).
+- feat: Add read-only Buoy vault discovery, published onchain NAV provenance and optional descriptive metadata (2026-11-20, [#1801](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1801)).
+- feat: Add HyperEVM Pear vault discovery, curator attribution and a one-off historical NAV import from Pear’s API. Capture point-in-time ERC-4626 valuations for Pear and Hyperdrive HYPED during HyperEVM price scans (2026-11-20).
+
+- Add the Podcast available tag to 25 vault deployments covered in the first 16 Trading Strategy podcast episodes (2026-11-20).
+
+- Add the Staff pick tag to 15 vaults selected by Trading Strategy staff across Hyperliquid, Lighter and GRVT (2026-11-20).
+
+- feat: Review all 349 Lighter public pools, add strategy tags to 42 Core pools and refresh their persisted classifications with migration 092 (2026-11-19, [#1795](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1795)).
+
+- feat: Tag nine more Hyperliquid long-short portfolios and classify HyperNeutral #1 and Quantitative Market Neutral Strategy in the diversified low-exposure long–short category. Tag five portfolios above 120% median gross exposure as leveraged and five below 120% as unlevered. Tag four vaults with a median rebalance gap of 22 to 26 hours as daily rebalance. Classify two leveraged portfolios in the 280%–320% median gross exposure band as 3x portfolios. Classify two leveraged portfolios in the 180%–220% median gross exposure band as 2x portfolios. Tag two vaults with a 61.5-hour median rebalance gap as two and half days rebalance. Assign algorithmic trading across all ten reviewed vaults. Migrations 083–091 refresh the persisted tags (2026-11-19, [#1794](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1794)).
+
 - feat: Apply manual Lighter vault flags alongside description overrides and mark Robinhood LLP deposits closed (2026-11-17).
 
 - Replace withdrawal-capacity ABI stubs with complete verified Sourcify/Etherscan interfaces and require per-folder source inventories (2026-11-16, [#1788](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1788)).
@@ -573,7 +605,7 @@
 
 # 0.33
 
-- Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](github.com/tradingstrategy-ai/web3-ethereum-defi) for updated installation instruction details.
+- Migrate to Web3.py 7.x with the optional Web3 6.x dependency available. See [README](README.md) for updated installation instruction details.
 - Add: Support `swapExactTokensForTokensSupportingFeeOnTransferTokens` in GuardV0 and `swap_with_slippage_protection()`
 - Add: `VaultDepositManager` interface which abstracts deposit/redeem process over different vaults: ERC-4626, ERC-7540, Gains-like
 - Add: [Initial support for Gains](https://web3-ethereum-defi.readthedocs.io/api/gains/index.html)
@@ -1308,7 +1340,7 @@
 
 # 0.9
 
-- Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/master/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
+- Feature: [High speed Solidity events / eth_getLogs fetching and decoding](https://github.com/tradingstrategy-ai/web3-ethereum-defi/blob/994647de416e4096b4ae910d2b51b16f11796bd1/scripts/read-uniswap-v2-pairs-and-swaps-concurrent.py)
 - Feature: [JSON-RPC retry middleware with sleep and backoff](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.middleware.http_retry_request_with_sleep_middleware.html#eth_defi.middleware.http_retry_request_with_sleep_middleware)
 - Feature:
   Added [decode_signed_transaction](https://web3-ethereum-defi.readthedocs.io/_autosummary/eth_defi.tx.decode_signed_transaction.html#eth_defi.tx.decode_signed_transaction)

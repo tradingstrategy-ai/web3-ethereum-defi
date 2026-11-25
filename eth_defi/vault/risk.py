@@ -87,6 +87,7 @@ class VaultTechnicalRisk(enum.Enum):
 #:
 VAULT_PROTOCOL_RISK_MATRIX = {
     "K3": None,
+    "Buoy": None,
     # Verified upgradeable vault/manager and published audits, but no maintained
     # public core-contract development repository. The public SDK and audit
     # reports do not establish ongoing contract-development transparency.
@@ -312,6 +313,8 @@ VAULT_PROTOCOL_RISK_MATRIX = {
     "ForgeYields": None,
     # CrystalClear - verified contracts on Hyperscan, UUPS proxy, no public audits yet
     "CrystalClear": None,
+    # Pear's smart contract development does not have a public repository.
+    "Pear": VaultTechnicalRisk.severe,
     # Aave - v4 Tokenization Spoke; blue-chip lending protocol, audited (ChainSecurity)
     # and a 6-week public security contest, open source contracts.
     "Aave": VaultTechnicalRisk.low,

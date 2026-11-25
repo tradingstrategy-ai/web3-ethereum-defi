@@ -60,9 +60,6 @@ from eth_defi.currency_api.constants import (
     SOURCE_NAME,
 )
 from eth_defi.currency_api.scanner import run_incremental_scan as currency_run_incremental_scan
-from eth_defi.neutral_trade.constants import NEUTRAL_TRADE_DATABASE
-from eth_defi.neutral_trade.metrics import NeutralTradeDatabase, run_scan as run_neutral_trade_scan
-from eth_defi.neutral_trade.vault_data_export import merge_into_vault_database as neutral_trade_merge_metadata
 from eth_defi.derive.v3_constants import DERIVE_V3_MAINNET_DATABASE
 from eth_defi.derive.v3_vault_data_export import merge_into_vault_database as derive_merge_vault_db
 from eth_defi.derive.v3_vault_metrics import DeriveV3VaultDatabase, scan_derive_v3_vaults
@@ -92,7 +89,7 @@ from eth_defi.erc_4626.vault_protocol.flying_tulip.vault import get_flying_tulip
 from eth_defi.erc_4626.vault_protocol.infinit.historical_context import InfinitHistoryCoverageError, fetch_and_store_infinit_history, fetch_infinit_timestamp_tail, get_infinit_historical_context_path, validate_infinit_price_coverage
 from eth_defi.erc_4626.vault_protocol.infinit.vault import InfinitVault
 from eth_defi.erc_4626.vault_protocol.rysk.historical_context import fetch_and_store_rysk_premium_history, get_rysk_historical_context_path
-from eth_defi.event_reader.multicall_batcher import get_multicall_batch_size_from_env
+from eth_defi.event_reader.multicall_batcher import HYPEREVM_CHAIN_ID, get_multicall_batch_size_from_env
 from eth_defi.event_reader.webshare import refresh_stale_proxy_state
 from eth_defi.feed.database import resolve_feed_database_path
 from eth_defi.gmx.historical_context import fetch_and_store_gmx_historical_share_prices, get_gmx_historical_context_path
@@ -113,6 +110,10 @@ from eth_defi.lighter.daily_metrics import run_daily_scan as lighter_run_daily_s
 from eth_defi.lighter.session import create_lighter_session
 from eth_defi.lighter.vault_data_export import merge_into_vault_database as lighter_merge_vault_db
 from eth_defi.middleware import ProbablyNodeHasNoBlock
+from eth_defi.neutral_trade.constants import NEUTRAL_TRADE_DATABASE
+from eth_defi.neutral_trade.metrics import NeutralTradeDatabase
+from eth_defi.neutral_trade.metrics import run_scan as run_neutral_trade_scan
+from eth_defi.neutral_trade.vault_data_export import merge_into_vault_database as neutral_trade_merge_metadata
 from eth_defi.provider.broken_provider import get_almost_latest_block_number, verify_rpc_provider_capabilities
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.fallback import ExtraValueError
@@ -132,16 +133,18 @@ from eth_defi.tokenised_fund.scan import (
     select_tokenised_fund_price_scanners,
 )
 from eth_defi.utils import setup_console_logging, wait_other_writers
-from eth_defi.vault.scanner_lock import ScannerDaemonRunning, acquire_scanner_lifecycle_guard
 from eth_defi.vault.base import VaultBase, VaultSpec, is_meaningful_usd_tvl
 from eth_defi.vault.crypto_vaults import CRYPTO_VAULTS_BUNDLE_NAME, resolve_crypto_vault_paths
 from eth_defi.vault.exception import UnsupportedVaultVersion
 from eth_defi.vault.historical import fetch_monad_historical_state_start_block, scan_historical_prices_to_parquet
 from eth_defi.vault.post_processing import run_post_processing, validate_top_vaults_config
+from eth_defi.vault.publication_state import read_publication_state, write_publication_state
 from eth_defi.vault.risk import BROKEN_VAULT_CONTRACTS
 from eth_defi.vault.rpc_batch import fetch_batched_tvl_probes
 from eth_defi.vault.rpc_batch import fetch_current_vault_tvl_usd as fetch_current_vault_tvl_usd
 from eth_defi.vault.rpc_scan_state import calculate_remaining_state_budget, classify_rpc_scan_failure, fetch_reader_publication_progress, is_contract_read_failure, is_probe_due, load_rpc_scan_state, record_chain_backoff, record_probe_result, save_rpc_scan_state
+from eth_defi.vault.scan_timing import ScanTimings
+from eth_defi.vault.scanner_lock import ScannerDaemonRunning, acquire_scanner_lifecycle_guard
 from eth_defi.vault.settlement_data import (
     VAULT_SETTLEMENT_DATABASE_FILENAME,
     checkpoint_vault_settlement_database_if_exists,
@@ -606,6 +609,9 @@ class ChainResult:
     #: Number of price rows written
     price_rows: int | None = None
 
+    #: Canonical vault keys touched by the historical EVM price writer.
+    changed_price_vaults: frozenset[str] = frozenset()
+
     #: Latest non-null data sample timestamp for protocol dashboard rows
     latest_data_timestamp: str | None = None
 
@@ -949,7 +955,10 @@ def scan_prices_for_chain(
     Routine live scans include low-activity vaults with at least $1,500
     estimated USD TVL, retaining qualification down to $1,000. A successful
     scan reports any qualified vault whose latest real source row is older
-    than 14 days. Historical repairs keep their ordinary sparse sampling.
+    than 14 days. Each scheduled HyperEVM price scan also runs a point-in-time
+    pass for admitted vaults that value assets through live HyperCore reads.
+    Their observed head is independent of the archive range's continuation
+    point. Both passes share the price file, publication journal and writer.
 
     :param rpc_url: RPC URL for the chain
     :param max_workers: Number of parallel workers
@@ -1509,6 +1518,9 @@ def scan_prices_for_chain(
             frequency=frequency,
             reader_states=scanned_reader_states,
             enforce_live_freshness=live_freshness,
+            # Explicit range repairs must never stamp a current HyperCore NAV
+            # onto a past block. Only a routine live price cycle requests both passes.
+            include_latest=chain_id == HYPEREVM_CHAIN_ID and live_freshness and end_block is None,
             expected_live_vaults=low_activity_qualified_addresses,
             hypersync_client=hypersync_config.hypersync_client,
             rpc_request_stats=stats,
@@ -1538,6 +1550,7 @@ def scan_prices_for_chain(
             "error": result.get("audit_error"),
             "error_category": "internal" if result.get("audit_error") else None,
             "rows_written": result["rows_written"] + antarctic_repair_rows + infinit_rows_written,
+            "changed_price_vaults": frozenset(VaultSpec(chain_id, address).as_string_id() for address in result.get("rows_written_by_vault", {}).keys() | result.get("replaced_vault_addresses", set())),
             "freshness_rows_written": result["freshness_rows_written"],
             "freshness_eligible_vaults": result["freshness_eligible_vaults"],
             "overdue_vaults": result["overdue_vaults"] | infinit_overdue,
@@ -1653,7 +1666,8 @@ def scan_chain(
         return result
 
     logger.info("%s: Starting scan (retry %d)", config.name, retry_attempt)
-    start_time = time.time()
+    start_time = time.monotonic()
+    timings = ScanTimings()
 
     # No explicit limiter — configure_hypersync_from_env() creates one
     # lazily only when a Hypersync client is actually needed.  Multiple
@@ -1665,15 +1679,16 @@ def scan_chain(
         logger.info("%s: RPC capability verification passed, latest block %s", config.name, f"{latest_block:,}")
         result.rpc_url = rpc_url
     except RuntimeError as e:
-        logger.error("%s: All RPC providers failed capability verification: %s", config.name, e)
+        result.duration = time.monotonic() - start_time
+        logger.error("%s: All RPC providers failed capability verification after %.2fs: %s", config.name, result.duration, e)
         result.status = "failed"
         result.error = str(e)
-        result.duration = time.time() - start_time
         result.error_category = "transient"
         if retry_attempt == 0:
             record_chain_backoff(backoff_path, config.name, result.error_category)
         return result
 
+    timings.finish("rpc_check")
     # Scan vaults
     if not config.scan_vaults:
         logger.info("%s: lead discovery disabled; price scanning uses known vaults", config.name)
@@ -1704,6 +1719,7 @@ def scan_chain(
             result.traceback_str = vault_metrics.get("traceback")
             result.error_category = vault_metrics.get("error_category", "internal")
 
+    timings.finish("discovery")
     # Scan prices
     if price_scan_enabled:
         price_stats = RPCRequestStats()
@@ -1724,6 +1740,7 @@ def scan_chain(
         result.price_scan_ok = price_success
         result.chain_id = price_metrics.get("chain_id") or result.chain_id
         result.warning = price_metrics.get("warning")
+        result.changed_price_vaults = price_metrics.get("changed_price_vaults", frozenset())
 
         if price_success:
             result.price_rows = price_metrics.get("rows_written")
@@ -1745,8 +1762,8 @@ def scan_chain(
                 result.error = price_error
                 result.traceback_str = price_tb
 
-    # Calculate duration
-    result.duration = time.time() - start_time
+    timings.finish("prices")
+    result.duration = time.monotonic() - start_time
 
     # Determine overall status
     vault_ok = result.vault_scan_ok if config.scan_vaults else True
@@ -1778,6 +1795,7 @@ def scan_chain(
         # once, while any successful retry clears the persistent delay.
         record_chain_backoff(backoff_path, config.name, result.error_category if result.status == "failed" else None, retention_seconds=retention_seconds)
 
+    logger.info("EVM scan timing chain=%s attempt=%d status=%s price_rows=%s writer_vaults=%d %s", config.name, retry_attempt + 1, result.status, result.price_rows, len(result.changed_price_vaults), timings)
     return result
 
 
@@ -1819,7 +1837,7 @@ def scan_chain_vault_settlements(
     :return:
         Settlement scan result wrapped for dashboard/logging use.
     """
-    start_time = time.time()
+    start_time = time.monotonic()
     result_name = f"{chain.name} settlements"
     try:
         settlement_result = fetch_and_store_vault_settlements_for_chain(
@@ -1838,13 +1856,14 @@ def scan_chain_vault_settlements(
             error = f"{settlement_result.failed_chains} settlement chain batch failed"
 
         logger.info(
-            "%s: settlement scan %s - %d candidate supported vaults, %d scanned, %d skipped, %d rows written",
+            "%s: settlement scan %s - %d candidate supported vaults, %d scanned, %d skipped, %d rows written in %.2fs",
             chain.name,
             status.upper(),
             settlement_result.candidate_vaults,
             settlement_result.scanned_vaults,
             settlement_result.skipped_vaults,
             settlement_result.rows_written,
+            time.monotonic() - start_time,
         )
         return ChainResult(
             name=result_name,
@@ -1854,16 +1873,16 @@ def scan_chain_vault_settlements(
             vault_count=settlement_result.candidate_vaults,
             price_rows=settlement_result.rows_written,
             error=error,
-            duration=time.time() - start_time,
+            duration=time.monotonic() - start_time,
         )
     except Exception as e:
-        logger.exception("%s: settlement scan failed", chain.name)
+        logger.exception("%s: settlement scan failed after %.2fs", chain.name, time.monotonic() - start_time)
         return ChainResult(
             name=result_name,
             status="failed",
             error=str(e),
             traceback_str=traceback.format_exc(),
-            duration=time.time() - start_time,
+            duration=time.monotonic() - start_time,
         )
 
 
@@ -3049,6 +3068,9 @@ def run_scan_tick(
     disabled_items: dict[str, str] | None = None,
     historical_context_path: Path | None = None,
     *,
+    incremental_post_processing: bool = True,
+    incremental_cleaning: bool = True,
+    publication_retry: bool = False,
     lead_discovery_state_timeout: datetime.timedelta = DEFAULT_LEAD_DISCOVERY_STATE_TIMEOUT,
     force_lead_discovery: bool = False,
     xerberus_db_path: Path | None = None,
@@ -3121,7 +3143,20 @@ def run_scan_tick(
 
     :param force_lead_discovery:
         Bypass a valid lead-discovery cache in this tick.
+    :param incremental_post_processing:
+        Reuse verified native publication state and retain work across restarts.
+    :param incremental_cleaning:
+        Reuse cleaned histories when incremental post-processing is enabled.
+    :param publication_retry: Resume an interrupted tick with no collectors due.
     """
+    timings = ScanTimings()
+    pending_publication = vault_db_path.parent / "post-processing-pending.json"
+    if incremental_post_processing:
+        # Mark before collection so a crash after any producer commits can
+        # resume publication even when every collector is already up to date.
+        previous = read_publication_state(pending_publication)
+        pending = {"since": previous.get("since", time.time()), "attempts": previous.get("attempts", 0) + 1}
+        write_publication_state(pending_publication, pending)
     # Back up critical pipeline files before any scanning
     rpc_tracking_database_path = rpc_tracking_database_path or resolve_rpc_tracking_database_path()
     backup_pipeline_files(backup_files=[*bkp_files, rpc_tracking_database_path], backup_dir=bkp_dir)
@@ -3231,6 +3266,7 @@ def run_scan_tick(
     print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # First pass - scan EVM chains
+    timings.finish("setup_and_backup")
     if chains:
         logger.info("Scanning %d EVM chains", len(chains))
     for chain in chains:
@@ -3296,6 +3332,7 @@ def run_scan_tick(
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # Native protocol scans
+    timings.finish("evm_and_settlements")
     if scan_hypercore and "Hypercore" in active_protocols:
         if hypercore_mode == "high_freq":
             logger.info("Scanning Hypercore (Hyperliquid HF mode)")
@@ -3543,6 +3580,7 @@ def run_scan_tick(
         print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
 
     # Retry passes - retry failed EVM chains (native protocols are not retried)
+    timings.finish("protocol_collectors")
     evm_chain_names = {c.name for c in chains}
     for attempt in range(1, retry_count + 1):
         failed_chain_names = [name for name, r in results.items() if r.status == "failed" and r.error_category == "transient" and name in evm_chain_names]
@@ -3575,6 +3613,7 @@ def run_scan_tick(
             except Exception as e:
                 logger.exception("Chain %s crashed with unhandled exception (retry %d)", chain.name, attempt)
                 result = ChainResult(name=chain.name, status="failed", error=str(e), traceback_str=traceback.format_exc(), retry_attempt=attempt)
+            result.changed_price_vaults |= results[chain.name].changed_price_vaults
             results[chain.name] = result
             if result.status == "success":
                 logger.info("%s (retry %d): SUCCESS - blocks %s-%s, %d vaults (%d new)", chain.name, attempt, result.start_block or "?", result.end_block or "?", result.vault_count or 0, result.new_vaults or 0)
@@ -3599,7 +3638,9 @@ def run_scan_tick(
 
     # All chain writers have joined: optional capacity refresh must not race
     # catalogue replacement in parallel metadata workers.
-    refresh_withdrawal_capacity_for_chains(capacity_chains if capacity_chains is not None else chains, vault_db_path, max_workers=max_workers)
+    timings.finish("retries_and_accounting")
+    refreshed = refresh_withdrawal_capacity_for_chains(capacity_chains if capacity_chains is not None else chains, vault_db_path, max_workers=max_workers)
+    timings.finish("capacity")
 
     # Post-processing
     if skip_post_processing:
@@ -3611,7 +3652,8 @@ def run_scan_tick(
         # Core3 DuckDB is safe to export in the normal sequential pipeline:
         # scan_projects() checkpoints with db.save(), scan_core3_fn() closes
         # the DuckDB handle, and only then can post-processing upload files.
-        logger.info("All scans complete, starting post-processing")
+        touched_vaults = set().union(*(result.changed_price_vaults for result in results.values()))
+        logger.info("All scans complete, starting post-processing after the EVM price writer touched %d vaults", len(touched_vaults))
         post_results = run_post_processing(
             scan_hypercore=scan_hypercore,
             scan_grvt=scan_grvt,
@@ -3642,9 +3684,28 @@ def run_scan_tick(
             feed_db_path=feed_db_path,
             crypto_vaults_dir=vault_db_path.parent / CRYPTO_VAULTS_BUNDLE_NAME,
             price_scan_state_path=price_scan_state_path or ((cleaned_price_path or uncleaned_price_path).parent / "vault-price-scan-state.json"),
+            incremental=incremental_post_processing,
+            incremental_cleaning=incremental_cleaning,
+            publication_retry=publication_retry,
         )
-        for step, success in post_results.items():
-            logger.info("Post-processing %s: %s", step, "SUCCESS" if success else "FAILED")
+        required_publications = {
+            "clean-prices",
+            "clean-crypto-vault-prices",
+            "export-top-vaults-json",
+            "export-data-files",
+            "publish-vault-scan-manifest",
+            "publish-hypercore-permission-manifest",
+        }
+        if os.environ.get("R2_ALTERNATIVE_VAULT_METADATA_BUCKET_NAME"):
+            required_publications.add("export-crypto-vault-bundle")
+        if incremental_post_processing and not skip_cleaning:
+            failures = sorted(step for step, success in post_results.items() if not success and (step.endswith("-price-merge") or step in required_publications))
+            if failures:
+                write_publication_state(pending_publication, pending | {"failed": failures})
+                logger.warning("Publication pending for %.0f minutes after %d attempts: %s", (time.time() - pending["since"]) / 60, pending["attempts"], ", ".join(failures))
+            else:
+                pending_publication.unlink(missing_ok=True)
+    timings.finish("post_processing")
 
     # Final summary
     success_count = sum(1 for r in results.values() if r.status == "success")
@@ -3652,7 +3713,6 @@ def run_scan_tick(
     skipped_count = sum(1 for r in results.values() if r.status == "skipped")
 
     logger.debug("=" * 80)
-    logger.info("Final summary: %d success, %d failed, %d skipped", success_count, failed_count, skipped_count)
     if failed_count > 0:
         logger.warning("Failed chains:")
         for name, r in results.items():
@@ -3672,6 +3732,8 @@ def run_scan_tick(
         print("=" * 100)
 
     print_dashboard(results, display_order, uncleaned_price_path=uncleaned_price_path)
+    timings.finish("reporting")
+    logger.info("Scan tick timing chains=%s protocols=%d success=%d failed=%d skipped=%d capacity_observations=%d %s", ",".join(chain.name for chain in chains) or "none", len(active_protocols), success_count, failed_count, skipped_count, refreshed, timings)
     return results
 
 
@@ -3786,6 +3848,13 @@ def _main() -> None:
     currency_api_max_workers = int(os.environ.get("CURRENCY_API_MAX_WORKERS", "8"))
     frequency = os.environ.get("FREQUENCY", "1h")
     skip_post_processing = os.environ.get("SKIP_POST_PROCESSING", "false").lower() == "true"
+    incremental_post_processing = os.environ.get("INCREMENTAL_POST_PROCESSING", "true").lower() == "true"
+    incremental_cleaning = os.environ.get("INCREMENTAL_CLEANING", "true").lower() == "true"
+    # Keep cleaning enabled for scheduled scans. Incremental cleaning already
+    # reuses unchanged vault histories and recalculates the ones that changed.
+    # Enable this only for a manual export retry from an already-cleaned snapshot.
+    # The crypto cleaner still runs using the existing cleaned stablecoin prices,
+    # so downstream exports, including sparklines, can use older observations.
     skip_cleaning = os.environ.get("SKIP_CLEANING", "false").lower() == "true"
     skip_top_vaults = os.environ.get("SKIP_TOP_VAULTS", "false").lower() == "true"
     skip_sparklines = os.environ.get("SKIP_SPARKLINES", "false").lower() == "true"
@@ -4043,6 +4112,8 @@ def _main() -> None:
         frequency=frequency,
         retry_count=retry_count,
         skip_post_processing=skip_post_processing,
+        incremental_post_processing=incremental_post_processing,
+        incremental_cleaning=incremental_cleaning,
         skip_cleaning=skip_cleaning,
         skip_top_vaults=skip_top_vaults,
         skip_sparklines=skip_sparklines,
@@ -4196,6 +4267,15 @@ def _main() -> None:
                         if tick_kwargs["force_lead_discovery"]:
                             logger.info("FORCE_LEAD_DISCOVERY was applied; restoring normal cache behaviour for later loop cycles")
                             tick_kwargs["force_lead_discovery"] = False
+                    elif incremental_post_processing and not skip_post_processing and not skip_cleaning and (vault_db_path.parent / "post-processing-pending.json").is_file():
+                        pending = read_publication_state(vault_db_path.parent / "post-processing-pending.json")
+                        failures = pending.get("failed", [])
+                        if not failures or any(step.endswith("-price-merge") or step in {"clean-prices", "clean-crypto-vault-prices"} for step in failures):
+                            logger.info("Cycle %d: no scans due; retrying pending post-processing", cycle)
+                            tick_results = run_scan_tick(chains=[], capacity_chains=chains, active_protocols=[], publication_retry=True, **tick_kwargs)
+                        else:
+                            logger.warning("Cycle %d: export retry pending since %s for %s; resuming on the next scheduled publication", cycle, pending.get("since"), ", ".join(failures))
+                            refresh_withdrawal_capacity_for_chains(chains, vault_db_path, max_workers=max_workers)
                     else:
                         refreshed = refresh_withdrawal_capacity_for_chains(chains, vault_db_path, max_workers=max_workers)
                         logger.info("Cycle %d: no scans due; refreshed %d local capacity observations, sleeping without publication", cycle, refreshed)
@@ -4214,6 +4294,7 @@ def _main() -> None:
                 logger.error("Pipeline locked by another process, exiting")
                 sys.exit(1)
 
+        logger.info("Vault scanner cycle %d completed in %.2fs", cycle, time.monotonic() - tick_start)
         if loop_interval <= 0:
             break
         if max_cycles > 0 and cycle >= max_cycles:

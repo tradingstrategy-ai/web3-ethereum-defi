@@ -1,0 +1,14 @@
+feeder-id: valkyrie-finance
+name: Valkyrie Finance
+role: curator
+twitter: ValkyrieFinance
+short_description: Valkyrie Finance trades pairs of cryptoassets on Hyperliquid and can also take positions in response to news.
+long_description: |
+  [Valkyrie Finance](https://x.com/ValkyrieFinance) manages Valkyrie L/S on [Hyperliquid](https://hyperliquid.xyz/). Pear introduced the trader as its [second external vault manager](https://x.com/pear_protocol/status/2117995803239239840). The trader publishes market commentary in [Valkyrie insights](https://t.me/valkyrie_finance_channel).
+
+  The trader takes a long position in the asset expected to outperform, gaining if its price rises, and [sells the other short](https://tradingstrategy.ai/glossary/shorting), taking a position that gains if its price falls. The two positions can offset part of the effect of a broad market move. The [published mandate](https://pro-gateway.pearprotocol.io/vaults/0xdf6917ee9a2d9b34075bb099a0a1e955bcfcdf84) also allows the trader to act on news or occasionally bet on the direction of the wider market.
+other-links:
+  - title: Pear announces Valkyrie Finance as the manager of Valkyrie L/S
+    url: https://x.com/pear_protocol/status/2117995803239239840
+  - title: Valkyrie insights, the manager's public trading commentary
+    url: https://t.me/valkyrie_finance_channel

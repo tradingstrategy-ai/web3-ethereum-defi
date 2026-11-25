@@ -1779,9 +1779,18 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The current Lighter description explicitly says discretionary long/short trading across majors and alts.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976694250
+    #: Updated: 2026-11-19.
+    #: Decision material: The observed long book held a median of three markets and 440.3% of vault equity across
+    #: 172 native snapshots.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976694250
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976694250
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976694250": {
-        StrategyTag.discretionary_trading,
         StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.leveraged_portfolio,
     },
     #: Vault: Algorithmic L/S | Big Brain Research.
     #: Added: 2026-08-26.
@@ -1842,17 +1851,34 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The current Lighter description explicitly identifies a quantitative delta-neutral long/short strategy.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976688087
+    #: Updated: 2026-11-19.
+    #: Decision material: Both sides each reached 5% of equity in all 172 native snapshots. Median gross exposure
+    #: was 294.6% of equity.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976688087
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976688087
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976688087": {
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.long_short_portfolio,
+        StrategyTag.portfolio_3x,
     },
     #: Vault: BULBUL Vault.
     #: Added: 2026-08-26.
     #: Decision material: The current Lighter description says HYPE and BTC long, others short.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976687595
+    #: Updated: 2026-11-19.
+    #: Decision material: The operator specifies a BTC and HYPE long book against shorts in other assets.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976687595
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976687595
     "lighter-pool-281474976687595": {
         StrategyTag.directional_trading,
+        StrategyTag.long_short_portfolio,
     },
     #: Vault: TrippleS Capital.
     #: Added: 2026-08-26.
@@ -1896,27 +1922,48 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The current Lighter description explicitly identifies a quantitative semi-delta-neutral grid-trading strategy with hedged baskets.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976666704
+    #: Updated: 2026-11-19.
+    #: Decision material: The operator describes simultaneous hedged baskets as the basis of its grid strategy.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976666704
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976666704
     "lighter-pool-281474976666704": {
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
         StrategyTag.grid_trading,
+        StrategyTag.long_short_portfolio,
     },
     #: Vault: BTC vs ALTS and NEWS/DIPS.
     #: Added: 2026-08-26.
     #: Decision material: The current Lighter description identifies a delta-neutral BTC-versus-altcoin main position plus directional news-based trades.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976656586
+    #: Updated: 2026-11-19.
+    #: Decision material: The operator describes a BTC long hedged by an equally weighted short basket, alongside
+    #: directional news trades.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976656586
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976656586
     "lighter-pool-281474976656586": {
         StrategyTag.delta_neutral,
         StrategyTag.directional_trading,
+        StrategyTag.long_short_portfolio,
     },
     #: Vault: BTC H1 EMA Strategy.
     #: Added: 2026-08-26.
     #: Decision material: The current Lighter description explicitly identifies a BTC H1 EMA strategy.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976656541
+    #: Updated: 2026-11-19.
+    #: Decision material: The operator identifies BTC as the sole market for its hourly exponential moving average
+    #: strategy.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976656541
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976656541
     "lighter-pool-281474976656541": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.btc_only,
+        StrategyTag.directional_trading,
         StrategyTag.trend_following,
     },
     #: Vault: Cross-Sectional-Relative-Strength.
@@ -1967,9 +2014,16 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The current Lighter description explicitly calls the strategy discretionary long/short and says it bets on reversion.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976644348
+    #: Updated: 2026-11-19.
+    #: Decision material: The operator explicitly contrasts a long book of fundamentally strong assets with a short
+    #: book of weaker assets.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976644348
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976644348
     "lighter-pool-281474976644348": {
-        StrategyTag.discretionary_trading,
         StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.long_short_portfolio,
         StrategyTag.mean_reversion,
     },
     #: Vault: cp0x Delta Majors.
@@ -1977,26 +2031,47 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The current Lighter description specifies long majors and short alts with rebalancing.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976644089
+    #: Updated: 2026-11-19.
+    #: Decision material: The published strategy holds a majors long basket and an altcoin short basket and
+    #: rebalances them.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976644089
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976644089
     "lighter-pool-281474976644089": {
         StrategyTag.directional_trading,
+        StrategyTag.long_short_portfolio,
     },
     #: Vault: Core4-Long Basket-Short.
     #: Added: 2026-08-26.
     #: Decision material: The current Lighter description explicitly identifies an automated market-neutral strategy.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976643102
+    #: Updated: 2026-11-19.
+    #: Decision material: The operator specifies a BTC, ETH, SOL and HYPE long basket against an altcoin short
+    #: basket.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976643102
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976643102
     "lighter-pool-281474976643102": {
         StrategyTag.algorithmic_trading,
         StrategyTag.delta_neutral,
+        StrategyTag.long_short_portfolio,
     },
-    #: Vault: Silentist.
+    #: Vault: Silentist Public Frozen.
     #: Added: 2026-08-26.
-    #: Decision material: The current Lighter description explicitly calls this a systematic multi-strategy combining technical trading, fundamental long/short and a smart-trader portfolio.
+    #: Updated: 2026-11-19.
+    #: Decision material: The current Lighter mandate describes a smart-trader benchmark portfolio. Both sides
+    #: each reached 5% of equity in 80% of 127 native snapshots, with 70.6% median gross exposure. The purpose of
+    #: the two books remains unspecified.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976639900
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976639900
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976639900": {
         StrategyTag.algorithmic_trading,
         StrategyTag.multistrategy,
+        StrategyTag.unlevered_portfolio,
     },
     #: Vault: Popo BTC Only Low Frequency Algo.
     #: Added: 2026-08-26.
@@ -2011,8 +2086,19 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The current Lighter description explicitly says short Bits and long Atoms.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976622846
+    #: Updated: 2026-11-19.
+    #: Decision material: The operator describes a long-atoms, short-bits trade. Archived holdings include long
+    #: precious-metals contracts and short BTC and equity-index contracts. Median gross exposure was 865.4% of
+    #: equity.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976622846
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976622846
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976622846": {
         StrategyTag.directional_trading,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.long_short_portfolio,
     },
     #: Vault: CopyCAT.
     #: Added: 2026-08-26.
@@ -2044,9 +2130,20 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Decision material: The current Lighter description explicitly identifies a delta-neutral long/short bot.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976501540
+    #: Updated: 2026-11-19.
+    #: Decision material: Both sides each reached 5% of equity in all 172 native snapshots, with 379.0% median
+    #: gross exposure. The 29 multi-market bursts had a 24.0-hour median start gap.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976501540
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976501540
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976501540": {
         StrategyTag.algorithmic_trading,
+        StrategyTag.daily_rebalance,
         StrategyTag.delta_neutral,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.long_short_portfolio,
     },
     #: Vault: 20d Breakout Long Binary (Automated).
     #: Added: 2026-08-26.
@@ -2095,17 +2192,21 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Vault: Steady Wealth Builder.
     #: Added: 2026-08-18.
     #: Decision material: The current Lighter description explicitly calls
-    #: this a long-only DCA grid strategy, supporting directional grid trading.
+    #: this a long-only DCA grid strategy, supporting directional trading.
     #: Updated: 2026-10-26. Maintainer assigned high-frequency, high-win-rate
     #: trading; identity verified in the current vault metadata database.
     #: Updated: 2026-11-13. Maintainer assigned Martingale-like trading.
     #: Sources:
     #: - https://app.lighter.xyz/public-pools/281474976552443
     #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976552443
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    #: Updated: 2026-11-20. Removed the grid trading tag at the maintainer's request.
+    #: - https://tradingstrategy.ai/vaults/strategies/grid-trading
+    #: - https://tradingstrategy.ai/vaults/steady-wealth-builder
     "lighter-pool-281474976552443": {
+        StrategyTag.staff_pick,
         StrategyTag.algorithmic_trading,
         StrategyTag.directional_trading,
-        StrategyTag.grid_trading,
         StrategyTag.high_frequency_high_win_rate,
         StrategyTag.martingale_like,
     },
@@ -2124,7 +2225,24 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: Sources:
     #: - ~/.tradingstrategy/vaults/vault-metadata-db.pickle
     #: - https://app.lighter.xyz/public-pools/281474976543116
-    "lighter-pool-281474976543116": {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate},
+    #: Updated: 2026-11-19.
+    #: Decision material: Research reconstructed mostly long directional inventory with some short cycles. Both
+    #: sides reached 5% of equity in none of the native snapshots. The strategy trades through short-lived
+    #: averaging cycles, so the review does not assign a portfolio leverage band.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976543116
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976543116
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    #: - https://github.com/tradingstrategy-ai/freqtrade-strategies/pull/967#issuecomment-6502886706
+    #: - https://candleeffect.io/pool
+    #: Updated: 2026-11-20. Selected by Trading Strategy staff.
+    "lighter-pool-281474976543116": {
+        StrategyTag.staff_pick,
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+        StrategyTag.high_frequency_high_win_rate,
+    },
     #: Vault: Centaur Strategies: Post Fiat.
     #: Added: 2026-10-26.
     #: Decision material: Long/short equities and macro.
@@ -2137,9 +2255,20 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
     #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976488848
+    #: Updated: 2026-11-19.
+    #: Decision material: Centaur documents an equity and macro long-short book sourced from public signals. Both
+    #: sides each reached 5% of equity in all 172 native snapshots, with 210.1% median gross exposure.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976488848
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976488848
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976488848": {
         StrategyTag.directional_trading,
         StrategyTag.discretionary_trading,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.long_short_portfolio,
+        StrategyTag.portfolio_2x,
         StrategyTag.sentiment_trading,
         StrategyTag.social_trading,
     },
@@ -2155,11 +2284,20 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
     #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976488851
+    #: Updated: 2026-11-19.
+    #: Decision material: The observed short book held a median of four markets and 100.1% of vault equity across
+    #: 172 native snapshots.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976488851
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976488851
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976488851": {
         StrategyTag.directional_trading,
         StrategyTag.discretionary_trading,
         StrategyTag.sentiment_trading,
         StrategyTag.social_trading,
+        StrategyTag.unlevered_portfolio,
     },
     #: Vault: Centaur Strategies: Serenity.
     #: Added: 2026-10-26.
@@ -2173,11 +2311,20 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
     #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976488853
+    #: Updated: 2026-11-19.
+    #: Decision material: The observed long book held a median of seven markets and 90.6% of vault equity across
+    #: 172 native snapshots.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976488853
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976488853
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976488853": {
         StrategyTag.directional_trading,
         StrategyTag.discretionary_trading,
         StrategyTag.sentiment_trading,
         StrategyTag.social_trading,
+        StrategyTag.unlevered_portfolio,
     },
     #: Vault: Centaur Strategies: Lazy Villager.
     #: Added: 2026-10-26.
@@ -2209,9 +2356,18 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
     #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976489166
+    #: Updated: 2026-11-19.
+    #: Decision material: The long-only observed book held a median of three markets and 135.9% of vault equity
+    #: across 172 native snapshots.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976489166
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976489166
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976489166": {
         StrategyTag.directional_trading,
         StrategyTag.discretionary_trading,
+        StrategyTag.leveraged_portfolio,
         StrategyTag.sentiment_trading,
         StrategyTag.social_trading,
     },
@@ -2227,11 +2383,303 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
     #: - https://docs.centaur.io/strategies/lighter-pools/methodology
     #: - https://docs.centaur.io/strategies/lighter-pools/overview
     #: - https://app.lighter.xyz/public-pools/281474976489165
+    #: Updated: 2026-11-19.
+    #: Decision material: Gross exposure was 66.5% at the median and 134.7% at the 90th percentile across
+    #: 172 native snapshots. Both sides were material in 37% of those observations.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976489165
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976489165
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
     "lighter-pool-281474976489165": {
         StrategyTag.directional_trading,
         StrategyTag.discretionary_trading,
         StrategyTag.sentiment_trading,
         StrategyTag.social_trading,
+        StrategyTag.unlevered_portfolio,
+    },
+    #: Vault: Majors vs Alts.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a long basket of BTC and other market leaders hedged by a broad
+    #: altcoin short basket.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976656876
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976656876
+    "lighter-pool-281474976656876": {
+        StrategyTag.long_short_portfolio,
+    },
+    #: Vault: 5x  Traders.
+    #: Added: 2026-11-19.
+    #: Decision material: All 720 qualified archived hours showed long exposure alone. Two markets at the median
+    #: accounted for 93.9% of equity across 172 native snapshots.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976655272
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976655272
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976655272": {
+        StrategyTag.directional_trading,
+        StrategyTag.unlevered_portfolio,
+    },
+    #: Vault: FLEXIBLE POOL.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a majors-versus-alts sleeve alongside directional trades. Both
+    #: sides each reached 5% of equity in all 172 native snapshots, with 315.2% median gross exposure and a
+    #: persistent long tilt.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976651007
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976651007
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976651007": {
+        StrategyTag.directional_trading,
+        StrategyTag.leveraged_portfolio,
+        StrategyTag.long_short_portfolio,
+        StrategyTag.portfolio_3x,
+    },
+    #: Vault: Insertive Capital (@onchainquant).
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes discretionary trading. Median exposures were 656.5% long and
+    #: 137.9% short across 154 native snapshots, with 789.0% median gross exposure.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976643895
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976643895
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976643895": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.leveraged_portfolio,
+    },
+    #: Vault: NYP- Not YOUR pool.
+    #: Added: 2026-11-19.
+    #: Decision material: All 720 qualified archived hours held BTC longs alone, with 70 ordinary fills in the
+    #: review window.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976624925
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976624925
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976624925": {
+        StrategyTag.directional_trading,
+    },
+    #: Vault: NK pool.
+    #: Added: 2026-11-19.
+    #: Decision material: The observed book held a median of four long markets, with 116.6% median and 146.1%
+    #: 90th-percentile gross exposure. Only one qualified archive hour included a short position.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976684763
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976684763
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976684763": {
+        StrategyTag.directional_trading,
+        StrategyTag.unlevered_portfolio,
+    },
+    #: Vault: Christ is King.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator identifies discretionary trading. The observed book held a median of four
+    #: long markets and 19.0% of equity across 172 native snapshots.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976498676
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976498676
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976498676": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.unlevered_portfolio,
+    },
+    #: Vault: systematic breakout ltf long only.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a systematic long-only breakout strategy. The archived positions
+    #: were long throughout the observed open hours.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976492148
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976492148
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976492148": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+        StrategyTag.trend_following,
+    },
+    #: Vault: scanner.money - TrendSend.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes trading daily model signals with breakout entries and mechanical
+    #: stop reversals. The archive confirms long positions in the review window.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976490589
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976490589
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976490589": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+        StrategyTag.trend_following,
+    },
+    #: Vault: systematc delta neutral long/short.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a systematic delta-neutral book. Both sides were open in each of
+    #: the 720 qualified archive hours. The median gap between 20 multi-market bursts was 24.0 hours,
+    #: with 18 starts at minute 41 of the hour between 11:41 and 13:41 UTC.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976486477
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976486477
+    #: - https://docs.0xarchive.io/rest-api/positions
+    #: - docs/protocol-research/lighter-public-pools.md
+    "lighter-pool-281474976486477": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.daily_rebalance,
+        StrategyTag.delta_neutral,
+        StrategyTag.long_short_portfolio,
+    },
+    #: Vault: Systematic Strategy.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a systematic grid strategy.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976466894
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976466894
+    "lighter-pool-281474976466894": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.grid_trading,
+    },
+    #: Vault: AlphaMIX Global.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a systematic directional model that uses market structure and
+    #: probabilistic scenarios to adjust positions.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976415828
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976415828
+    "lighter-pool-281474976415828": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+    },
+    #: Vault: Unwind.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a systematic altcoin short strategy.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976505621
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976505621
+    "lighter-pool-281474976505621": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.directional_trading,
+    },
+    #: Vault: Symphony.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator identifies a market-neutral, multi-strategy mandate. The archive shows no
+    #: open positions in the review window.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976626973
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976626973
+    "lighter-pool-281474976626973": {
+        StrategyTag.delta_neutral,
+        StrategyTag.long_short_portfolio,
+        StrategyTag.multistrategy,
+    },
+    #: Vault: The Pool Party.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator identifies discretionary swing trades in trending markets.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976680236
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976680236
+    "lighter-pool-281474976680236": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.trend_following,
+    },
+    #: Vault: Agentic Trading.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes copying trades from onchain perpetual futures traders.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976688779
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976688779
+    "lighter-pool-281474976688779": {
+        StrategyTag.social_trading,
+    },
+    #: Vault: Pikachu Pool.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes combining trading systems with manual trades.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976643789
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976643789
+    "lighter-pool-281474976643789": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.discretionary_trading,
+    },
+    #: Vault: BTC Trading Pool.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes discretionary directional trades, mostly in BTC, using events and
+    #: trends. The stated mandate allows both sides, while the review window had no observed concurrent books.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976644793
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976644793
+    "lighter-pool-281474976644793": {
+        StrategyTag.directional_trading,
+        StrategyTag.discretionary_trading,
+        StrategyTag.trend_following,
+    },
+    #: Vault: Alleged Alpha.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes an automated long-short mandate combining cross-sectional,
+    #: momentum and reversal strategies. The published reversal sleeve does not specify a mean-reversion target.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976625478
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976625478
+    "lighter-pool-281474976625478": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.long_short_portfolio,
+        StrategyTag.multistrategy,
+        StrategyTag.trend_following,
+    },
+    #: Vault: Majors Correlated Pool!.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes a rule-based system that trades relative price dislocations
+    #: between major crypto assets. The available evidence leaves the trade legs unspecified.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976626327
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976626327
+    "lighter-pool-281474976626327": {
+        StrategyTag.algorithmic_trading,
+        StrategyTag.statistical_arbitrage,
+    },
+    #: Vault: Storm.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes multi-factor systematic rebalancing to capture BTC relative
+    #: strength. The published strategy leaves the use of short positions unspecified.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976623750
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976623750
+    "lighter-pool-281474976623750": {
+        StrategyTag.algorithmic_trading,
+    },
+    #: Vault: Moonshot.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes directional long or short trades based on momentum.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976638939
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976638939
+    "lighter-pool-281474976638939": {
+        StrategyTag.directional_trading,
+        StrategyTag.trend_following,
+    },
+    #: Vault: Short Coins.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes shorting selected tokens.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976666853
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976666853
+    "lighter-pool-281474976666853": {
+        StrategyTag.directional_trading,
+    },
+    #: Vault: pool1.
+    #: Added: 2026-11-19.
+    #: Decision material: The operator describes taking only long positions when market conditions permit.
+    #: Sources:
+    #: - https://app.lighter.xyz/public-pools/281474976637751
+    #: - https://mainnet.zklighter.elliot.ai/api/v1/account?by=index&value=281474976637751
+    "lighter-pool-281474976637751": {
+        StrategyTag.directional_trading,
     },
 }
 

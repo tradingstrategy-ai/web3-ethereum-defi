@@ -6,6 +6,12 @@ Their prices use sparse Hypersync subscription settlement events.
 Infinit APEX MultiStrategy also runs under Arbitrum, using published API prices
 and indexed receipt supply through an address-scoped contextual reader.
 
+On HyperEVM mainnet, each scheduled price scan first records a point-in-time
+NAV for admitted vaults whose valuation depends on live HyperCore state.
+These observations use the Multicall3 execution block and its UTC timestamp.
+The regular numbered-block pass supplies history for archive-readable vaults.
+Both passes are part of SCAN_PRICES and publish through the same writer.
+
 - Scan vaults and optionally prices for multiple chains
 - Track success/failure status per chain
 - Retry failed chains automatically
@@ -141,6 +147,8 @@ Environment variables:
     - TEST_CHAINS: Comma-separated list of chain names to scan (default: all chains)
     - CHAIN_ORDER: Comma-separated list of chain names to scan in order (whitespace allowed, chains not listed are skipped)
     - DISABLE_CHAINS: Comma-separated list of chain names to skip (whitespace allowed)
+    - INCREMENTAL_POST_PROCESSING: Set to "false" to force full native merging and cleaning (default: "true").
+    - INCREMENTAL_CLEANING: Set to "false" to run the full cleaner while reusing unchanged native histories (default: "true").
     - SKIP_POST_PROCESSING: "true" to skip post-processing steps (default: "false")
     - SKIP_CLEANING: "true" to skip price cleaning step (default: "false")
     - SKIP_SPARKLINES: "true" to skip sparkline image export to R2 (default: "false")

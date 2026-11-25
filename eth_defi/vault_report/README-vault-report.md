@@ -356,8 +356,6 @@ against a token with no market, or a pool whose depositors cannot withdraw.
 Deciding this takes research outside the data we collect, such as block
 explorers, DexScreener, protocol forums and X, so an LLM agent does it with the
 [check-top-list-vaults skill](../../.claude/skills/check-top-list-vaults/SKILL.md).
-The design and its trade-offs are in
-[the plan](../../.claude/plans/2026-09-26-vault-report-investability-check.md).
 
 Version 1 covers:
 

@@ -451,3 +451,19 @@ def test_scan_vaults_refuses_more_detections_than_leads(monkeypatch: pytest.Monk
     monkeypatch.setattr(discovery_base, "probe_vaults", fake_probe_vaults)
     with pytest.raises(RuntimeError, match="2 detections for 1 leads"):
         _SingleLeadDiscovery(max_workers=1).scan_vaults(0, 10, display_progress=False, hardcoded_lead_sources=())
+
+
+def test_buoy_probe_is_hyperevm_only_and_checks_snapshot_shape() -> None:
+    """Route a correctly shaped Buoy snapshot without claiming ERC-4626 flows.
+
+    The adapter subsequently verifies the clone and official registry, rather
+    than using token name or symbol as identity evidence.
+    """
+    address = "0x87f76a7e6c346904192c884d48c02d3ac640de1e"
+    assert "getNavSnapshot" in {call.func_name for call in create_probe_calls([address], chain_id=HYPEREVM)}
+    assert "getNavSnapshot" not in {call.func_name for call in create_probe_calls([address], chain_id=BASE)}
+    snapshot = SimpleNamespace(success=True, result=bytes(224))
+    calls = _ProbeResultsDict({"getNavSnapshot": snapshot})
+    assert identify_vault_features(address, calls, debug_text=None, chain_id=HYPEREVM) == {ERC4626Feature.buoy_like}
+    snapshot.result = bytes(192)
+    assert ERC4626Feature.buoy_like not in identify_vault_features(address, calls, debug_text=None, chain_id=HYPEREVM)

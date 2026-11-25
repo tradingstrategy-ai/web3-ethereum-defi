@@ -41,7 +41,7 @@ x-erpc-upstreams: systx-quicknode-hyperevm; standard-quicknode-hyperevm;
 
 For some vaults these upstreams **genuinely disagree**, so eRPC returns
 `not enough agreement among responses`. There are two independent reasons the
-upstreams return different bytes for the same call, both verified on-chain by
+upstreams return different bytes for the same call, both verified onchain by
 comparing a single node (Alchemy, `hyperliquid-mainnet.g.alchemy.com`) against the
 goldsky consensus endpoint:
 

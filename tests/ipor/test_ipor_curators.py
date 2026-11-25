@@ -374,6 +374,11 @@ class _FakeIPORVault:
     short_description = None
 
     @staticmethod
+    def get_high_water_mark() -> None:
+        """Use the default for a vault with no reviewed performance-fee scope."""
+        return None
+
+    @staticmethod
     def get_fee_data() -> FeeData:
         """Return deterministic fee data."""
         return FeeData(
@@ -470,3 +475,4 @@ def test_vault_scan_record_sets_manager_name_for_ipor_vault(monkeypatch: pytest.
 
     assert record["Protocol"] == "IPOR Fusion"
     assert record["_manager_name"] == "TAU Labs"
+    assert record["_high_water_mark"] is None

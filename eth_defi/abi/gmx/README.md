@@ -1,24 +1,30 @@
-# GMX ABI sources
+# GMX contract interfaces
 
-All GMX ABIs below belong to **one** release, `GMX_VENDORED_ABI_RELEASE`
+All GMX ABIs that describe the deployed contracts belong to **one** release, `GMX_VENDORED_ABI_RELEASE`
 (`v2.2.1`) in `eth_defi/gmx/contracts.py`. The pinned contract addresses and
 these ABIs must always move together in one commit.
 
-- `Reader.json`, `ExchangeRouter.json`, `GlvReader.json` and `Oracle.json` are the
-  `abi` arrays of `deployments/arbitrum/<Contract>.json` at the
-  `gmx-io/gmx-synthetics` tag
-  [`2026-10-23-deployments`](https://github.com/gmx-io/gmx-synthetics/tree/2026-10-23-deployments/deployments/arbitrum),
-  re-serialised with `json.dumps(abi, indent=2)` plus a trailing newline. The
-  deployment JSONs exceed 1 MB, so fetch them from `raw.githubusercontent.com`
-  (the GitHub contents API returns empty). The verified Arbitrum Reader is
-  [`0xAda708aFf0f1D784D28cd8Ff4d6D977fF9599e5D`](https://sourcify.dev/server/v2/contract/42161/0xAda708aFf0f1D784D28cd8Ff4d6D977fF9599e5D?fields=all).
-- `OrderHandler.json` is a minimal Foundry-style stub holding only
-  `executeOrder`, used by the Anvil keeper helper. v2.2.1 did not change that
-  signature, and error decoding uses the selector table in
-  `eth_defi/gmx/events.py`, not this file, so it was deliberately not refreshed.
-- `MockOracleProvider.json` is compiled from
-  `tests/gmx/forked-env-example/contracts/mock/MockOracleProvider.sol` with
-  Solidity 0.8.20.
+The v2.2.1 deployment JSONs exceed 1 MB. Fetch them from `raw.githubusercontent.com`
+(the GitHub contents API returns empty) and re-serialise the `abi` array with
+`json.dumps(abi, indent=2)` plus a trailing newline. Error decoding uses the
+selector table in `eth_defi/gmx/events.py`, not these files.
+
+The [contract loaders](../../gmx/contracts.py) bind the interfaces to the deployment on the selected chain. The local compiler artefacts also include bytecode for contracts used in fork tests.
+
+| Filename | Source | Fetched at (UTC) | Reason to fetch |
+| --- | --- | --- | --- |
+| [Reader.json](Reader.json) | `abi` array of `deployments/arbitrum/Reader.json` at the [`2026-10-23-deployments`](https://github.com/gmx-io/gmx-synthetics/tree/2026-10-23-deployments/deployments/arbitrum) tag of `gmx-io/gmx-synthetics` (v2.2.1); verified [Arbitrum Reader at `0xAda708aFf0f1D784D28cd8Ff4d6D977fF9599e5D`](https://sourcify.dev/server/v2/contract/42161/0xAda708aFf0f1D784D28cd8Ff4d6D977fF9599e5D?fields=all) | Unrecorded | Read positions and market values. |
+| [GlvReader.json](GlvReader.json) | `abi` array of `deployments/arbitrum/GlvReader.json` at the [`2026-10-23-deployments`](https://github.com/gmx-io/gmx-synthetics/tree/2026-10-23-deployments/deployments/arbitrum) tag of `gmx-io/gmx-synthetics` (v2.2.1) | Unrecorded | Read GLV vault definitions and constituent markets. |
+| [DataStore.json](DataStore.json) | Unrecorded | Unrecorded | Read GMX configuration and market state. |
+| [ExchangeRouter.json](ExchangeRouter.json) | `abi` array of `deployments/arbitrum/ExchangeRouter.json` at the [`2026-10-23-deployments`](https://github.com/gmx-io/gmx-synthetics/tree/2026-10-23-deployments/deployments/arbitrum) tag of `gmx-io/gmx-synthetics` (v2.2.1) | Unrecorded | Submit router calls and orders. |
+| [Oracle.json](Oracle.json) | `abi` array of `deployments/arbitrum/Oracle.json` at the [`2026-10-23-deployments`](https://github.com/gmx-io/gmx-synthetics/tree/2026-10-23-deployments/deployments/arbitrum) tag of `gmx-io/gmx-synthetics` (v2.2.1) | Unrecorded | Bind the GMX oracle interface. |
+| [ReferralStorage.json](ReferralStorage.json) | Unrecorded | Unrecorded | Read referral codes. |
+| [RoleStore.json](RoleStore.json) | Unrecorded | Unrecorded | Configure keeper roles on a test fork. |
+| [OrderHandler.json](OrderHandler.json) | Minimal Foundry-style stub holding only `executeOrder`; not refreshed for v2.2.1 because that signature did not change | Unrecorded | Execute pending orders on a test fork. |
+| [balance.json](balance.json) | Unrecorded | Unrecorded | Read token balances and decimals. |
+| [eventemitter.json](eventemitter.json) | Unrecorded | Unrecorded | Decode GMX events. |
+| [GmxOrderExecutor.json](GmxOrderExecutor.json) | [Local Solidity source](../../../tests/gmx/forked-env-example/contracts/GmxOrderExecutor.sol) | Compiled locally | Deploy the fork test order executor. |
+| [MockOracleProvider.json](MockOracleProvider.json) | [Local Solidity source](../../../tests/gmx/forked-env-example/contracts/mock/MockOracleProvider.sol), Solidity 0.8.20 | Compiled locally | Supply controlled prices in fork tests. |
 
 ## Release and rollback rule
 

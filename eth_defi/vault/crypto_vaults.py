@@ -69,6 +69,7 @@ from eth_defi.vault.denomination import (
     get_denomination_whitelist_digest,
     get_denomination_wrapper_kind,
 )
+from eth_defi.vault.publication_state import publish_verified_parquet
 from eth_defi.vault.top_vaults_json import build_export_metadata, validate_strict_json_serialisable
 from eth_defi.vault.vaultdb import VaultDatabase, VaultRow
 from eth_defi.vault.withdrawal_capacity import configured_capacity_threshold, enrich_withdrawal_capacity
@@ -528,7 +529,7 @@ def build_crypto_vault_prices(  # noqa: PLR0914 - coordinator keeps timed source
     try:
         combined.to_parquet(temporary_path, compression="zstd")
         verify_parquet_file(temporary_path, expected_rows=len(combined), required_columns=["id", "share_price", "timestamp", "returns_1h"])
-        os.replace(temporary_path, cleaned_path)
+        publish_verified_parquet(temporary_path, cleaned_path)
         logger.info("Crypto bundle write complete: %d rows in %.2f seconds", len(combined), time.perf_counter() - stage_started_at)
     finally:
         temporary_path.unlink(missing_ok=True)

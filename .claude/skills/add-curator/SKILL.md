@@ -226,6 +226,12 @@ Curator logos should follow the same repository logo conventions as
 vault protocol logos unless a curator-specific logo location has been
 introduced later.
 
+Every curator with a formatted logo needs
+`eth_defi/data/vaults/formatted_logos/{curator-slug}/generic.png` for the
+curator page header. If the folder has `light.png` and lacks `generic.png`,
+copy `light.png` to `generic.png`. Keep an existing dedicated generic
+brandmark. See the [vault logo conventions](../../../eth_defi/data/vaults/README.md#formatted-logos).
+
 When the runtime supports subagents and the user has asked for or
 allowed delegated work, use subagents for the logo workflow:
 
@@ -243,7 +249,10 @@ documented in the logo folder when the extraction skill creates a
 report.
 
 For alias curators, reuse the canonical feeder logo unless the product
-has a distinct curator brand.
+has a distinct curator brand. If the canonical feeder only publishes
+protocol metadata, copy its formatted logo files into the alias folder
+so the curator export can publish them. Apply the same `generic.png`
+rule to the alias folder.
 
 When the curator is also a vault protocol, add the logo using the
 protocol slug so vault metadata and curator metadata share the same
@@ -277,6 +286,9 @@ For protocol-managed curators:
 - Make sure the returned slug matches the feeder slug used elsewhere.
 
 ## Step 6: Verify
+
+When adding or updating a logo, check that the curator metadata export has
+a `logos.generic` URL for the selected brandmark.
 
 Run the curator inventory:
 

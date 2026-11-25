@@ -55,9 +55,9 @@ from eth_defi.research.vault_metrics import (
     prepare_daily_share_price_series,
     resample_returns,
 )
-from eth_defi.research.wrangle_vault_prices import materialise_daily_crypto_prices
+from eth_defi.research.wrangle_vault_prices import forward_fill_vault, process_raw_vault_scan_data, materialise_daily_crypto_prices
 from eth_defi.vault.base import VaultSpec, WithdrawalDelayType, WithdrawalPeriod
-from eth_defi.vault.fee import FeeData, VaultFeeMode
+from eth_defi.vault.fee import FeeData, HighWaterMark, VaultFeeMode
 from eth_defi.vault.flag import CHAIN_SCOPED_VAULT_NOTES, NOT_IN_MORPHO_API, PROTOCOL_FLAGS_AND_NOTES, PROTOCOL_NOTES, SUMMER_FI_ILLIQUID, VAULT_FLAGS_AND_NOTES, VAULT_NOTES, VaultFlag
 from eth_defi.vault.handwritten_metadata import VERANTA_VAULT_METADATA
 from eth_defi.vault.price_source import PriceSource
@@ -1285,6 +1285,86 @@ def test_calculate_lifetime_metrics_normalises_legacy_decimal_fee_columns(
     assert result["withdraw_fee"] == 0.02
 
 
+@pytest.mark.parametrize(("protocol", "structured_fees"), [("Lagoon Finance", True), ("Lagoon", False)])
+def test_lagoon_vault_json_preserves_settled_fee_adjusted_returns(
+    vault_db: VaultDatabase,
+    price_df: pd.DataFrame,
+    protocol: str,
+    structured_fees: bool,
+) -> None:
+    """Apply entry and exit fees to Lagoon's settled share price.
+
+    Old structured records used an externalised mode, and earlier snapshots
+    stored only scalar fee rates. Both paths must preserve share-price returns
+    after already minted management and performance fees.
+
+    :param vault_db: Catalogue supplying a representative priced vault row.
+    :param price_df: Historical share price and asset observations.
+    :param protocol: Lagoon scanner name used by this snapshot.
+    :param structured_fees: Whether the snapshot contains a FeeData record.
+    """
+    spec = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    row = dict(vault_db.rows[spec])
+    row.update(
+        Protocol=protocol,
+        _detection_data=replace(row["_detection_data"], features={ERC4626Feature.lagoon_like}),
+        _fees=FeeData(fee_mode=VaultFeeMode.externalised, management=0.01, performance=0.20, deposit=0.01, withdraw=0.02) if structured_fees else None,
+        _high_water_mark=HighWaterMark.vault_shared,
+    )
+    row.update({"Mgmt fee": 0.01, "Perf fee": 0.20, "Deposit fee": 0.01, "Withdraw fee": 0.02})
+    prices = price_df.loc[price_df["id"] == spec.as_string_id()]
+    exported = export_lifetime_row(calculate_lifetime_metrics(prices, {spec: row}).iloc[0])
+
+    assert exported["fee_mode"] == "internalised_minting"
+    assert exported["fee_internalised"] is True
+    assert exported["high_water_mark"] == "vault_shared"
+    assert exported["gross_fees"]["management"] == 0.01
+    assert exported["gross_fees"]["performance"] == 0.20
+    assert exported["net_fees"] == {"fee_mode": "internalised_minting", "management": 0.0, "performance": 0.0, "deposit": 0.01, "withdraw": 0.02, "protocol": 0.0}
+    assert exported["lifetime_return"] > 0
+    assert exported["lifetime_return_net"] == pytest.approx((1 + exported["lifetime_return"]) * 0.99 * 0.98 - 1)
+
+
+def test_pear_vault_json_exports_fee_floor_and_trading_account(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Publish the fee model, including the floor on a zero-rate withdrawal.
+
+    A cached fee record needs the current classification. Preserve the gross
+    returns and suppress investor figures until the exit calculation exists.
+
+    :param vault_db: Source catalogue row for the synthetic Pear vault.
+    :param price_df: Share prices and TVL for the source catalogue row.
+    """
+    source = VaultSpec.parse_string("43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883")
+    spec = VaultSpec.parse_string("999-0x65c9f4665c7d9ce96f53aafc67796dcad46f4096")
+    row = dict(vault_db.rows[source])
+    row.update(
+        Address=spec.vault_address,
+        Protocol="Pear",
+        _risk=None,
+        _detection_data=replace(row["_detection_data"], chain=spec.chain_id, address=spec.vault_address, features={ERC4626Feature.pear_like}),
+        _fees=FeeData(fee_mode=None, management=0, performance=0.20, deposit=0, withdraw=0),
+        _high_water_mark=HighWaterMark.investor_level,
+        _pear={"hypercore_address": "0x2e9d9f8bc560c3eafa336d774c14c196a6af6500", "minimum_withdrawal_fee": Decimal("0.001")},
+    )
+    prices = price_df.loc[price_df["id"] == source.as_string_id()].assign(id=spec.as_string_id(), chain=spec.chain_id, address=spec.vault_address)
+    exported = export_lifetime_row(calculate_lifetime_metrics(prices, {spec: row}).iloc[0])
+
+    assert exported["other_data"]["pear"] == {
+        "hypercore_address": "0x2e9d9f8bc560c3eafa336d774c14c196a6af6500",
+        "minimum_withdrawal_fee": 0.001,
+    }
+    assert (exported["management_fee"], exported["performance_fee"], exported["deposit_fee"], exported["withdraw_fee"]) == (0, 0.20, 0, 0)
+    assert exported["fee_mode"] == "externalised"
+    assert exported["fee_internalised"] is False
+    assert exported["high_water_mark"] == "investor_level"
+    assert exported["gross_fees"]["fee_mode"] == "externalised"
+    assert exported["net_fees"]["fee_mode"] is None
+    assert exported["risk"] == "Severe"
+    assert exported["lifetime_return_net"] is None
+    assert any(period["returns_gross"] is not None for period in exported["period_results"])
+    assert all(period["returns_net"] is None for period in exported["period_results"])
+
+
 def test_apply_morpho_not_in_api_check_blacklists_vault():
     """Morpho API missing flag blacklists the vault in metrics."""
     risk, notes, flags = apply_morpho_not_in_api_check(
@@ -1781,10 +1861,18 @@ def test_calculate_lifetime_metrics_preserves_null_deposit_manager(
 
 
 @pytest.mark.parametrize(
-    ("deployment", "expected_slug", "expected_deployment_chain_id"),
+    ("deployment", "expected_slug", "expected_deployment_chain_id", "expected_whitelist"),
     (
-        (LIGHTER_ETHEREUM, "ethereum", 1),
-        (LIGHTER_ROBINHOOD, "robinhood", 4663),
+        (LIGHTER_ETHEREUM, "ethereum", 1, {"status": "permissionless", "notes": None}),
+        (
+            LIGHTER_ROBINHOOD,
+            "robinhood",
+            4663,
+            {
+                "status": "whitelisted",
+                "notes": "Public deposits are closed. Native perp DEX compatibility status: public deposits are unavailable; this does not imply an approved-account deposit route.",
+            },
+        ),
     ),
 )
 def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
@@ -1792,6 +1880,7 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
     deployment: LighterAPIConfig,
     expected_slug: str,
     expected_deployment_chain_id: int,
+    expected_whitelist: dict,
 ) -> None:
     """Keep Lighter dataset identity separate from its associated EVM chain."""
     source_vault_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
@@ -1822,8 +1911,8 @@ def test_calculate_lifetime_metrics_exports_lighter_deployment_chain(
     assert exported["chain_id"] == deployment.chain_id
     assert exported["deployment"] == expected_slug
     assert exported["deployment_chain_id"] == expected_deployment_chain_id
-    assert exported["deposit_permission"] == "permissionless"
-    assert exported["whitelist"] == {"status": "permissionless", "notes": None}
+    assert exported["deposit_permission"] == expected_whitelist["status"]
+    assert exported["whitelist"] == expected_whitelist
 
 
 def test_calculate_lifetime_metrics_exports_closed_hyperliquid_vault_as_whitelisted(price_df: pd.DataFrame) -> None:
@@ -1929,6 +2018,7 @@ def test_calculate_lifetime_metrics_nullifies_period_net_returns_when_fee_mode_u
 
     exported = export_lifetime_row(row)
     json.dumps(exported)
+    assert exported["high_water_mark"] is None
     assert all(period["returns_net"] is None for period in exported["period_results"])
     assert all(period["cagr_net"] is None for period in exported["period_results"])
 
@@ -3024,3 +3114,177 @@ def test_veranta_scanner_descriptions_reach_individual_vault_export(vault_db: Va
         assert exported["lifetime_return_net"] == pytest.approx((1 + exported["lifetime_return"]) * (1 - 0.005) - 1)
     else:
         assert exported["lifetime_return_net"] is None
+
+
+@pytest.mark.parametrize("publication_age_days, expected_stale", [(1, False), (30, True)])
+def test_buoy_nav_provenance_and_null_flows(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch, publication_age_days: int, expected_stale: bool) -> None:
+    """Retain published values but exclude stale Buoy returns from rankings.
+
+    Reuse genuine price/metadata fixture shapes while changing only the
+    protocol identity and source publication time. Unsupported Router flows
+    must remain unknown despite complete supply/asset snapshots.
+
+    :param vault_db: Sample metadata database.
+    :param price_df: Sample historical observations.
+    :param monkeypatch: Freeze the export horizon.
+    :param publication_age_days: Age of the cached NAV publication.
+    :param expected_stale: Expected freshness policy result.
+    """
+    source_id = "43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f"
+    source = VaultSpec.parse_string(source_id)
+    metadata = dict(vault_db.rows[source])
+    metadata["_detection_data"] = replace(metadata["_detection_data"], features={ERC4626Feature.buoy_like})
+    metadata["Protocol"] = "Buoy"
+    metadata["protocol_slug"] = "buoy"
+    frame = price_df.loc[price_df["id"] == source_id].copy()
+    horizon = frame.index.max()
+    publication = horizon - pd.Timedelta(days=publication_age_days)
+    frame["nav_timestamp"] = np.minimum(frame.index.to_numpy(), publication.to_datetime64())
+    monkeypatch.setattr(vault_metrics, "native_datetime_utc_now", lambda: horizon.to_pydatetime())
+    record = calculate_lifetime_metrics(frame, {source: metadata}).iloc[0]
+    exported = export_lifetime_row(record)
+    assert record["nav_stale"] == expected_stale
+    assert pd.Timestamp(exported["nav_timestamp"]) == publication
+    assert record["nav_age_seconds"] == publication_age_days * 86400
+    for period in record["period_results"]:
+        assert period.flow_value is None
+        assert period.deposit_value is None
+        assert period.redeem_value is None
+        if expected_stale:
+            assert period.error_reason == "Published NAV is stale or its publication time is unknown"
+    if expected_stale:
+        assert record["cagr"] is None
+        assert record["last_share_price"] is not None
+
+
+@pytest.mark.parametrize("tvl", [499, 500])
+def test_buoy_raw_nav_survives_cleaning_resampling_and_metrics(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch, tvl: int) -> None:
+    """Keep the source publication through the actual raw-to-public pipeline.
+
+    Sparse polls reuse an old NAV before a final publication. Hourly filling
+    must carry the old publication time, and current exports must use the new
+    one. Legacy rows without the new field retain an unknown publication.
+
+    :param vault_db: Production-shaped metadata fixture.
+    :param price_df: Cleaned price fixture used to seed canonical raw fields.
+    :param monkeypatch: Freeze the metrics horizon.
+    :param tvl: Source TVL at or immediately below the Buoy threshold.
+    :return: None after provenance and freshness assertions.
+    """
+    source = VaultSpec.parse_string("43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f")
+    metadata = dict(vault_db.rows[source])
+    metadata["_detection_data"] = replace(metadata["_detection_data"], features={ERC4626Feature.buoy_like})
+    metadata["Protocol"] = "Buoy"
+    frame = price_df.loc[price_df["id"] == source.as_string_id()].copy()
+    # The cleaner expects raw observations with timestamp as a column. Keep
+    # the existing fixture's genuine economic inputs and sparse sampling.
+    frame = frame.iloc[::24].copy()
+    frame["total_assets"] = float(tvl)
+    frame["chain"] = source.chain_id
+    frame["address"] = source.vault_address
+    frame["timestamp"] = frame.index
+    old_nav = frame.index.min() - pd.Timedelta(days=30)
+    frame["nav_timestamp"] = old_nav
+    frame.loc[frame.index[-1], "nav_timestamp"] = frame.index[-1]
+    cleaned = process_raw_vault_scan_data({source: metadata}, frame, logger=lambda _: None)
+    assert not cleaned.empty
+    assert cleaned["tvl_filtering_mask"].eq(tvl < 500).all()
+    filled = forward_fill_vault(cleaned)
+    assert len(filled) > len(cleaned)
+    assert (filled.iloc[:-1]["nav_timestamp"] == old_nav).all()
+    assert filled.iloc[-1]["nav_timestamp"] == cleaned.index[-1]
+    horizon = cleaned.index[-1].to_pydatetime()
+    monkeypatch.setattr(vault_metrics, "native_datetime_utc_now", lambda: horizon)
+    record = calculate_lifetime_metrics(filled, {source: metadata}).iloc[0]
+    assert not record["nav_stale"]
+    assert record["nav_age_seconds"] == 0
+    assert pd.Timestamp(export_lifetime_row(record)["nav_timestamp"]) == cleaned.index[-1]
+    legacy = process_raw_vault_scan_data({source: metadata}, frame.drop(columns="nav_timestamp"), logger=lambda _: None)
+    assert legacy["nav_timestamp"].isna().all()
+
+
+def test_buoy_rankings_use_five_hundred_dollar_threshold() -> None:
+    """Rank small funded Buoy vaults while retaining normal and freshness filters.
+
+    Exercise all four ranking cohorts at and below the inclusive threshold.
+    A stale valuation, a blacklist and another protocol remain excluded.
+
+    :return: None after checking cohort eligibility and unchanged defaults.
+    """
+    periods = [PeriodMetrics(period="1W", cagr_net=0.10, tvl_end=tvl) for tvl in (500, 499, 500, 500, 500)]
+    periods[2].error_reason = "Published NAV is stale or its publication time is unknown"
+    frame = pd.DataFrame({"chain": ["HyperEVM"] * 5, "protocol_slug": ["buoy"] * 4 + ["morpho"], "curator_slug": ["leader"] * 5, "risk": [None, None, None, VaultTechnicalRisk.blacklisted, None], "period_results": [[period] for period in periods]})
+    vault_metrics.calculate_vault_rankings(frame)
+    assert (periods[0].ranking_overall, periods[0].ranking_chain, periods[0].ranking_protocol, periods[0].ranking_curator) == (1, 1, 1, 1)
+    for period in periods[1:4]:
+        assert period.ranking_overall is period.ranking_chain is period.ranking_protocol is period.ranking_curator is None
+    assert periods[4].ranking_overall is periods[4].ranking_chain is periods[4].ranking_protocol is None
+    assert periods[4].ranking_curator == 1
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_buoy_protocol_fee_component_survives_json_export(vault_db: VaultDatabase, price_df: pd.DataFrame, legacy: bool) -> None:
+    """Retain the included referral component through fee normalisation and JSON.
+
+    Exercise both typed scanner fees and the legacy column fallback. A 1%
+    protocol component sits inside the 10% performance fee; investor net
+    returns must not deduct either internalised fee again.
+
+    :param vault_db: Production-shaped metadata fixture.
+    :param price_df: Price history used to exercise real metrics and export.
+    :param legacy: Whether to use the legacy scalar fee columns.
+    :return: None after checking all existing public fee fields.
+    """
+    spec = VaultSpec.parse_string("43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f")
+    metadata = dict(vault_db.rows[spec])
+    metadata["Protocol"] = "Buoy"
+    metadata["_detection_data"] = replace(metadata["_detection_data"], features={ERC4626Feature.buoy_like})
+    metadata["_fees"] = FeeData(VaultFeeMode.internalised_minting, 0.0, 0.1, 0.0, 0.0, protocol=0.01)
+    if legacy:
+        metadata.pop("_fees")
+        metadata.update({"Mgmt fee": 0.0, "Perf fee": 0.1, "Deposit fee": 0.0, "Withdrawal fee": 0.0, "Protocol fee": 0.01})
+    prices = price_df.loc[price_df["id"] == spec.as_string_id()].copy()
+    exported = export_lifetime_row(calculate_lifetime_metrics(prices, {spec: metadata}).iloc[0])
+    assert exported["gross_fees"]["protocol"] == 0.01
+    assert exported["gross_fees"]["performance"] == exported["performance_fee"] == 0.1
+    assert exported["fee_internalised"] is True
+    assert exported["net_fees"]["protocol"] == exported["net_fees"]["performance"] == 0.0
+    for field in ("management_fee", "performance_fee", "deposit_fee", "withdraw_fee", "fee_mode", "fee_internalised", "fee_label"):
+        assert exported[field] is not None
+    assert all(value is not None for value in exported["gross_fees"].values())
+    assert all(value is not None for value in exported["net_fees"].values())
+
+
+def test_export_redemption_request_observation(vault_db: VaultDatabase, price_df: pd.DataFrame) -> None:
+    """Keep the request clock and epoch rule without claiming a settlement bound."""
+    source_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
+    spec = VaultSpec.parse_string(source_id)
+    row = dict(vault_db.rows[spec])
+    row["_withdrawal_period"] = WithdrawalPeriod(
+        min_period=datetime.timedelta(hours=6),
+        max_period=datetime.timedelta(hours=18),
+        delay_type=WithdrawalDelayType.delay,
+        estimated_settlement=datetime.timedelta(days=2),
+    )
+    clock = {
+        "status": "closed",
+        "block_number": 56688126,
+        "observed_at": "2026-11-13T00:00:00Z",
+        "nominal_epoch_seconds": 259200,
+        "unlock_epochs_min": 1,
+        "unlock_epochs_max": 3,
+    }
+    row["_redemption_request_observation"] = clock
+    row["_redemption_next_open"] = None
+    metrics = calculate_lifetime_metrics(price_df.loc[price_df["id"] == source_id], {spec: row})
+    exported = export_lifetime_row(metrics.iloc[0])
+    assert exported["redemption_request_observation"] == clock
+    assert exported["redemption_next_open"] is None
+    assert exported["min_withdrawal_period"] is None
+    assert exported["max_withdrawal_period"] is None
+    assert exported["lockup"] is None
+    assert exported["withdrawal_delay_type"] is None
+    assert exported["estimated_settlement"] == 172800
+    display = vault_metrics.format_lifetime_table(metrics, drop_blacklisted=False).iloc[0]
+    assert display["Redemption request status"] == "closed (2026-11-13T00:00:00Z)"
+    assert display["Withdrawal unlock epochs"] == "1–3"

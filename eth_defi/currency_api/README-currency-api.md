@@ -8,7 +8,7 @@ against USD) and stores them in a DuckDB database. The data is sourced from the 
 (`@fawazahmed0/currency-api`).
 
 The schema carries a `source` column so additional rate sources (e.g.
-ECB/Frankfurter, CoinGecko, on-chain oracles) can be added later without
+ECB/Frankfurter, CoinGecko, onchain oracles) can be added later without
 disturbing existing rows.
 
 **No authentication is required** — all data comes from a free, public,

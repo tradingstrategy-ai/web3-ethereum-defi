@@ -16,12 +16,14 @@ import weakref
 from pprint import pformat
 
 from eth_typing import BlockIdentifier
+from requests.exceptions import RequestException
 from web3 import Web3
+from web3.exceptions import Web3RPCError
 
 from eth_defi.event_reader.fast_json_rpc import get_last_headers
 from eth_defi.provider.ankr import is_ankr
 from eth_defi.provider.anvil import is_anvil, is_mainnet_fork
-from eth_defi.provider.fallback import FallbackProvider
+from eth_defi.provider.fallback import ExtraValueError, FallbackProvider
 from eth_defi.provider.mev_blocker import MEVBlockerProvider
 from eth_defi.provider.rpc_failure import classify_rpc_failure
 from eth_defi.utils import get_url_domain
@@ -34,51 +36,72 @@ logger = logging.getLogger(__name__)
 MONAD_CHAIN_NAME = "monad"
 
 
-def get_default_block_tip_latency(web3: Web3) -> int:
-    """Workaround for Ankr and other node providers that do not handle the chain tip properly.
+#: Default delay in blocks for chains whose latest blocks may not be readable yet.
+DEFAULT_BLOCK_TIP_LATENCY_BY_CHAIN_ID: dict[int, int] = {
+    # Arbitrum One produces blocks quickly, so even the four-block fallback
+    # buffer can leave contract reads ahead of the RPC upstream serving them.
+    42161: 20,
+}
 
-    Likely due to how requests are broken a block number available in one call
-    disappears in the following. Thus, with broken JSON-RPC service providers
-    we cannot trust ``web3.eth.block_number`` to work and we need to subtract this number from it.
+
+def get_default_block_tip_latency(web3: Web3) -> int:
+    """Allow time for the RPC backend serving a read to catch up with the reported head.
+
+    Live chain defaults take precedence over provider defaults. The Anvil probe
+    keeps local forks on their provider default when the endpoint identifies
+    itself as Anvil. Cache the result for this provider and endpoint so direct
+    Web3 connections do not repeat chain detection on every read.
 
     See :py:func:`get_block_tip_latency`
 
+    :param web3:
+        Connection used to identify the chain and provider.
     :return:
         Number of blocks we need to subtract from the latest block
     """
 
+    provider = web3.provider
+    identity = (provider, getattr(provider, "endpoint_uri", None))
+    cached = getattr(web3, "_eth_defi_default_block_tip_latency", None)
+    if cached is not None and cached[0] == identity:
+        return cached[1]
+
+    delay = _resolve_default_block_tip_latency(web3)
+    web3._eth_defi_default_block_tip_latency = (identity, delay)
+    return delay
+
+
+def _resolve_default_block_tip_latency(web3: Web3) -> int:
+    """Apply the chain's buffer before the generic provider rules."""
+    chain_delay = DEFAULT_BLOCK_TIP_LATENCY_BY_CHAIN_ID.get(web3.eth.chain_id)
+    if chain_delay is not None:
+        try:
+            if not is_anvil(web3):
+                return chain_delay
+        except (RequestException, Web3RPCError, ExtraValueError):
+            # An optional client-version probe may be blocked by the RPC.
+            return chain_delay
+
     if isinstance(web3.provider, (FallbackProvider, MEVBlockerProvider)):
-        # With fallback provider, assume 4 blocks delay,
-        # so that if there is a fail over switch,
-        # the next provider is likely to hae the block immediately
+        # Give another provider time to catch up before a failover.
         return 4
-
     if is_ankr(web3):
-        # Assume Ankr can safely deal with chain tip minus two blocks.
-        # No idea what's a good value, Ankr does not tell,
-        # so chosen by a fair dice.
         return 2
-
-    # Assume correctly working node
     return 0
 
 
 def get_block_tip_latency(web3: Web3) -> int:
-    """What block tip latency we should use for this JSON-RPC provider
+    """How many blocks to subtract from the RPC provider's reported head.
 
-    - Defaults to zero
+    An explicit ``web3.block_tip_latency`` override takes precedence. Otherwise,
+    live chains in :py:data:`DEFAULT_BLOCK_TIP_LATENCY_BY_CHAIN_ID` use their
+    chain-specific delay. Anvil forks and other connections use the provider
+    defaults from :py:func:`get_default_block_tip_latency`.
 
-    - If using :py:class:`eth_defi.provider.fallback.FallbackProvider`
-      we use 4 blocks latency as multiple providers are unlikely
-      to agree on a chain tip (blocks have not propagated yet).
-
-    - We have some built-in rules to work out specific providers
-
-    - You can override this by setting the latency sa ``web3.block_tip_latency`` attribute
-
-    See the source code of :py:func:`get_default_block_tip_latency` for other rules.
-
-
+    :param web3:
+        Connection whose block-tip delay is requested.
+    :return:
+        Number of blocks to subtract.
     """
     latency_override = getattr(web3, "block_tip_latency", None)
     if latency_override is not None:
@@ -158,12 +181,6 @@ def get_almost_latest_block_number(web3: Web3) -> int:
     value, raises :py:class:`BlockNumberOutOfRange`.  This catches scenarios
     where the RPC provider silently starts returning data for the wrong chain
     after a failover.
-
-    Providers with known issues
-
-    - LlamaNodes
-
-    - Ankr
 
     Example:
 

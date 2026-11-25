@@ -24,6 +24,7 @@ import datetime
 import hashlib
 import logging
 import os
+import pickle  # noqa: S403 - reads the trusted local reader-state pickle
 import shutil
 import tempfile
 from collections.abc import Sequence
@@ -47,7 +48,7 @@ from eth_defi.provider.broken_provider import get_almost_latest_block_number
 from eth_defi.provider.env import read_json_rpc_url
 from eth_defi.provider.multi_provider import MultiProviderWeb3Factory, create_multi_provider_web3
 from eth_defi.token import TokenDiskCache
-from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.base import VaultHistoricalRead, VaultSpec
 from eth_defi.vault.historical import MONAD_CHAIN_ID, fetch_monad_state_available, scan_historical_prices_to_parquet
 from eth_defi.vault_protocols.migration import MigrationContext
 
@@ -87,12 +88,41 @@ class PriceBackfillTarget:
     #: Exclusive end block, usually the first existing price block.
     end_block: int
 
+    #: Permit complete zero-supply observations without claiming a share price.
+    #: Still reject unavailable reads, absent rows and any unpriced live supply.
+    allow_empty_supply: bool = False
+
     def as_spec(self) -> VaultSpec:
         """Return the metadata key of this target.
 
         :return: Chain and address of the vault.
         """
         return VaultSpec(self.chain_id, self.vault_address)
+
+
+def read_price_cursor(data_dir: Path, chain_id: int) -> int:
+    """Read the block at which ordinary price scanning resumes for a chain.
+
+    The scanner starts every vault without its own reader state, such as a
+    newly added vault, at the chain's highest stored ``last_block`` plus
+    one.
+
+    :param data_dir:
+        Pipeline data directory holding the hourly reader-state pickle.
+    :param chain_id:
+        EVM chain id.
+    :return:
+        Highest stored ``last_block`` of the chain.
+    :raise ValueError:
+        If the chain has no stored price scan.
+    """
+    with (data_dir / READER_STATE_FILE_NAME).open("rb") as inp:
+        states = pickle.load(inp)  # noqa: S301 - trusted local production reader-state pickle.
+    cursor = max(((state.get("last_block") or 0) for spec, state in states.items() if spec.chain_id == chain_id), default=0)
+    if not cursor:
+        message = f"Chain {chain_id} has no stored price scan to continue from"
+        raise ValueError(message)
+    return cursor
 
 
 class PriceBackfillOutcome(TypedDict):
@@ -176,7 +206,9 @@ def _load_vault_rows(price_path: Path, chain_id: int, vault_address: str) -> pa.
     """
     source = ds.dataset(price_path, format="parquet")
     predicate = (ds.field("chain") == chain_id) & (ds.field("address") == vault_address)
-    return source.to_table(filter=predicate)
+    # Compare preserved values in the same canonical nullable schema that the
+    # writer uses; a new null-only column is not a mutation of old economics.
+    return VaultHistoricalRead.migrate_parquet_schema(source.to_table(filter=predicate))
 
 
 def _later_rows(table: pa.Table, end_block: int) -> pa.Table:
@@ -353,21 +385,23 @@ def _backfill_target(
         raise RuntimeError(f"Backfill of {spec_id} deleted rows outside its reviewed scope")
     if set(result["rows_written_by_vault"]) - {target.vault_address}:
         raise RuntimeError(f"Backfill of {spec_id} wrote rows for other vaults")
-    if result["price_rows_written_by_vault"].get(target.vault_address, 0) == 0:
-        raise RuntimeError(f"Backfill of {spec_id} produced no share price in [{scanned_start}, {end_block})")
     if pq.ParquetFile(staged_path).metadata.num_rows != total_before - expected_deleted + result["rows_written"]:
         raise RuntimeError(f"Backfill of {spec_id} left an unexpected staged row count")
 
     after = _load_vault_rows(staged_path, target.chain_id, target.vault_address)
     _assert_rows_unchanged(later_before, _later_rows(after, end_block), spec_id)
     written = after.filter(pc.and_(pc.greater_equal(after["block_number"], scanned_start), pc.less(after["block_number"], end_block)))
+    if result["price_rows_written_by_vault"].get(target.vault_address, 0) == 0:
+        complete_empty = target.allow_empty_supply and result.get("unavailable_observations") == 0 and written.num_rows > 0 and written["total_supply"].null_count == 0 and all(value == 0 for value in written["total_supply"].to_pylist())
+        if not complete_empty:
+            raise RuntimeError(f"Backfill of {spec_id} produced no share price in [{scanned_start}, {end_block})")
     timestamps: list[datetime.datetime] = written["timestamp"].to_pylist()
 
     outcome.update(
         scanned_start_block=scanned_start,
         rows_deleted=expected_deleted,
         rows_written=result["rows_written"],
-        price_rows_written=result["price_rows_written_by_vault"][target.vault_address],
+        price_rows_written=result["price_rows_written_by_vault"].get(target.vault_address, 0),
         preserved_later_rows=later_before.num_rows,
         first_written_at=min(timestamps).isoformat() if timestamps else None,
         last_written_at=max(timestamps).isoformat() if timestamps else None,
@@ -499,7 +533,7 @@ def _scan_targets(
     return outcomes
 
 
-def _publish_staged(context: MigrationContext, price_path: Path, staged_path: Path) -> None:
+def publish_staged_price_backfill(context: MigrationContext, price_path: Path, staged_path: Path) -> None:
     """Replace the raw price file with the validated staged copy.
 
     The original is kept as a hard link, which costs no copy, and both paths
@@ -511,8 +545,9 @@ def _publish_staged(context: MigrationContext, price_path: Path, staged_path: Pa
     :return: ``None`` after the durable replacement.
     """
     backup_path = context.data_dir / f"{PRICE_FILE_NAME}.bak-{context.script_name}-{native_datetime_utc_now():%Y%m%dT%H%M%S}-{os.getpid()}"
-    os.link(price_path, backup_path)
-    context.record_modified_file(backup_path, backup=True)
+    if price_path.exists():
+        os.link(price_path, backup_path)
+        context.record_modified_file(backup_path, backup=True)
     os.replace(staged_path, price_path)
     directory = os.open(context.data_dir, os.O_DIRECTORY)
     try:
@@ -520,6 +555,10 @@ def _publish_staged(context: MigrationContext, price_path: Path, staged_path: Pa
     finally:
         os.close(directory)
     context.record_modified_file(price_path)
+
+
+# Migration 018 imports this name. Keep old migration sources reproducible.
+_publish_staged = publish_staged_price_backfill
 
 
 def run_price_backfill(
@@ -591,7 +630,7 @@ def run_price_backfill(
             raise RuntimeError(message)
         published = not context.dry_run and any(outcome["status"] == "written" for outcome in outcomes)
         if published:
-            _publish_staged(context, price_path, staged_path)
+            publish_staged_price_backfill(context, price_path, staged_path)
 
     context.report(price_backfill=outcomes, backfill_block_limit=limit, price_backfill_published=published)
     return outcomes

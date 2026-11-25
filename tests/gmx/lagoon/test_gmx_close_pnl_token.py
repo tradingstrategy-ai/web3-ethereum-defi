@@ -21,9 +21,6 @@ These tests fork Arbitrum mainnet at the fixed GMX test block, open a real
 leveraged position through a deployed Lagoon Safe, move the mock oracle price
 to force the position into profit, close it through the same keeper-execution
 path production uses, and inspect the Safe's raw balances before and after.
-
-See ``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md`` (Defect A,
-Phase 1/2) for the full root-cause analysis.
 """
 
 import logging
@@ -230,9 +227,7 @@ def _close_position(env: LagoonGMXForkEnv, position: dict, is_long: bool, **kwar
 def test_close_profitable_long_pays_pnl_in_usdc_not_native_eth(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """A profitable long ETH/USDC close must return USDC, not leak profit as native ETH.
 
-    Regression test for Defect A in
-    ``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md``. Opens a long
-    ETH position with USDC collateral, forces it into profit by moving the
+    Opens a long ETH position with USDC collateral, forces it into profit by moving the
     mock oracle price up 20%, then closes it fully.
 
     Before the fix (``decreasePositionSwapType = NoSwap``,
@@ -300,8 +295,6 @@ def test_close_profitable_long_pays_pnl_in_usdc_not_native_eth(lagoon_gmx_fork_e
 def test_close_profitable_short_is_unaffected_by_pnl_swap_fix(lagoon_gmx_fork_env: LagoonGMXForkEnv) -> None:
     """A profitable short's PnL token already equals its collateral token (USDC).
 
-    Highest regression risk identified in
-    ``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md``:
     ``decreasePositionSwapType = SwapPnlTokenToCollateralToken`` *should* be
     a no-op for a short, since a short's PnL is denominated in the market's
     **short** token (USDC for ETH/USD), which already equals its collateral.
@@ -411,11 +404,7 @@ def test_take_profit_order_execution_pays_pnl_in_usdc(lagoon_gmx_fork_env: Lagoo
     ``test_full_lifecycle_open_and_close_with_sl_tp`` ever let a bundled
     take-profit order actually *trigger* — that test opens with a bundled
     TP, then closes manually via ``close_position()``, leaving the TP order
-    dangling and unexecuted. That left the SL/TP-specific fix path completely
-    unexercised, even though the design plan
-    (``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md``) explicitly
-    names take-profit as the highest-exposure case — it only ever fires in
-    profit, by construction.
+    dangling and unexecuted. A take-profit close exercises the payout path when the position is profitable.
 
     This test opens a long with a bundled take-profit, executes the open,
     finds the resulting pending take-profit (``LIMIT_DECREASE``) order via
@@ -824,7 +813,7 @@ def test_fetch_gmx_total_equity_end_to_end(lagoon_gmx_fork_env: LagoonGMXForkEnv
 
     Exercises both defects fixed by :mod:`eth_defi.gmx.valuation` in the one
     scenario that actually matters, rather than each in isolation against
-    synthetic setups (see ``docs/claude-plans/2026-08-20-gmx-pnl-token-nav-leak.md``):
+    synthetic setups:
 
     - **Defect A (reserves).** ``fetch_gmx_total_equity()`` used to assert every
       reserve token was a stablecoin, making it impossible to value a Safe that

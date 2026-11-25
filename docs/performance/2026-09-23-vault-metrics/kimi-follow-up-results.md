@@ -1,6 +1,6 @@
 # Kimi follow-up implementation results
 
-These measurements use the same 10,116,623-row production-format local snapshot as [the earlier work](implementation-results.md). They are isolated runs on vitalik8 with a fixed 23 September 2026 clock, not production scanner-cycle or R2 network timings. The [plan](kimi-follow-up-plan.md) set the acceptance gates before the pilots.
+These measurements use the same 10,116,623-row production-format local snapshot as [the earlier work](implementation-results.md). They are isolated runs on vitalik8 with a fixed 23 September 2026 clock, not production scanner-cycle or R2 network timings.
 
 | Change | Local result | Decision |
 |---|---|---|

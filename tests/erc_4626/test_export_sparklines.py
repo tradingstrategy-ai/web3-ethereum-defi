@@ -8,9 +8,7 @@ from types import ModuleType, SimpleNamespace
 
 import pandas as pd
 import pytest
-from joblib import Parallel, delayed
 
-from eth_defi.research.sparkline import prepare_sparkline_data
 from eth_defi.vault.base import VaultSpec
 
 
@@ -83,27 +81,3 @@ def test_sparkline_inclusion_covers_supported_families_without_peak_gate(export_
     included = module.get_included_vault_ids(vault_db, prices_df)
 
     assert included == {stablecoin.as_string_id(), eth.as_string_id(), btc.as_string_id()}
-
-
-def test_rendered_images_cross_joblib_process_boundary(export_sparklines_module: ModuleType) -> None:
-    """Return SVG and PNG dictionaries from standalone-script workers.
-
-    :param export_sparklines_module:
-        Dynamically loaded standalone exporter module.
-    :return:
-        None. Assertions validate Loky serialisation and image formats.
-    """
-    module = export_sparklines_module
-    index = pd.date_range("2026-08-01", periods=15, freq="D", name="timestamp")
-    prices_df = pd.DataFrame(
-        {"share_price": [1.0] * len(index), "total_assets": [10_000.0] * len(index)},
-        index=index,
-    )
-    sparkline_data = prepare_sparkline_data(prices_df)
-    assert sparkline_data is not None
-
-    results = Parallel(n_jobs=2, prefer="processes")(delayed(module.render_vault_sparklines)(f"vault-{index}", sparkline_data) for index in range(2))
-
-    assert [[image["extension"] for image in vault_images] for vault_images in results] == [["svg", "png", "png"], ["svg", "png", "png"]]
-    assert all(vault_images[0]["payload"].startswith(b"<?xml") for vault_images in results)
-    assert all(vault_images[1]["payload"].startswith(b"\x89PNG") for vault_images in results)

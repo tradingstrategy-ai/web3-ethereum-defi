@@ -1,6 +1,6 @@
 """GMX V2 custom error selector decoder.
 
-GMX V2 contracts revert with Solidity custom errors. The on-chain log
+GMX V2 contracts revert with Solidity custom errors. The onchain log
 records only the 4-byte function selector — keccak256 of the error
 signature, e.g. ``keccak256("InvalidCollateralTokenForMarket(address,address)")[:4]``.
 
@@ -23,13 +23,6 @@ errors (collateral, position, order, price, pool, oracle, fee categories).
     accepted by this market (selector: 0x839c693e)"`` instead of
     ``"Unknown error (selector: 0x839c693e)"``.
 
-Sub-investigation flag (2026-05-22): the live ``0x839c693e`` revert on
-``BTC/USDC:USDC`` long with USDC collateral suggests the adapter may be
-selecting a BTC ``market_token_address`` whose accepted-collateral set
-excludes USDC. This module only improves the diagnostic surface —
-investigating and fixing the market-selection logic is tracked as a
-follow-up in the multi-sleeve plan
-(``docs/superpowers/plans/2026-05-22-orchestrator-multi-sleeve-followups.md``).
 """
 
 from __future__ import annotations

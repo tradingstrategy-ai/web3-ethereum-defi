@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import pickle
 import runpy
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,8 +14,11 @@ import pyarrow.parquet as pq
 import pytest
 from web3 import Web3
 
+from eth_defi.erc_4626 import scan as vault_scan
 from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcadia import offchain_metadata as arcadia
+from eth_defi.erc_4626.vault_protocol.buoy.deployments import BUOY_REVIEW_BLOCK, BUOY_REVIEWED_LEADS
+from eth_defi.erc_4626.vault_protocol.buoy.vault import BuoyVault
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SSFTUSD_DESCRIPTION, FLYING_TULIP_SSFTUSD_NOTES, FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION
 from eth_defi.erc_4626.vault_protocol.gains.metadata import REVIEWED_GAINS_VAULTS
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader
@@ -26,6 +30,7 @@ from eth_defi.hyperliquid import tags as hyperliquid_tags
 from eth_defi.lighter import tags as lighter_tags
 from eth_defi.neutral_trade import metrics as neutral_trade_metrics
 from eth_defi.neutral_trade.api import parse_vault
+from eth_defi.provider import env as provider_env, multi_provider
 from eth_defi.vault import post_processing
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes
@@ -33,7 +38,7 @@ from eth_defi.vault.handwritten_metadata import ACCOUNTABLE_HANDWRITTEN_VAULT_ME
 from eth_defi.vault.strategy_tag import StrategyTag
 from eth_defi.vault.vaultdb import VaultDatabase
 from eth_defi.vault_protocols import migration as runner
-from eth_defi.vault_protocols.repairs import dense_timestamps, flying_tulip, price_backfill, timestamp_storage, veranta, wildcat
+from eth_defi.vault_protocols.repairs import dense_timestamps, flying_tulip, price_backfill, timestamp_storage, vault_onboarding, veranta, wildcat
 
 FT = VaultSpec(1, "0x232128844e5af56fd4b3f8bf97e08ab477282ab5")
 NOVA = VaultSpec(42161, NOVA_POOL_ADDRESS)
@@ -52,12 +57,21 @@ PMALT_LIGHTER = VaultSpec(9998, "lighter-pool-281474976552918")
 #: Peapods deployments required by migration 036.
 PEAPODS_USDC = tuple(VaultSpec(8453, address) for address in ("0x2e5109aa82a4ebcc776e89abeb68f5d0b91ccea1", "0x53ce611b5477997972dad83585a0ad5cb56f433b"))
 
+#: Peapods metavault deployment required by migration 105.
+PEAPODS_USDC_METAVAULT = VaultSpec(8453, "0x0887354c58af4392f6012c8cb96354342912902c")
+
+
+#: Llama Lend market onboarded by migration 082.
+LLAMA_LEND_WSTGBP = VaultSpec(1, "0xe279c1c1c246b6f8f32c55b7820c2164151c5570")
 
 #: Euler deployment required by migration 040.
 K3_CLUSTER = VaultSpec(43114, "0x6fc9b3a52944a577cd8971fd8fde0819001bc595")
 
 #: Reviewed underlying identities for the fixed valuation-warning migration.
 VALUATION_TARGETS = runpy.run_path(str(Path(__file__).parents[2] / "migration/scripts/049-reviewed-vault-valuations.py"))["TARGETS"]
+
+#: Existing Lagoon and Morpho deployments required by the Sigma Labs backfill.
+SIGMA_BACKFILL_SPECS = {target.as_spec() for target in runpy.run_path(str(Path(__file__).parents[2] / "migration/scripts/104-sigma-labs-price-backfill.py"))["TARGETS"]}
 
 
 @pytest.mark.parametrize("dry_run", [True, False])
@@ -165,7 +179,8 @@ def test_systemic_strategy_tag_refresh(tmp_path: Path, dry_run: bool) -> None:
     migration = next(spec for spec in runner.discover_migrations() if spec.number == 41)
     context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
     runner._execute(migration, context)
-    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}}
+    # An installation replaying migration 041 uses the current tag registry.
+    expected_row = original_row | {"_strategy_tags": old_tags | {StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate, StrategyTag.long_short_portfolio, StrategyTag.leveraged_portfolio, StrategyTag.portfolio_3x}}
     assert context.metadata().rows[target] == expected_row
     assert context.metadata().rows[other_chain] == {"_strategy_tags": old_tags}
     assert context.other_data["changed_rows"] == 1
@@ -205,6 +220,45 @@ def test_systemic_strategy_tag_refresh_guards(tmp_path: Path, missing: bool) -> 
     assert path.read_bytes() == original
 
 
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_steady_wealth_builder_grid_tag_removal(tmp_path: Path, dry_run: bool) -> None:
+    """Remove Grid trading from the Lighter pool and preserve its other tags.
+
+    Exercise the numbered migration against a stored row that still has the
+    obsolete tag.
+
+    :param tmp_path: Isolated pipeline directory.
+    :param dry_run: Whether the change should stay in memory.
+    :return: None after checking the staged and persisted metadata.
+    """
+    expected_tags = lighter_tags.get_strategy_tags(MARTINGALE_LIGHTER.vault_address)
+    old_tags = expected_tags | {StrategyTag.grid_trading}
+    target_row = {
+        "Protocol": "Lighter",
+        "_detection_data": detection(MARTINGALE_LIGHTER, ERC4626Feature.lighter_native),
+        "_strategy_tags": old_tags,
+        "_notes": "Preserve notes",
+    }
+    other_row = {"_strategy_tags": {StrategyTag.grid_trading}}
+    path = tmp_path / "vault-metadata-db.pickle"
+    VaultDatabase(rows={MARTINGALE_LIGHTER: target_row, PMALT_LIGHTER: other_row}).write(path)
+    original = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 95)
+    context = runner.MigrationContext(tmp_path, dry_run, script_name=migration.name)
+    runner._execute(migration, context)
+
+    expected_rows = {MARTINGALE_LIGHTER: target_row | {"_strategy_tags": expected_tags}, PMALT_LIGHTER: other_row}
+    assert context.metadata().rows == expected_rows
+    assert context.other_data["changed_rows"] == 1
+    if dry_run:
+        assert path.read_bytes() == original
+    else:
+        assert VaultDatabase.read(path).rows == expected_rows
+        repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+        runner._execute(migration, repeated)
+        assert repeated.other_data["changed_rows"] == 0
+
+
 @pytest.fixture
 def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Create reviewed inventories and unrelated records without real provider calls."""
@@ -220,7 +274,7 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for chain, address in TRAVESSIA_TAURI_VAULT_METADATA | ACCOUNTABLE_HANDWRITTEN_VAULT_METADATA:
         rows[VaultSpec(chain, address)] = {"Protocol": "Accountable", "_manager_name": "Existing attribution", "_detection_data": detection(VaultSpec(chain, address), ERC4626Feature.accountable_like)}
     rows[WRAPPED] = {"Protocol": "Hyperlend", "_flags": {VaultFlag.paused}, "_notes": "old"}
-    for spec in PEAPODS_USDC:
+    for spec in (*PEAPODS_USDC, PEAPODS_USDC_METAVAULT):
         rows[spec] = {"Protocol": "Peapods", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[K3_CLUSTER] = {"Protocol": "Euler", "_flags": {VaultFlag.paused}, "_notes": "old"}
     rows[EDGE_ULTRAYIELD] = {"Protocol": "Gearbox", "_flags": {VaultFlag.paused}, "_notes": "old"}
@@ -249,6 +303,10 @@ def batch_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     rows[ARCADIA] = {"Protocol": "Arcadia Finance", "Name": "Senior ArcadiaV2 Global Dollar", "Denomination": "USDG", "_description": "Arcadia USDG Pool"}
     rows[VaultSpec(1, WRAPPED.vault_address)] = {"Protocol": "Different deployment", "_flags": set(), "_notes": "untouched"}
     rows[VaultSpec(1, "0x0000000000000000000000000000000000000001")] = {"_description": "First.\r\n\r\n\r\nSecond.", "_short_description": "First. Second.", "custom": 123}
+    for spec in SIGMA_BACKFILL_SPECS:
+        morpho = spec.vault_address == "0x6b833881a9f083ad2ccacf8c10abc0dc151cbf32"
+        feature = ERC4626Feature.morpho_v2_like if morpho else ERC4626Feature.lagoon_like
+        rows[spec] = {"Protocol": "Morpho" if morpho else "Lagoon Finance", "_detection_data": detection(spec, feature)}
     VaultDatabase(rows=rows, last_scanned_block={1: 12345, 42161: 67890}).write(tmp_path / "vault-metadata-db.pickle")
     return tmp_path
 
@@ -286,6 +344,10 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     monkeypatch.setattr(wildcat, "check_registry_coverage", lambda web3, cursor_block: None)
     monkeypatch.setattr(wildcat, "build_market_rows", lambda web3, candidates, block: {VaultSpec(c.chain, c.address): {"Protocol": "Wildcat", "_detection_data": c} for c in candidates})
     monkeypatch.setattr(wildcat, "read_price_cursor", lambda data_dir, chain_id: 26_000_000)
+    # Vault onboarding reads are covered by tests/vault/test_vault_onboarding_migration.py.
+    monkeypatch.setattr(vault_onboarding, "create_chain_web3", lambda chain_id: SimpleNamespace(eth=SimpleNamespace(block_number=26_500_000)))
+    monkeypatch.setattr(vault_onboarding, "build_vault_row", lambda web3, target, block: {"Protocol": target.expected_protocol, "_detection_data": detection(target.as_spec(), ERC4626Feature.llamma_like)})
+    monkeypatch.setattr(vault_onboarding, "read_price_cursor", lambda data_dir, chain_id: 26_500_000)
     # Veranta live reads are separately fork-tested; the batch checks composition.
     provider = Mock()
     provider.eth.chain_id = 8453
@@ -298,12 +360,41 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     monkeypatch.setattr(veranta, "read_json_rpc_url", lambda _: "unused")
     monkeypatch.setattr(veranta, "create_multi_provider_web3", lambda _: provider)
     monkeypatch.setattr(VerantaVault, "vault_contract", property(lambda _: contract))
+    # Buoy has dedicated RPC and preview coverage. Stub only its reads here
+    # while exercising actual staged metadata, lead and backfill composition.
+    buoy_provider = SimpleNamespace(eth=SimpleNamespace(block_number=BUOY_REVIEW_BLOCK))
+    read_rpc_url = provider_env.read_json_rpc_url
+    connect = multi_provider.create_multi_provider_web3
+    scan_record = vault_scan.create_vault_scan_record
+
+    def rebuild_buoy(web3: object, detection: ERC4262VaultDetection, block: int, token_cache: object) -> dict:
+        """Supply the Buoy catalogue fixture while routing other adapters normally."""
+        if web3 is buoy_provider:
+            return {"Protocol": "Buoy", "Name": "Buoy fixture", "_denomination_token": {"symbol": "USDC"}, "_detection_data": detection}
+        return scan_record(web3, detection, block, token_cache)
+
+    monkeypatch.setattr(provider_env, "read_json_rpc_url", lambda chain: "buoy-fixture" if chain == 999 else read_rpc_url(chain))
+    monkeypatch.setattr(multi_provider, "create_multi_provider_web3", lambda url, *args, **kwargs: buoy_provider if url == "buoy-fixture" else connect(url, *args, **kwargs))
+    monkeypatch.setattr(vault_scan, "create_vault_scan_record", rebuild_buoy)
+    monkeypatch.setattr(BuoyVault, "fetch_accounting", lambda *_args: SimpleNamespace(nav_timestamp=1, supply=100))
     path = batch_database / "vault-metadata-db.pickle"
     # Migration 018 validates the price file even when no reviewed vault has rows.
     # Keep real unrelated Parquet data so the complete batch exercises that path.
-    pq.write_table(pa.table({"chain": [1], "address": ["0x0000000000000000000000000000000000000001"], "share_price": [1.25], "available_liquidity": [123.0]}), batch_database / "vault-prices-1h.parquet")
-    for name in ("vault-reader-state-1h.pickle", "timestamps.duckdb"):
-        (batch_database / name).write_bytes(b"unrecoverable history")
+    pq.write_table(
+        pa.table(
+            {
+                "chain": [1],
+                "address": ["0x0000000000000000000000000000000000000001"],
+                "block_number": [12345],
+                "timestamp": pa.array([datetime.datetime(2026, 11, 20)], type=pa.timestamp("ms")),
+                "share_price": [1.25],
+                "available_liquidity": [123.0],
+            }
+        ),
+        batch_database / "vault-prices-1h.parquet",
+    )
+    (batch_database / "vault-reader-state-1h.pickle").write_bytes(pickle.dumps({VaultSpec(999, BUOY_REVIEWED_LEADS[0][0]): {"last_block": BUOY_REVIEW_BLOCK - 1}}))
+    (batch_database / "timestamps.duckdb").write_bytes(b"unrecoverable history")
     original = {p.name: p.read_bytes() for p in batch_database.iterdir()}
     version = {"in_docker": False, "git_commit_hash": "a" * 40}
     expected_migrations = len(tuple(runner.discover_migrations()))
@@ -340,8 +431,11 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     for spec in PEAPODS_USDC:
         assert database.rows[spec]["_flags"] == {VaultFlag.paused, VaultFlag.illiquid}
         assert database.rows[spec]["_notes"] == "Peapods vault is illiquid"
-    for tranche in THREEJANE_TRANCHES:
-        assert database.rows[tranche]["_strategy_tags"] == {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
+    assert database.rows[PEAPODS_USDC_METAVAULT] == {"Protocol": "Peapods", "_flags": {VaultFlag.paused, VaultFlag.illiquid}, "_notes": "This vault is illiquid."}
+    senior, junior = THREEJANE_TRANCHES
+    tranche_tags = {StrategyTag.lending, StrategyTag.rwa, StrategyTag.rwa_lending, StrategyTag.inventory_financing}
+    assert database.rows[senior]["_strategy_tags"] == tranche_tags
+    assert database.rows[junior]["_strategy_tags"] == tranche_tags | {StrategyTag.podcast_available}
     assert database.rows[MARTINGALE_HYPERCORE]["_strategy_tags"] == hyperliquid_tags.get_strategy_tags(MARTINGALE_HYPERCORE.vault_address)
     assert database.rows[MARTINGALE_LIGHTER]["_strategy_tags"] == lighter_tags.get_strategy_tags(MARTINGALE_LIGHTER.vault_address)
     assert StrategyTag.martingale_like in database.rows[MARTINGALE_LIGHTER]["_strategy_tags"]
@@ -356,8 +450,10 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
     assert all((batch_database / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
     applied = path.read_bytes()
     # No reviewed Wildcat market is registered by the batch's lead cursor at block 12,345
-    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA}
-    assert database.leads == {}
+    buoy_specs = {VaultSpec(999, address) for address, _, _ in BUOY_REVIEWED_LEADS}
+    assert {target.as_spec() for target in backfilled} == {VaultSpec(chain_id, address) for chain_id, address in NEUTRAL_AUTOPILOT_VAULT_METADATA} | {LLAMA_LEND_WSTGBP} | buoy_specs | SIGMA_BACKFILL_SPECS
+    assert set(database.leads) == {LLAMA_LEND_WSTGBP} | buoy_specs
+    assert all(database.rows[spec]["Protocol"] == "Buoy" for spec in buoy_specs)
     assert runner.run_pending_migrations(data_dir=batch_database, dry_run=False, provenance=version) == []
     assert path.read_bytes() == applied
     state = runner.load_state(batch_database / "migration.json")
@@ -375,7 +471,7 @@ def test_nova_reader_retains_existing_cursor() -> None:
     assert reader.reader_state.last_block == 518876926
 
 
-@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), (40, K3_CLUSTER), *((36, spec) for spec in PEAPODS_USDC)])
+@pytest.mark.parametrize("number,target", [(1, FT), (2, NOVA), (7, WRAPPED), (40, K3_CLUSTER), (105, PEAPODS_USDC_METAVAULT), *((36, spec) for spec in PEAPODS_USDC)])
 def test_missing_required_single_target_fails(batch_database: Path, tmp_path: Path, number: int, target: VaultSpec) -> None:
     """Absent reviewed targets remain pending instead of being marked complete."""
     path = batch_database / "vault-metadata-db.pickle"
@@ -515,3 +611,54 @@ def test_hibachi_grvt_strategy_tag_refresh_guards(tmp_path: Path, missing: bool)
         with pytest.raises(ValueError, match="not a Hibachi/GRVT vault"):
             runner._execute(migration, context)
     assert path.read_bytes() == original
+
+
+def test_staff_pick_refresh_preserves_other_candle_effect_versions(tmp_path: Path) -> None:
+    """Apply the editorial selection to Candle Effect v2 on Lighter Core.
+
+    The closely named v1 pool must retain its stored tags, even when the other
+    staff picks are missing from the database.
+
+    :param tmp_path: Isolated metadata and migration storage.
+    :return: ``None`` after verifying the saved rows.
+    """
+    selected = VaultSpec(9998, "lighter-pool-281474976543116")
+    other = VaultSpec(9998, "lighter-pool-281474976620676")
+    path = tmp_path / "vault-metadata-db.pickle"
+    rows = {spec: {"Protocol": "Lighter", "_strategy_tags": {StrategyTag.perpetual_futures}, "_detection_data": detection(spec, ERC4626Feature.lighter_native)} for spec in (selected, other)}
+    VaultDatabase(rows=rows).write(path)
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 93)
+    runner._execute(migration, runner.MigrationContext(tmp_path, False, script_name=migration.name))
+    updated = VaultDatabase.read(path)
+    assert updated.rows[other] == rows[other]
+    assert {StrategyTag.staff_pick, StrategyTag.algorithmic_trading, StrategyTag.perpetual_futures} <= updated.rows[selected]["_strategy_tags"]
+
+
+def test_podcast_available_migration_preserves_saved_tags(tmp_path: Path) -> None:
+    """Refresh podcast coverage even when older rows lack detection metadata.
+
+    Exercise the metadata preview, chain scoping and retry path on an isolated
+    database containing old-style tags.
+
+    :param tmp_path: Isolated metadata directory.
+    """
+    featured = VaultSpec(1, "0x9be9294722f8aad37b11a9792be2c782182cafa2")
+    other = VaultSpec(8453, featured.vault_address)
+    path = tmp_path / "vault-metadata-db.pickle"
+    original = {"_strategy_tags": {"lending"}, "_notes": "Keep notes"}
+    VaultDatabase(rows={featured: original, other: original.copy()}).write(path)
+    saved_bytes = path.read_bytes()
+    migration = next(spec for spec in runner.discover_migrations() if spec.number == 94)
+    preview = runner.MigrationContext(tmp_path, True, script_name=migration.name)
+    runner._execute(migration, preview)
+    assert path.read_bytes() == saved_bytes
+    assert preview.other_data["updated_fields"] == 1
+
+    context = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+    runner._execute(migration, context)
+    expected = original | {"_strategy_tags": {StrategyTag.lending, StrategyTag.podcast_available}}
+    assert VaultDatabase.read(path).rows == {featured: expected, other: original}
+
+    repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
+    runner._execute(migration, repeated)
+    assert repeated.other_data["updated_fields"] == 0

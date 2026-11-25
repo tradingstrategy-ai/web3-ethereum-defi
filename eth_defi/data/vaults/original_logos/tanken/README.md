@@ -15,7 +15,7 @@ No logo could be found for Tanken.
 - **tanken.money** — Connection refused.
 - **tanken.fund** — Connection refused.
 
-### On-chain and API checks
+### Onchain and API checks
 
 - **Morpho GraphQL API** — The "Tanken USDC" vault exists on Ethereum mainnet at `0xca7c196f00e04A5e1c71B91476d0d58f82499734` (symbol: tkUSDC), but `metadata` is `null`. Tanken does not appear in the Morpho curators directory (`curators` search returns empty).
 - **Morpho vault addresses** — Creator: `0xC0995208c5f024EDdeBe26696966396f3CF0D47B`, Owner: `0x59803bD2d66f6d8D948381bA90fEDd9D4030E3E4` (Safe 1.4.1 multisig), Curator: `0x12393CCf9553Eb402fFEB43678565ea5727cEcF6` (Safe 1.4.1 multisig). None have ENS names, Etherscan labels, or public identifiers.

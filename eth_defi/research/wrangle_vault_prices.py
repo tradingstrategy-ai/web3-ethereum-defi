@@ -35,11 +35,16 @@ from IPython.display import display
 from tqdm_loggable.auto import tqdm
 
 from eth_defi.chain import get_chain_name
+from eth_defi.erc_4626.core import HYPEREVM_LATEST_NAV_ADDRESSES, ERC4626Feature
+from eth_defi.erc_4626.vault_protocol.buoy.constants import BUOY_MIN_TVL_USD
 from eth_defi.erc_4626.vault_protocol.infinit.cleaning import mask_infinit_gap_returns, mask_infinit_source_gaps
+from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_FIRST_DEPOSIT_BLOCKS
+from eth_defi.event_reader.multicall_batcher import HYPEREVM_CHAIN_ID
 from eth_defi.hyperliquid.constants import HYPERCORE_CHAIN_ID
 from eth_defi.neutral_trade.constants import is_public_metadata as is_neutral_trade_public_metadata
 from eth_defi.perp_dex.adapter import embed_perp_capability_registry, load_perp_capability_registry
 from eth_defi.perp_dex.parquet import PERP_DEX_NATIVE_CHAIN_IDS, build_registered_perp_vault_index, finalise_perp_metric_columns
+from eth_defi.solana import SOLANA_CHAIN_ID, decode_solana_vault_address, is_solana_vault_address
 from eth_defi.types import Percent
 from eth_defi.vault.base import VaultSpec, verify_parquet_file
 from eth_defi.vault.denomination import (
@@ -47,6 +52,7 @@ from eth_defi.vault.denomination import (
     classify_denomination,
     convert_usd_threshold_to_denomination,
 )
+from eth_defi.vault.publication_state import publish_verified_parquet
 from eth_defi.vault.settlement_data import (
     merge_vault_settlements_into_cleaned_prices,
 )
@@ -137,6 +143,9 @@ class CleanedVaultPriceRow(TypedDict, total=False):
     """
 
     # -- General columns (all protocols) --
+
+    #: Original NAV publication time, preserved when prices are forward-filled.
+    nav_timestamp: "pd.Timestamp | None"
 
     #: EVM chain id (e.g. ``1`` for Ethereum, ``8453`` for Base).
     #:
@@ -472,13 +481,20 @@ PRIORITY_SORT_IDS = [
 def get_vaults_by_id(rows: Mapping[VaultSpec, VaultRow]) -> dict[str, VaultRow]:
     """Build a dictionary of vaults by their chain-address id.
 
+    Price rows use canonical vault IDs. The Pear onboarding migration stored
+    checksummed HyperEVM detection addresses, which caused the cleaner to
+    drop valid histories as missing metadata. Use the database's canonical
+    keys so the join matches the lower-case Parquet IDs.
+
+    :py:func:`check_missing_metadata` uses this index to decide which price
+    histories have catalogue metadata.
+
     :param rows:
         Metadata rows from vault database
     :return:
         Dictionary of vaults by their chain-address id
     """
-    vaults_by_id = {f"{vault['_detection_data'].chain}-{vault['_detection_data'].address}": vault for vault in rows.values()}
-    return vaults_by_id
+    return {spec.as_string_id(): vault for spec, vault in rows.items()}
 
 
 #: Vault state and pass-through columns added by the historical scanner.
@@ -508,6 +524,8 @@ VAULT_STATE_COLUMNS = {
     # When this price row was actually written/fetched (naive UTC).
     # NaT for old data that predates this column.
     "written_at": pd.NaT,
+    # Publication time of asynchronous NAV; never replace with the poll time.
+    "nav_timestamp": pd.NaT,
     # Hypercore epoch marker. Set when wrangling discards a complete prior
     # wipe-out epoch and begins from recapitalised capital.
     "epoch_reset": False,
@@ -572,44 +590,24 @@ def derive_deposit_closed_reason(prices_df: pd.DataFrame) -> pd.DataFrame:
     return prices_df
 
 
-def assign_unique_names(
-    rows: dict[VaultSpec, VaultRow],
-    prices_df: pd.DataFrame,
-    logger: Callable[[str], None] = print,
+def disambiguate_vault_names(
+    rows: Mapping[VaultSpec, VaultRow],
+    logger: Callable[[str], None],
     duplicate_nav_threshold: float = 1000,
-    *,
-    assign_names: bool = True,
-) -> pd.DataFrame:
-    """Ensure all vaults have unique human-readable name.
+) -> dict[str, VaultRow]:
+    """Resolve name collisions in catalogue order before selecting price histories.
 
-    - Rerwrite metadata rows
-    - Find duplicate vault names
-    - Add a running counter to the name to make it unique
+    A vault on another chain or in another denomination family can already
+    have taken the same display name. Both the cleaner and its input
+    fingerprint therefore need names assigned from the complete catalogue.
 
-    The raw price frame can contain many more rows than the selected
-    denomination family.  Callers may therefore request only the canonical
-    ``id`` column first, filter the frame, and add names afterwards.  The
-    default remains ``True`` for notebook and script callers that expect the
-    historical behaviour.
-
-    :param rows:
-        Vault metadata keyed by :class:`VaultSpec`.
-    :param prices_df:
-        Raw price rows to receive ``id`` and optionally ``name``.
-    :param logger:
-        Logging callback for metadata repair diagnostics.
-    :param duplicate_nav_threshold:
-        NAV threshold used by the duplicate-name diagnostic.
-    :param assign_names:
-        Whether to materialise the human-readable name column.  Set to
-        ``False`` when the caller will filter by denomination before mapping
-        names across the large raw frame.
-    :return:
-        The input frame with canonical identifiers and, by default, names.
+    :param rows: Catalogue rows. Their names are updated in memory.
+    :param logger: Receives diagnostics for duplicate and empty names.
+    :param duplicate_nav_threshold: NAV above which a duplicate is counted separately.
+    :return: The updated rows keyed by canonical chain and vault ID.
     """
     vaults_by_id = get_vaults_by_id(rows)
 
-    # We use name later as DF index, so we need to make sure they are unique
     counter = 1
     duplicate_names_with_nav = 0
     used_names = set()
@@ -641,15 +639,52 @@ def assign_unique_names(
 
         used_names.add(vault["Name"])
 
-    logger(f"Fixed {counter} duplicate vault names, {len(empty_names)} vaults had empty names, duplicate names with NAV: {duplicate_names_with_nav}")
+    logger(f"Fixed {counter - 1} duplicate vault names, {len(empty_names)} vaults had empty names, duplicate names with NAV: {duplicate_names_with_nav}")
 
     if empty_names:
         example_id = next(iter(empty_names))
         example = vaults_by_id[example_id]
         logger(f"Example vault with empty name: {example}")
 
+    return vaults_by_id
+
+
+def assign_unique_names(
+    rows: dict[VaultSpec, VaultRow],
+    prices_df: pd.DataFrame,
+    logger: Callable[[str], None] = print,
+    duplicate_nav_threshold: float = 1000,
+    *,
+    assign_names: bool = True,
+) -> pd.DataFrame:
+    """Assign chain-scoped identifiers and disambiguate vault display names.
+
+    The raw price frame can contain many more rows than the selected
+    denomination family.  Callers may therefore request only the canonical
+    ``id`` column first, filter the frame, and add names afterwards.  The
+    default remains ``True`` for notebook and script callers that expect the
+    historical behaviour.
+
+    :param rows:
+        Vault metadata keyed by :class:`VaultSpec`.
+    :param prices_df:
+        Raw price rows to receive ``id`` and optionally ``name``.
+    :param logger:
+        Logging callback for metadata repair diagnostics.
+    :param duplicate_nav_threshold:
+        NAV threshold used by the duplicate-name diagnostic.
+    :param assign_names:
+        Whether to materialise the human-readable name column.  Set to
+        ``False`` when the caller will filter by denomination before mapping
+        names across the large raw frame.
+    :return:
+        The input frame with canonical identifiers and, by default, names.
+    """
+    vaults_by_id = disambiguate_vault_names(rows, logger, duplicate_nav_threshold)
+
     # Vaults are identified by their chain and address tuple, make this one human-readable column
     # to make DataFrame wrangling easier
+    _canonicalise_price_addresses(prices_df)
     prices_df["id"] = prices_df["chain"].astype(str) + "-" + prices_df["address"].astype(str)
     if assign_names:
         # ``Series.map`` performs one vectorised dictionary lookup per row and
@@ -1456,7 +1491,6 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
     if "hypercore_repair_status" not in prices_df.columns:
         prices_df["hypercore_repair_status"] = ""
 
-    share_price_col = prices_df.columns.get_loc("share_price")
     hypercore_positions = np.flatnonzero(hypercore_mask.to_numpy())
     clean_share_prices = prices_df["share_price"].to_numpy(dtype=float, copy=True)
     repair_statuses = prices_df["hypercore_repair_status"].astype("string").fillna("").to_numpy(dtype=object, copy=True)
@@ -1609,7 +1643,7 @@ def approximate_hypercore_share_prices_from_pnl_nav(  # noqa: PLR0914
             synthetic_supplies[positions] = synthetic_supply
         affected_vaults += 1
 
-    prices_df.iloc[:, share_price_col] = clean_share_prices
+    prices_df["share_price"] = clean_share_prices
     prices_df["hypercore_repair_status"] = repair_statuses
     if synthetic_supplies is not None:
         prices_df["total_supply"] = synthetic_supplies
@@ -1881,7 +1915,8 @@ def _fix_outlier_share_prices(  # noqa: PLR0914 - array repair keeps correlated 
     working[state_columns] = working.groupby(group_column, sort=False, observed=True)[state_columns].ffill()
     if flow_columns:
         working[flow_columns] = source_flows
-    working.loc[hypercore, permission_columns] = permission_values
+    if hypercore.any() and permission_columns:
+        working.loc[hypercore, permission_columns] = permission_values
     logger(f"Share-price outlier state forward-fill: {len(working):,} rows in {time.perf_counter() - fill_started_at:.2f}s")
 
     ids = working[group_column].to_numpy()
@@ -2123,6 +2158,28 @@ def _copy_columns_by_position(
         target.iloc[row_positions, target.columns.get_loc(column)] = source[column].array
 
 
+def filter_verified_hyperevm_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
+    """Keep observations with known valuation units and source for reviewed HyperEVM vaults.
+
+    Legacy HYPED prices may have been decoded with zero denomination decimals.
+    Legacy Pear archive reads lack a verified HyperCore valuation. Migrations
+    082 and 083 preserve these rows in raw storage for inspection. Both the
+    published series and the manual Pear report filter them before computing returns.
+
+    :param prices_df: Raw prices with integer chain, lower-case address and optional
+        vault_poll_frequency source label. Old files may omit the label entirely.
+    :return: Eligible observations in input order, including every row from other vaults.
+    """
+    reviewed = prices_df["chain"].eq(HYPEREVM_CHAIN_ID) & prices_df["address"].isin(HYPEREVM_LATEST_NAV_ADDRESSES)
+    if not reviewed.any():
+        return prices_df
+    if "vault_poll_frequency" in prices_df:
+        source = prices_df["vault_poll_frequency"]
+        verified = source.eq("latest") | (source.eq("pear_api") & prices_df["address"].isin(PEAR_FIRST_DEPOSIT_BLOCKS))
+        reviewed = reviewed & ~verified.fillna(False)
+    return prices_df.loc[~reviewed] if reviewed.any() else prices_df
+
+
 def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestration API
     rows: dict[VaultSpec, VaultRow] | VaultDatabase,
     prices_df: pd.DataFrame,
@@ -2196,10 +2253,16 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
         logger=logger,
     )
 
+    prices_df = filter_verified_hyperevm_prices(prices_df)
+
     # Add the wide compatibility/state columns only after the selected family
     # has been reduced.  This preserves every output default while shrinking
     # all later groupby, sort and cleaner allocations.
     prices_df = ensure_vault_state_columns(prices_df)
+    # A full clean also visits the Hypercore transform, which normalises these
+    # defaults across the frame. Apply the same defaults to EVM-only subsets.
+    prices_df["epoch_reset"] = prices_df["epoch_reset"].fillna(False)
+    prices_df["hypercore_repair_status"] = prices_df["hypercore_repair_status"].fillna("")
     prices_df = derive_deposit_closed_reason(prices_df)
     assign_vault_names(rows, prices_df)
     prices_df = add_denormalised_vault_data(rows, prices_df, logger)
@@ -2342,9 +2405,11 @@ def process_raw_vault_scan_data(  # noqa: PLR0914 - established cleaner orchestr
         display(vault_prices_df)
 
     tvl_threshold: float | Mapping[str, float] | Callable[[str], float] = 1000.0
-    if families != {DenominationFamily.stablecoin}:
+    if families == {DenominationFamily.stablecoin}:
+        tvl_threshold = {spec.as_string_id(): float(BUOY_MIN_TVL_USD) if ERC4626Feature.buoy_like in v["_detection_data"].features else 1000.0 for spec, v in rows.items()}
+    else:
         base_guideline = crypto_min_tvl_usd or Decimal(os.environ.get("CRYPTO_VAULTS_MIN_TVL_USD", "5000"))
-        tvl_threshold = {str(v["_detection_data"].chain) + "-" + v["_detection_data"].address: float(convert_usd_threshold_to_denomination(base_guideline, v["Denomination"])) for v in rows.values() if classify_denomination(v["Denomination"]) in families}
+        tvl_threshold = {spec.as_string_id(): float(convert_usd_threshold_to_denomination(base_guideline, row["Denomination"])) for spec, row in rows.items() if classify_denomination(row["Denomination"]) in families}
 
     stage_input_rows = len(prices_df)
     stage_started_at = time.perf_counter()
@@ -2389,9 +2454,13 @@ def materialise_daily_crypto_prices(prices_df: pd.DataFrame) -> pd.DataFrame:
         the existing cleaned-price schema.
     """
     frame = prices_df.reset_index() if "timestamp" not in prices_df.columns else prices_df.copy()
+    if frame.empty:
+        return frame.set_index("timestamp")
     frame["timestamp"] = pd.to_datetime(frame["timestamp"])
     share_prices = pd.to_numeric(frame["share_price"], errors="coerce").to_numpy(dtype=float, na_value=np.nan)
     frame = frame.loc[np.isfinite(share_prices) & (share_prices >= 0) & frame["timestamp"].notna()]
+    if frame.empty:
+        return frame.set_index("timestamp")
     frame["_utc_date"] = frame["timestamp"].dt.floor("D")
     sort_columns = ["id", "timestamp"]
     if "block_number" in frame.columns:
@@ -2466,7 +2535,7 @@ def write_daily_crypto_prices_sidecar(
             expected_rows=len(daily_prices),
             required_columns=["id", "share_price", "timestamp", "returns_1h"],
         )
-        os.replace(temporary_path, destination_path)
+        publish_verified_parquet(temporary_path, destination_path)
     finally:
         temporary_path.unlink(missing_ok=True)
     logger(f"Vault cleaning stage daily sidecar write: {len(daily_prices):,} rows to {destination_path} in {time.perf_counter() - started_at:.2f}s")
@@ -2485,6 +2554,9 @@ def check_missing_metadata(
 
     If there are vaults with price data but no metadata, they are logged
     at error level and their IDs returned so the caller can drop them.
+    Check that the metadata index still uses the database's canonical keys
+    before dropping rows. A checksummed detection address must not hide a
+    catalogue entry for a canonical price ID.
 
     :param rows:
         Metadata rows keyed by vault specification.
@@ -2497,6 +2569,8 @@ def check_missing_metadata(
     :return:
         Set of vault IDs that are missing from the metadata.
         These should be dropped from the price data before further processing.
+    :raises AssertionError:
+        The metadata index omitted a canonical price ID present in the database.
 
     Performance history
     -------------------
@@ -2521,6 +2595,9 @@ def check_missing_metadata(
     missing_ids = set(unique_price_ids) - set(vaults_by_id)
 
     if missing_ids:
+        missed_catalogue_ids = missing_ids.intersection(spec.as_string_id() for spec in rows)
+        assert not missed_catalogue_ids, f"Price metadata index missed canonical vault IDs: {sorted(missed_catalogue_ids)}"
+
         # Restrict the groupby to missing rows and aggregate all diagnostic
         # fields once.  The old per-ID boolean scan multiplied its cost by the
         # number of missing vaults and competed with the main denomination
@@ -2552,6 +2629,34 @@ def check_missing_metadata(
     return missing_ids
 
 
+def _canonicalise_price_addresses(prices: pd.DataFrame) -> None:
+    """Normalise stored address aliases before deriving chain-scoped vault IDs.
+
+    Solana account text is case-sensitive until encoded as a storage key.
+    Decode distinct native inputs once and use vectorised folding elsewhere.
+
+    :param prices: Raw DataFrame with integer chain and string address columns.
+    """
+    addresses = prices["address"]
+    solana = prices["chain"].eq(SOLANA_CHAIN_ID)
+    aliases = {address: VaultSpec(SOLANA_CHAIN_ID, address).vault_address for address in addresses.loc[solana].unique()}
+    canonical = addresses.str.lower()
+    if aliases:
+        canonical.loc[solana] = addresses.loc[solana].map(aliases)
+    # A legacy address spelling can introduce a new collision. Check only
+    # the affected addresses and retain the established handling of multiple
+    # observations already written under the same spelling.
+    alias_keys = canonical.loc[canonical.ne(addresses)].unique()
+    if len(alias_keys) and ("timestamp" in prices or prices.index.name == "timestamp"):
+        affected = canonical.isin(alias_keys)
+        keys = prices.loc[affected, ["chain", "address"]].copy()
+        keys["canonical"] = canonical.loc[affected]
+        keys["timestamp"] = prices.loc[affected, "timestamp"] if "timestamp" in prices else keys.index
+        if keys.drop_duplicates().duplicated(["chain", "canonical", "timestamp"]).any():
+            raise ValueError("Conflicting address aliases for the same chain and price timestamp")
+    prices["address"] = canonical
+
+
 def _build_vault_price_dataset_filter(vault_specs: Collection[VaultSpec]) -> ds.Expression:
     """Build an exact Arrow predicate for a set of chain/address identities.
 
@@ -2567,16 +2672,19 @@ def _build_vault_price_dataset_filter(vault_specs: Collection[VaultSpec]) -> ds.
     """
     addresses_by_chain: dict[int, set[str]] = defaultdict(set)
     for spec in vault_specs:
-        # ``VaultSpec`` normalises addresses to lowercase, but keep the
-        # normalisation explicit here because raw scanner Parquet is written
-        # with lowercase address strings and Arrow comparisons are exact.
-        addresses_by_chain[spec.chain_id].add(spec.vault_address.lower())
+        addresses_by_chain[spec.chain_id].add(spec.vault_address)
     if not addresses_by_chain:
         # ``isin([])`` is a valid false predicate and keeps an empty metadata
         # selection from accidentally falling back to a full raw-file read.
         return ds.field("chain").isin([])
 
-    predicates = [(ds.field("chain") == chain_id) & ds.field("address").isin(sorted(addresses)) for chain_id, addresses in addresses_by_chain.items()]
+    address_field = ds.field("address")
+    predicates = []
+    for chain_id, addresses in addresses_by_chain.items():
+        matches = pc.utf8_lower(address_field).isin(sorted(addresses))
+        if chain_id == SOLANA_CHAIN_ID:
+            matches |= address_field.isin(sorted(decode_solana_vault_address(address) for address in addresses if is_solana_vault_address(address)))
+        predicates.append((ds.field("chain") == chain_id) & matches)
     predicate = predicates[0]
     for additional_predicate in predicates[1:]:
         predicate |= additional_predicate
@@ -2702,6 +2810,7 @@ def generate_cleaned_vault_datasets(  # noqa: PLR0914,PLR0917 - stable cleaner o
         identity_started_at = time.perf_counter()
         identity_table = dataset.to_table(columns=["chain", "address", "timestamp"])
         identity_frame = identity_table.to_pandas(types_mapper=pd.ArrowDtype)
+        _canonicalise_price_addresses(identity_frame)
         identity_frame["id"] = identity_frame["chain"].astype(str) + "-" + identity_frame["address"].astype(str)
         check_missing_metadata(rows, identity_frame["id"], identity_frame, logger)
         logger(f"Vault cleaning stage metadata identity scan: {len(identity_frame):,} rows in {time.perf_counter() - identity_started_at:.2f}s")
@@ -2795,7 +2904,7 @@ def generate_cleaned_vault_datasets(  # noqa: PLR0914,PLR0917 - stable cleaner o
             ],
         )
         logger(f"Vault cleaning stage Parquet verification: {len(enhanced_prices_df):,} rows in {time.perf_counter() - verify_started_at:.2f}s")
-        os.replace(temp_path, str(cleaned_price_df_path))
+        publish_verified_parquet(Path(temp_path), cleaned_price_df_path)
     except BaseException:
         if os.path.exists(temp_path):
             os.unlink(temp_path)
@@ -2867,7 +2976,7 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
         Number of cleaned rows written for the selected vaults.
     """
 
-    canonical_ids = sorted(vault_id.lower() for vault_id in vault_ids)
+    canonical_ids = sorted({VaultSpec.parse_string(vault_id).as_string_id() for vault_id in vault_ids})
     if not canonical_ids:
         message = "vault_ids must not be empty"
         raise ValueError(message)
@@ -2878,55 +2987,83 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
 
     vault_specs = [VaultSpec.parse_string(vault_id) for vault_id in canonical_ids]
     logger(f"Loading raw histories for {len(canonical_ids):,} selected vaults from {raw_price_df_path}")
-    raw_reader = pq.ParquetFile(raw_price_df_path)
-    required_raw_columns = {"chain", "address"}
-    missing_raw_columns = required_raw_columns - set(raw_reader.schema_arrow.names)
-    if missing_raw_columns:
-        raise ValueError(f"Raw price database is missing required columns: {sorted(missing_raw_columns)}")
-
-    selected_raw_batches: list[pa.Table] = []
-    for batch in raw_reader.iter_batches(batch_size=100_000):
-        raw_table = pa.Table.from_batches([batch])
-        pair_mask = pc.and_(
-            pc.equal(raw_table["chain"], vault_specs[0].chain_id),
-            pc.equal(raw_table["address"], vault_specs[0].vault_address),
-        )
-        for spec in vault_specs[1:]:
-            pair_mask = pc.or_(
-                pair_mask,
-                pc.and_(
-                    pc.equal(raw_table["chain"], spec.chain_id),
-                    pc.equal(raw_table["address"], spec.vault_address),
-                ),
-            )
-        selected_raw = raw_table.filter(pair_mask)
-        if selected_raw.num_rows:
-            selected_raw_batches.append(selected_raw)
-
-    raw_prices_df = pa.concat_tables(selected_raw_batches).to_pandas(types_mapper=pd.ArrowDtype) if selected_raw_batches else pd.DataFrame()
-    if raw_prices_df.empty:
+    dataset = ds.dataset(raw_price_df_path, format="parquet")
+    raw_prices_df = dataset.to_table(filter=_build_vault_price_dataset_filter(vault_specs)).to_pandas(types_mapper=pd.ArrowDtype)
+    if raw_prices_df.empty and require_all_cleaned:
         raise ValueError(f"No raw price rows found for selected vault ids: {', '.join(canonical_ids)}")
 
     logger(f"Loading vault metadata from {vault_db_path}")
     vault_db = VaultDatabase.read(vault_db_path)
-    cleaned_selected_df = process_raw_vault_scan_data(vault_db.rows, raw_prices_df, logger=logger)
-    cleaned_selected_df = merge_vault_settlements_into_cleaned_prices(cleaned_selected_df, settlement_db_path=settlement_db_path)
+    if raw_prices_df.empty:
+        cleaned_selected_df = pd.DataFrame()
+    else:
+        cleaned_selected_df = process_raw_vault_scan_data(vault_db.rows, raw_prices_df, logger=logger)
+        cleaned_selected_df = merge_vault_settlements_into_cleaned_prices(cleaned_selected_df, settlement_db_path=settlement_db_path)
+
+    return replace_cleaned_price_rows(cleaned_price_df_path, set(canonical_ids), cleaned_selected_df, logger=logger, require_all_cleaned=require_all_cleaned)
+
+
+def replace_cleaned_price_rows(
+    cleaned_price_df_path: Path,
+    canonical_ids: set[str],
+    cleaned_selected_df: pd.DataFrame,
+    *,
+    logger: Callable[[str], None],
+    require_all_cleaned: bool = False,
+    allow_empty_output: bool = True,
+    allow_same_timestamp_blocks: bool = False,
+) -> int:
+    """Install prepared complete vault histories while stream-copying other rows.
+
+    The hourly and daily products use the same replacement and verification
+    code. An empty selected frame explicitly removes the selected histories.
+
+    :param cleaned_price_df_path: Existing cleaned Parquet ordered by id and time.
+    :param canonical_ids: Vault identities owned by this replacement.
+    :param cleaned_selected_df: Prepared rows with id and timestamp keys.
+    :param logger: Progress callback.
+    :param require_all_cleaned: Require at least one replacement row for each id.
+    :param allow_empty_output: Permit a valid replacement to empty this product.
+    :param allow_same_timestamp_blocks: For hourly histories, allow observations
+        for the same vault and timestamp when each has a distinct positive
+        block number. Native observations use zero for the block number.
+    :return: Number of replacement rows published.
+    """
     if "timestamp" not in cleaned_selected_df.columns and cleaned_selected_df.index.name == "timestamp":
         cleaned_selected_df = cleaned_selected_df.reset_index()
+    if cleaned_selected_df.empty and not require_all_cleaned:
+        cleaned_selected_df = pd.DataFrame(columns=["id", "timestamp"])
 
     missing_cleaned_columns = {"id", "timestamp"} - set(cleaned_selected_df.columns)
     if missing_cleaned_columns:
         raise ValueError(f"Selected cleaned histories are missing required columns: {sorted(missing_cleaned_columns)}")
 
-    cleaned_ids = set(cleaned_selected_df["id"].astype(str).str.lower())
+    cleaned_ids = set(cleaned_selected_df["id"].astype(str))
+    timestamp_key = ["id", "timestamp"]
+    invalid_key_message = "Invalid or duplicate cleaned replacement price keys"
+    if cleaned_ids - canonical_ids or cleaned_selected_df[timestamp_key].isna().any().any():
+        raise ValueError(invalid_key_message)
+    repeated_timestamps = cleaned_selected_df.duplicated(timestamp_key, keep=False)
+    if repeated_timestamps.any():
+        if not allow_same_timestamp_blocks or "block_number" not in cleaned_selected_df:
+            raise ValueError(invalid_key_message)
+        repeated_keys = cleaned_selected_df.loc[repeated_timestamps, [*timestamp_key, "block_number"]]
+        blocks = repeated_keys["block_number"]
+        if blocks.isna().any() or blocks.le(0).any() or repeated_keys.duplicated().any():
+            message = "Same-timestamp cleaned replacement prices require distinct positive block numbers"
+            raise ValueError(message)
     missing_cleaned_ids = set(canonical_ids) - cleaned_ids
     if missing_cleaned_ids and require_all_cleaned:
         raise ValueError(f"Cleaning removed all rows for selected vault ids; refusing to replace existing histories: {', '.join(sorted(missing_cleaned_ids))}")
-    cleaned_selected_df.sort_values(by=["id", "timestamp"], inplace=True)
+    # The stable multi-column sort preserves the full cleaner's order for
+    # same-timestamp rows, whose returns were computed in that order.
+    cleaned_selected_df.sort_values(by=timestamp_key, inplace=True)
 
     existing_reader = pq.ParquetFile(cleaned_price_df_path)
     output_schema = existing_reader.schema_arrow
-    selected_table = pa.Table.from_pandas(cleaned_selected_df)
+    # Sorting combined histories can turn a RangeIndex into integer row
+    # labels. Only the explicit timestamp column belongs in the output.
+    selected_table = pa.Table.from_pandas(cleaned_selected_df, preserve_index=False)
     unexpected_columns = set(selected_table.schema.names) - set(output_schema.names)
     if unexpected_columns:
         raise ValueError(f"Selected cleaned histories contain columns missing from {cleaned_price_df_path}: {sorted(unexpected_columns)}")
@@ -2943,7 +3080,7 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
     selected_table = pa.Table.from_arrays(selected_columns, schema=output_schema)
     selected_sort_keys = list(zip(selected_table["id"].to_pylist(), selected_table["timestamp"].to_pylist(), strict=True))
 
-    value_set = pa.array(canonical_ids, type=pa.string())
+    value_set = pa.array(sorted(canonical_ids), type=pa.string())
     temp_fd, temp_path = tempfile.mkstemp(suffix=".parquet", dir=str(cleaned_price_df_path.parent))
     os.close(temp_fd)
     retained_rows = 0
@@ -2952,7 +3089,7 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
         with pq.ParquetWriter(temp_path, output_schema, compression="zstd") as writer:
             for batch in existing_reader.iter_batches(batch_size=100_000):
                 table = pa.Table.from_batches([batch]).replace_schema_metadata(output_schema.metadata)
-                retained = table.filter(pc.invert(pc.is_in(table["id"], value_set=value_set)))
+                retained = table.filter(pc.invert(pc.is_in(pc.utf8_lower(table["id"]), value_set=value_set)))
                 if retained.num_rows:
                     retained_row_count = retained.num_rows
                     last_sort_key = (retained["id"][-1].as_py(), retained["timestamp"][-1].as_py())
@@ -2970,12 +3107,14 @@ def replace_cleaned_vault_histories(  # noqa: PLR0914
                 writer.write_table(selected_table.slice(selected_row_offset))
 
         expected_rows = retained_rows + selected_table.num_rows
+        if not expected_rows and not allow_empty_output:
+            raise ValueError("Refusing to replace the public cleaned vault price dataset with zero rows")
         verify_parquet_file(
             temp_path,
             expected_rows=expected_rows,
             expected_schema=output_schema,
         )
-        os.replace(temp_path, cleaned_price_df_path)
+        publish_verified_parquet(Path(temp_path), cleaned_price_df_path)
     except BaseException:
         if os.path.exists(temp_path):
             os.unlink(temp_path)

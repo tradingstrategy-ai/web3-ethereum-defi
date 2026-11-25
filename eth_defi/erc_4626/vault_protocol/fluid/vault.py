@@ -1,7 +1,8 @@
-"""Fluid fToken vault support.
+"""Fluid fToken and Lite vault support.
 
 Fluid is a DeFi lending protocol by Instadapp featuring ERC-4626 compliant fToken vaults.
-Users deposit assets to earn yield through the liquidity layer.
+fToken deposits earn yield through the liquidity layer. Fluid Lite is a separate
+ERC-4626 USDC vault on Ethereum.
 
 - `Protocol homepage <https://fluid.io/>`__
 - `Documentation <https://docs.fluid.instadapp.io/>`__
@@ -25,21 +26,26 @@ from typing import Iterable
 from eth_typing import BlockIdentifier
 from web3 import Web3
 from web3.exceptions import ContractLogicError
-from eth_defi.provider.fallback import ExtraValueError
 
 from eth_defi.erc_4626.vault import ERC4626HistoricalReader, ERC4626Vault
 from eth_defi.erc_4626.vault_protocol.fluid.tags import STRATEGY_TAGS
 from eth_defi.event_reader.multicall_batcher import EncodedCall, EncodedCallResult
+from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.types import Percent
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultHistoricalRead, VaultHistoricalReader, WithdrawalPeriod
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_strategy_tags
-from eth_defi.vault.withdrawal_capacity_readers import fluid_observation
+from eth_defi.vault.withdrawal_capacity_readers import erc4626_observation, fluid_observation
 
 logger = logging.getLogger(__name__)
 
+#: EIP-1967 proxy implementation slot.
+_IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
+#: Reviewed Fluid Lite implementation from the Fluid Lite integration docs.
+_LITE_IMPLEMENTATION = bytes.fromhex("e16ccc91a8134d428e7b6240177f9e2b227b9743")
+
 
 class FluidVault(ERC4626Vault):
-    """Fluid fToken vault support.
+    """Fluid fToken and Lite vault support.
 
     Fluid is a DeFi lending protocol by Instadapp where users can deposit assets
     to earn yield. The protocol uses ERC-4626 compliant fTokens to represent
@@ -58,17 +64,38 @@ class FluidVault(ERC4626Vault):
     """
 
     def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
-        """Read block-pinned assets while preserving unknown route constraints.
+        """Read withdrawal capacity at a fixed block.
+
+        Fluid Lite uses a separate withdrawal route. Its observation records TVL
+        and idle USDC while capacity remains unknown.
 
         :param block_identifier: Numeric source block.
-        :return: Primitive buffer and TVL observation.
+        :return: Withdrawal-capacity observation with amounts in denomination token units.
         """
+        if self._fetch_is_lite(block_identifier):
+            data = erc4626_observation(self, block_identifier)
+            data["reason"] = "Liquidity available through the Fluid Lite withdrawal route is unknown"
+            return data
         return fluid_observation(self, block_identifier)
 
+    def _fetch_is_lite(self, block_identifier: BlockIdentifier) -> bool:
+        """Identify the reviewed Fluid Lite implementation at the requested block.
+
+        The EIP-1967 slot lets historical reads follow proxy upgrades. The
+        reviewed address is listed in the `Fluid Lite integration docs
+        <https://docs.fluid.instadapp.io/lite-usd/index.html#contract-addresses>`__.
+
+        :param block_identifier: Block at which to read the proxy storage.
+        :return: Whether the proxy points to the reviewed Lite implementation.
+        """
+        implementation = self.web3.eth.get_storage_at(self.address, _IMPLEMENTATION_SLOT, block_identifier=block_identifier)
+        return implementation[-20:] == _LITE_IMPLEMENTATION
+
     def is_whitelisted_deposit(self) -> bool:
-        """Fluid fToken and Lite deposits have no depositor allowlist.
+        """Check deposit admission for recognised Fluid interfaces.
 
         :return: ``False`` for the public deposit policy.
+        :raises NotImplementedError: If the deployment interface is unrecognised.
         """
         block = self._get_block_identifier()
         try:
@@ -79,11 +106,7 @@ class FluidVault(ERC4626Vault):
         # uint256 values. The first two identify Liquidity and LendingFactory.
         if len(liquidity) == 9 * 32 and all(int.from_bytes(liquidity[i : i + 32], "big") for i in (0, 32)) and int.from_bytes(liquidity[5 * 32 : 6 * 32], "big") in (0, 1):
             return False
-        # Fluid Lite uses a different interface. Only its reviewed implementation
-        # is covered; a name containing Fluid is not admission evidence.
-        slot = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation"), "big") - 1
-        implementation = self.web3.eth.get_storage_at(self.address, slot, block_identifier=block)
-        if implementation[-20:].hex() == "e16ccc91a8134d428e7b6240177f9e2b227b9743":
+        if self._fetch_is_lite(block):
             return False
         raise NotImplementedError(f"Unrecognised Fluid admission interface for {self.address}")
 

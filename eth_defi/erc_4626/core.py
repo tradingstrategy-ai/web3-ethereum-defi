@@ -15,6 +15,8 @@ from web3.contract import Contract
 
 from eth_defi.abi import get_contract, get_deployed_contract
 from eth_defi.erc_4626.vault_protocol.lagoon.constants import is_kamui_lagoon_vault
+from eth_defi.erc_4626.vault_protocol.pear.constants import PEAR_FIRST_DEPOSIT_BLOCKS
+from eth_defi.event_reader.multicall_batcher import HYPEREVM_CHAIN_ID
 from eth_defi.vault.base import VaultSpec
 
 #: Minimum deposit events for a vault to be included in the price scanner.
@@ -996,6 +998,9 @@ class ERC4626Feature(enum.Enum):
     #: https://crystalclear.finance/
     crystalclear_like = "crystalclear_like"
 
+    #: Pear trading vaults on HyperEVM.
+    pear_like = "pear_like"
+
     #: 3Jane
     #:
     #: Decentralised credit-based money market issuing the USD3 (senior) and
@@ -1026,6 +1031,9 @@ class ERC4626Feature(enum.Enum):
     #: vault address is separate from the ERC-20 ShareManager.
     #: https://docs.mellow.finance/core-vaults
     mellow_like = "mellow_like"
+
+    #: Buoy published-accounting vault; bespoke Router requests, read-only.
+    buoy_like = "buoy_like"
 
     #: Enzyme Onyx Shares vault.
     #:
@@ -1085,6 +1093,31 @@ LENDING_PROTOCOL_FEATURES: frozenset[ERC4626Feature] = frozenset(
 )
 
 
+#: HyperEVM deployments whose NAV depends on HyperCore's current state. HYPED
+#: reads staking balances from precompiles; other Hyperdrive products can have
+#: ordinary archive-readable NAV. The initial Pear addresses also match older
+#: catalogue rows saved before the factory classifier recognised the protocol.
+#: See docs/README-hyperevm-hypercore-read-gas.md for the HYPED measurements.
+HYPEREVM_LATEST_NAV_ADDRESSES = frozenset({*PEAR_FIRST_DEPOSIT_BLOCKS, "0x4d0ff6a0dd9f7316b674fb37993a3ce28bea340e"})
+
+
+def uses_hyperevm_latest_nav(chain_id: int, address: HexAddress, features: set[ERC4626Feature] | None) -> bool:
+    """Select the current-state valuation pass for a reviewed vault.
+
+    Both catalogue metadata and the price scanner use this rule. Use a protocol
+    feature when all its deployments require live state, or a deployment address
+    when the dependency is strategy-specific. A failed archive RPC request alone
+    cannot distinguish a HyperCore dependency from a temporary provider outage.
+    The scanner's normal admission and blacklist decisions still apply.
+
+    :param chain_id: EVM chain on which the vault is deployed.
+    :param address: Vault proxy address, in either checksum or lowercase form.
+    :param features: Features available from the catalogue or the vault adapter.
+    :return: Whether to observe NAV at the literal latest tag on HyperEVM mainnet.
+    """
+    return chain_id == HYPEREVM_CHAIN_ID and (address.lower() in HYPEREVM_LATEST_NAV_ADDRESSES or ERC4626Feature.pear_like in (features or ()))
+
+
 def is_lending_protocol(features: set[ERC4626Feature]) -> bool:
     """Check if the vault features indicate a lending protocol.
 
@@ -1136,6 +1169,7 @@ def is_activity_filter_exempt(detection: "ERC4262VaultDetection") -> bool:
     protocol_exempt = any(
         feature in detection.features
         for feature in (
+            ERC4626Feature.buoy_like,
             ERC4626Feature.mellow_like,
             ERC4626Feature.enzyme_onyx_like,
             ERC4626Feature.enzyme_blue_like,
@@ -1221,6 +1255,8 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
         return GENERIC_ERC4626_PROTOCOL_NAME
     elif ERC4626Feature.broken in features:
         return "<not ERC-4626>"
+    elif ERC4626Feature.buoy_like in features:
+        return "Buoy"
     elif ERC4626Feature.mellow_like in features:
         return "Mellow"
     elif ERC4626Feature.enzyme_onyx_like in features or ERC4626Feature.enzyme_blue_like in features:
@@ -1603,6 +1639,9 @@ def get_vault_protocol_name(features: set[ERC4626Feature]) -> str:
 
     elif ERC4626Feature.crystalclear_like in features:
         return "CrystalClear"
+
+    elif ERC4626Feature.pear_like in features:
+        return "Pear"
 
     # No idea
     if ERC4626Feature.erc_7540_like in features:

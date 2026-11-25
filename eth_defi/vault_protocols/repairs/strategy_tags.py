@@ -44,6 +44,7 @@ from eth_defi.erc_4626.vault_protocol.morpho.tags import get_strategy_tags as ge
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_MARKETS_CHAIN_ID
 from eth_defi.erc_4626.vault_protocol.nova_markets.tags import STRATEGY_TAGS as NOVA_MARKETS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.panoptic.tags import STRATEGY_TAGS as PANOPTIC_STRATEGY_TAGS
+from eth_defi.erc_4626.vault_protocol.pear.tags import get_pear_strategy_tags
 from eth_defi.erc_4626.vault_protocol.plutus.tags import STRATEGY_TAGS as PLUTUS_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.symbiotic.tags import STRATEGY_TAGS as SYMBIOTIC_STRATEGY_TAGS
 from eth_defi.erc_4626.vault_protocol.threejane.tags import STRATEGY_TAGS as THREEJANE_STRATEGY_TAGS
@@ -64,8 +65,10 @@ from eth_defi.tokenised_fund.securitize.tags import STRATEGY_TAGS as SECURITIZE_
 from eth_defi.tokenised_fund.spiko.tags import STRATEGY_TAGS as SPIKO_STRATEGY_TAGS
 from eth_defi.utils import setup_console_logging
 from eth_defi.vault.base import VaultSpec
+from eth_defi.vault.podcast_tags import add_podcast_available_tag
 from eth_defi.vault.strategy_tag import StrategyTag, lookup_curator_strategy_tags, lookup_strategy_tags
 from eth_defi.vault.vaultdb import DEFAULT_VAULT_DATABASE, VaultDatabase, VaultRow
+from eth_defi.vault_protocols.migration import MigrationContext
 
 logger = logging.getLogger(__name__)
 
@@ -218,6 +221,7 @@ EVM_ADAPTER_FEATURE_PRIORITY: tuple[ERC4626Feature, ...] = (
     ERC4626Feature.forty_acres_like,
     ERC4626Feature.forgeyields_like,
     ERC4626Feature.crystalclear_like,
+    ERC4626Feature.pear_like,
 )
 
 EVM_STRATEGY_TAG_RESOLVERS: dict[ERC4626Feature, StrategyTagResolver] = {
@@ -362,7 +366,7 @@ def create_backup_path(vault_db_path: Path) -> Path:
         backup_index += 1
 
 
-def _normalise_persisted_tags(value: object) -> tuple[set[StrategyTag] | None, bool]:
+def normalise_persisted_strategy_tags(value: object) -> tuple[set[StrategyTag] | None, bool]:
     """Convert a legacy persisted tag collection to enum members.
 
     :param value:
@@ -442,6 +446,12 @@ def resolve_strategy_tags(spec: VaultSpec, row: VaultRow) -> tuple[set[StrategyT
             return None
         return (accountable_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
 
+    if evm_feature == ERC4626Feature.pear_like:
+        pear_tags = get_pear_strategy_tags(spec.chain_id, spec.vault_address)
+        if pear_tags is None and curator_tags is None:
+            return None
+        return (pear_tags or set()) | (curator_tags or set()), f"{protocol_name} chain-aware tag resolver"
+
     if evm_feature == ERC4626Feature.yearn_v3_like:
         yearn_tags = get_yearn_strategy_tags(spec.chain_id, spec.vault_address) or lookup_erc4626_strategy_tags(spec.chain_id, spec.vault_address)
         if yearn_tags is None and curator_tags is None:
@@ -494,7 +504,7 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
     invalid_tag_rows = 0
     for spec, row in vault_db.rows.items():
         try:
-            current_tags, persisted_tags_canonical = _normalise_persisted_tags(row.get("_strategy_tags"))
+            current_tags, persisted_tags_canonical = normalise_persisted_strategy_tags(row.get("_strategy_tags"))
             if not persisted_tags_canonical:
                 invalid_tag_rows += 1
                 logger.warning("Found legacy or malformed strategy tags for %s", spec.as_string_id())
@@ -510,6 +520,7 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
             continue
 
         new_tags, source = resolved
+        new_tags = add_podcast_available_tag(spec.chain_id, spec.vault_address, new_tags)
         normalised_new_tags = None if new_tags is None else set(new_tags)
         if persisted_tags_canonical and current_tags == normalised_new_tags:
             continue
@@ -525,6 +536,40 @@ def collect_strategy_tag_updates(vault_db: VaultDatabase) -> tuple[tuple[Strateg
         )
 
     return tuple(updates), skipped_rows, invalid_tag_rows
+
+
+def stage_hyperliquid_strategy_tags(context: MigrationContext, targets: tuple[VaultSpec, ...]) -> None:
+    """Stage current strategy tags for reviewed Hyperliquid deployments.
+
+    Validate the protocol evidence for every present target before staging tag
+    changes. The runner manages preview, backups and atomic persistence.
+
+    :param context: Guarded migration attempt and shared metadata database.
+    :param targets: Fixed Hypercore deployments listed by the numbered migration.
+    :return: ``None`` after staging changes and reporting missing deployments.
+    :raises ValueError: If a target lacks Hyperliquid identity or resolvable tags.
+    """
+    database = context.metadata()
+    target_rows = {spec: database.rows[spec] for spec in targets if spec in database.rows}
+    for spec, row in target_rows.items():
+        detection = row.get("_detection_data")
+        if row.get("Protocol") != "Hyperliquid" or not isinstance(detection, ERC4262VaultDetection) or ERC4626Feature.hypercore_native not in detection.features:
+            raise ValueError(f"Target {spec.as_string_id()} is not classified as Hyperliquid native")
+
+    updates, skipped, invalid = collect_strategy_tag_updates(VaultDatabase(rows=target_rows))
+    if skipped or any(update.new_tags is None for update in updates):
+        message = "Could not resolve strategy tags for all reviewed Hyperliquid vaults"
+        raise ValueError(message)
+
+    for update in updates:
+        database.rows[update.spec]["_strategy_tags"] = set(update.new_tags)
+
+    context.report(
+        inspected_rows=len(target_rows),
+        missing_specs=[spec.as_string_id() for spec in targets if spec not in target_rows],
+        updated_fields=len(updates),
+        legacy_tag_rows=invalid,
+    )
 
 
 def migrate_vault_strategy_tags(

@@ -10,6 +10,7 @@ from functools import lru_cache
 from io import BytesIO
 from typing import Any
 
+import fpng
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageColor, ImageDraw
@@ -85,6 +86,21 @@ class SparklineData:
     end_at: pd.Timestamp
 
 
+def _finite_share_price_values(vault_prices_df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Return numeric share prices and the mask of usable observations.
+
+    :param vault_prices_df: Timestamp-indexed source rows for one vault.
+    :return: Float values and a mask excluding invalid prices and timestamps.
+    :raises ValueError: If no usable observation remains.
+    """
+    numeric_prices = pd.to_numeric(vault_prices_df["share_price"], errors="coerce")
+    numeric_values = numeric_prices.to_numpy(dtype=float, na_value=np.nan)
+    finite_mask = np.isfinite(numeric_values) & (numeric_values >= 0) & ~vault_prices_df.index.isna()
+    if not finite_mask.any():
+        raise ValueError("Cannot render sparkline without finite share prices")
+    return numeric_values, finite_mask
+
+
 def filter_finite_share_prices(vault_prices_df: pd.DataFrame) -> pd.DataFrame:
     """Return chart rows with valid timestamps and non-negative finite prices.
 
@@ -106,13 +122,7 @@ def filter_finite_share_prices(vault_prices_df: pd.DataFrame) -> pd.DataFrame:
     :raise ValueError:
         If the vault has no finite share-price observations to render.
     """
-    numeric_prices = pd.to_numeric(vault_prices_df["share_price"], errors="coerce")
-    numeric_values = numeric_prices.to_numpy(dtype=float, na_value=np.nan)
-    finite_mask = np.isfinite(numeric_values) & (numeric_values >= 0) & ~vault_prices_df.index.isna()
-    if not finite_mask.any():
-        message = "Cannot render sparkline without finite share prices"
-        raise ValueError(message)
-
+    numeric_values, finite_mask = _finite_share_price_values(vault_prices_df)
     filtered = vault_prices_df.iloc[finite_mask].copy()
     filtered["share_price"] = numeric_values[finite_mask]
     return filtered
@@ -203,7 +213,7 @@ def extract_vault_price_data(
 def _render_input(
     vault_prices_df: pd.DataFrame | SparklineData,
     x_axis_range: tuple[pd.Timestamp, pd.Timestamp] | None,
-) -> tuple[pd.DataFrame, pd.Timestamp, pd.Timestamp]:
+) -> tuple[pd.Series, pd.Timestamp, pd.Timestamp]:
     """Resolve render rows and stable chart bounds from one input object.
 
     :param vault_prices_df:
@@ -211,25 +221,22 @@ def _render_input(
     :param x_axis_range:
         Optional explicit chart bounds for legacy callers.
     :return:
-        Finite sorted rows and inclusive naive UTC chart bounds.
+        Finite share prices sorted by timestamp and inclusive naive UTC chart bounds.
     :raises ValueError:
         If the input has no finite prices or invalid bounds.
     """
     if isinstance(vault_prices_df, SparklineData):
         prices_df = vault_prices_df.prices_df
-        start_at = vault_prices_df.start_at
-        end_at = vault_prices_df.end_at
+        bounds = x_axis_range if x_axis_range is not None else (vault_prices_df.start_at, vault_prices_df.end_at)
     else:
         prices_df = vault_prices_df
-        if x_axis_range is None:
-            finite = filter_finite_share_prices(prices_df).sort_index()
-            start_at = finite.index[0]
-            end_at = finite.index[-1]
-        else:
-            start_at, end_at = x_axis_range
+        bounds = x_axis_range
 
-    if x_axis_range is not None:
-        start_at, end_at = x_axis_range
+    # Rendering uses the price and timestamp only. Avoid copying unrelated
+    # Parquet columns while filtering and sorting each image's input.
+    values, finite = _finite_share_price_values(prices_df)
+    prices = pd.Series(values[finite], index=prices_df.index[finite]).sort_index()
+    start_at, end_at = bounds if bounds is not None else (prices.index[0], prices.index[-1])
     start_at = pd.Timestamp(start_at)
     end_at = pd.Timestamp(end_at)
     if start_at.tzinfo is not None or end_at.tzinfo is not None:
@@ -239,7 +246,7 @@ def _render_input(
         raise ValueError(f"Sparkline bounds must be increasing: {start_at!s} >= {end_at!s}")
     if end_at == start_at:
         end_at = start_at + pd.Timedelta(days=1)
-    return filter_finite_share_prices(prices_df).sort_index(), start_at, end_at
+    return prices, start_at, end_at
 
 
 def _calculate_sparkline_coordinates(  # noqa: PLR0914
@@ -270,15 +277,15 @@ def _calculate_sparkline_coordinates(  # noqa: PLR0914
         Pixel coordinates and gradient baseline.
     """
     assert width > 0 and height > 0, f"Sparkline dimensions must be positive: {width}x{height}"
-    prices_df, start_at, end_at = _render_input(vault_prices_df, x_axis_range)
-    values = prices_df["share_price"].to_numpy(dtype=float)
+    prices, start_at, end_at = _render_input(vault_prices_df, x_axis_range)
+    values = prices.to_numpy(dtype=float)
     if values.size == 0:
         message = "Cannot render sparkline without finite share prices"
         raise ValueError(message)
     # Parquet-backed DatetimeIndex values may use microsecond resolution while
     # ``Timestamp.value`` is always nanoseconds.  Convert both sides to the
     # same unit before mapping timestamps onto the chart width.
-    timestamp_ns = prices_df.index.astype("datetime64[ns]").asi8
+    timestamp_ns = prices.index.astype("datetime64[ns]").asi8
     start_ns = start_at.value
     end_ns = end_at.value
     span_ns = end_ns - start_ns
@@ -340,11 +347,10 @@ def _svg_path(points: tuple[tuple[float, float], ...]) -> str:
     return " ".join(commands)
 
 
-def _svg_area_path(coordinates: SparklineCoordinates, line_points: tuple[tuple[float, float], ...]) -> str:
+def _svg_area_path(coordinates: SparklineCoordinates, line_points: tuple[tuple[float, float], ...], line_path: str) -> str:
     """Encode the step path closed against the data-space baseline."""
     first_x = line_points[0][0]
     last_x = line_points[-1][0]
-    line_path = _svg_path(line_points)
     return f"M {_format_svg_number(first_x)} {_format_svg_number(coordinates.baseline_y)} L {_format_svg_number(first_x)} {_format_svg_number(line_points[0][1])} {line_path[2:]} L {_format_svg_number(last_x)} {_format_svg_number(coordinates.baseline_y)} Z"
 
 
@@ -389,7 +395,7 @@ def render_sparkline_svg(
     )
     line_points = _step_line_points(coordinates, width=width)
     line_path = _svg_path(line_points)
-    area_path = _svg_area_path(coordinates, line_points) if not coordinates.is_constant else ""
+    area_path = _svg_area_path(coordinates, line_points, line_path) if not coordinates.is_constant else ""
     area_element = "" if coordinates.is_constant else f'<path d="{area_path}" fill="url(#sparkline-gradient)" />'
     # End the fade at the polygon baseline. Ending it at the canvas bottom
     # leaves a tinted row where the fill is clipped and creates a visible seam.
@@ -476,7 +482,12 @@ def render_sparkline_png(  # noqa: PLR0914
     bg_color: str = SPARKLINE_BACKGROUND_COLOR,
     x_axis_range: tuple[pd.Timestamp, pd.Timestamp] | None = None,
 ) -> bytes:
-    """Render a deterministic two-times-supersampled Pillow PNG.
+    """Render a lossless, two-times-supersampled square PNG.
+
+    Pillow draws the chart at twice the output resolution and averages each
+    2 × 2 block during downsampling. The
+    `fpng encoder <https://github.com/dofuuz/py-fpng-nb>`__ compresses the
+    resulting RGB pixels without changing the chart.
 
     :param vault_prices_df:
         Prepared sparkline data or a finite single-vault price frame.
@@ -512,6 +523,7 @@ def render_sparkline_png(  # noqa: PLR0914
     top_colour = ImageColor.getrgb(line_color)
     line_colour = ImageColor.getrgb(SPARKLINE_LINE_COLOR)
     image = Image.new("RGB", (scaled_width, scaled_height), background)
+    draw_points = [(round(x * scale), round(y * scale)) for x, y in line_points]
 
     if not coordinates.is_constant:
         gradient_end_row = min(scaled_height - 1, max(1, round(coordinates.baseline_y * scale)))
@@ -521,25 +533,17 @@ def render_sparkline_png(  # noqa: PLR0914
             _cached_sparkline_gradient(scaled_width, scaled_height, gradient_end_row, top_colour, background),
         )
         mask = Image.new("L", (scaled_width, scaled_height), 0)
-        mask_points = [(round(x * scale), round(y * scale)) for x, y in line_points]
-        first_x, _ = mask_points[0]
-        last_x, _ = mask_points[-1]
-        mask_points.extend(
-            [
-                (last_x, round(coordinates.baseline_y * scale)),
-                (first_x, round(coordinates.baseline_y * scale)),
-            ]
-        )
+        first_x, _ = draw_points[0]
+        last_x, _ = draw_points[-1]
+        baseline = round(coordinates.baseline_y * scale)
+        mask_points = [*draw_points, (last_x, baseline), (first_x, baseline)]
         ImageDraw.Draw(mask).polygon(mask_points, fill=round(255 * SPARKLINE_GRADIENT_ALPHA))
         image.paste(gradient, (0, 0), mask)
 
     draw = ImageDraw.Draw(image)
-    draw_points = [(round(x * scale), round(y * scale)) for x, y in line_points]
     draw.line(draw_points, fill=line_colour, width=max(1, round(line_width * scale)), joint="curve")
-    image = image.resize((width, height), Image.Resampling.LANCZOS)
-    buffer = BytesIO()
-    image.save(buffer, format="PNG", optimize=False, compress_level=9)
-    return buffer.getvalue()
+    image = image.resize((width, height), Image.Resampling.BOX)
+    return fpng.from_ndarray(np.asarray(image))
 
 
 def render_sparkline_simple(

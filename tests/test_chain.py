@@ -1,6 +1,7 @@
 """Chain / node feature tests."""
 
 import os
+from unittest.mock import Mock
 
 import pytest
 from web3 import HTTPProvider, Web3
@@ -86,10 +87,14 @@ def test_has_graphql_support():
     assert has_graphql_support(provider)
 
 
-def test_block_tip_latency():
-    """Check for the block tip latency by a provider."""
-
-    # Does not provide /graphql
-    provider = HTTPProvider("https://polygon-rpc.com/")
+def test_block_tip_latency(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A direct Polygon connection retains the zero-block default."""
+    provider = HTTPProvider("https://polygon.example")
+    # The RPC response supplies Polygon's chain ID without a public endpoint.
+    chain_id_request = Mock(return_value={"jsonrpc": "2.0", "id": 1, "result": "0x89"})
+    monkeypatch.setattr(provider, "make_request", chain_id_request)
     web3 = Web3(provider)
+
     assert get_block_tip_latency(web3) == 0
+    chain_id_request.assert_called_once()
+    assert chain_id_request.call_args.args[0] == "eth_chainId"

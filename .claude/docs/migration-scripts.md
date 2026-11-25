@@ -118,6 +118,25 @@ script or edit a successful script; add a new numbered correction instead.
 When changing accessory functions whose results are persisted, add another
 migration even if an earlier script called the same helper.
 
+The runner validates the entire packaged inventory before it starts a batch.
+Every script must include all seven literal labels in its module docstring:
+`Purpose:`, `Scope:`, `Branch:`, `PR title:`, `PR:`, `Preserves:` and
+`Expected:`. A missing label in any script blocks both preview and apply.
+
+Before pushing a new migration, run the discovery check from the worktree:
+
+```shell
+PYTHONPATH="$PWD" poetry run python -m eth_defi.vault_protocols.migration list
+```
+
+Check that the command exits successfully and lists the new filename. Have
+the migration's focused test resolve it through `discover_migrations()` so
+the test also exercises the packaged inventory. Calling `migrate(context)`
+directly bypasses discovery. Then preview through the runner on disposable
+data. To rehearse one script in isolation, copy it into a temporary scripts
+directory and call `run_pending_migrations(dry_run=True, data_dir=...,
+scripts_dir=...)` with the matching data copy.
+
 LLM-generated scripts require human review. Freeze exact reviewed address
 inventories, or explicitly describe a database-wide field transformation.
 Use shared protocol resolvers rather than copying business rules.
@@ -182,6 +201,12 @@ Preview must not write databases, the journal, backups, provider caches or log
 files. Put provider/token caches in `TemporaryDirectory`. Script imports must
 not perform network reads or data writes. Keep long operations observable with
 progress reporting; never include credentials in reports.
+
+### Repairs to vault price histories
+
+For a native price correction, repair the protocol-owned source used by the scanner. If the migration also rewrites native rows in the combined raw Parquet, remove the affected scope's entry from its `vault.native_revisions` footer, or remove the entire revision key if the affected scopes are unknown. Preserve unrelated Parquet metadata. Retaining a receipt for edited native history would allow the scanner to skip its next rebuild. An EVM-only rewrite can retain the footer when it preserves all native rows. The [scanner guide](../../scripts/erc-4626/README-vault-scripts.md#incremental-vault-price-publication) covers publication and recovery.
+
+[Migration 106](../../migration/scripts/106-apex-price-key-collisions.py) repairs historical ApeX duplicates in `vault-prices-1h.parquet`. Place the matching checkpointed `apex-vaults.duckdb` beside the raw file. Preview stages a temporary candidate on the data volume and checks its contents. Allow free space of at least twice the original Parquet size. Apply keeps the original as a hard-linked backup and invalidates the ApeX revision on repair. The enriched count covers rows reconstructed from source snapshots, whose values may differ from both old copies. The journal records the repair image commit. Inspect the reported removed and enriched row counts before restarting the scanner. Stop for investigation if the migration reports conflicting prices, ambiguous source observations or unresolved enrichment.
 
 ## Credentials and Docker configuration
 
@@ -269,6 +294,15 @@ separate numbered migration that follows it.
   for preview, local per-chain repair and the production run reminder. Do not
   use the legacy standalone healing script for a new persisted repair.
 
+#### HyperEVM vaults with current-state NAV
+
+For vaults whose NAV depends on current HyperCore state, the live ERC-4626
+reader records the execution block and timestamp at `latest`. When a protocol
+has retained historical observations, a numbered migration may use their
+source blocks and timestamps to fill the initial gap. Preserve existing rows
+and stop before the first covered sampling bucket so a retry cannot insert an
+earlier observation from that bucket. See [Pear migration 098](../../migration/scripts/098-pear-offchain-history.py).
+
 #### Monad
 
 [Monad full nodes retain all historical transaction data but only a
@@ -340,6 +374,17 @@ chain's price cursor plus one: the highest `last_block` of the chain in
 without its own reader state. See
 [`064-wildcat-price-backfill.py`](../../migration/scripts/064-wildcat-price-backfill.py)
 and its helpers in `eth_defi/vault_protocols/repairs/wildcat.py`.
+
+Lead discovery caches its result for seven days (`LEAD_DISCOVERY_STATE_TIMEOUT`),
+so a vault whose first deposit falls after the stored lead cursor stays out of
+the scanner, and the export, until the cache expires. To onboard such a reviewed
+ERC-4626 vault sooner, use
+[`vault_onboarding.py`](../../eth_defi/vault_protocols/repairs/vault_onboarding.py):
+it seeds the lead and metadata row, then backfills prices from the first deposit
+to the chain's price cursor plus one. The lead starts with zero flow counts,
+because discovery adds the vault's events when it resumes from the unchanged
+cursor. See
+[`082-llama-lend-wstgbp-crvusd.py`](../../migration/scripts/082-llama-lend-wstgbp-crvusd.py).
 
 Vaults whose readers need extra context, such as event observations or
 protocol-specific DuckDB tables, must prefill that context first, as the
@@ -473,6 +518,10 @@ writers before preview or apply:
 ```shell
 source ../vault-rpc.env && docker compose stop vault-scanner-looped post-scanner
 ```
+
+If upgrading from a deployment with a separate sparkline worker, follow the
+[sparkline upgrade instructions](../../scripts/erc-4626/README-vault-scripts.md#export-sparklinespy)
+before switching Compose configurations.
 
 Preview all pending migrations, then review the reported targets and changes
 before using the apply command above:

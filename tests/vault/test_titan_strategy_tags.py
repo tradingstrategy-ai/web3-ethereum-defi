@@ -69,7 +69,7 @@ def test_titan_migration_preview_apply_and_retry(titan_migration: tuple[Path, Pa
 
     assert len(runner.run_pending_migrations(dry_run=False, **options)) == 1
     after = VaultDatabase.read(path)
-    assert after.rows[TARGET]["_strategy_tags"] == {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}
+    assert after.rows[TARGET]["_strategy_tags"] == {StrategyTag.staff_pick, StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}
     before.rows[TARGET]["_strategy_tags"] = after.rows[TARGET]["_strategy_tags"]
     assert after == before
     assert all((data_dir / name).read_bytes() == payload for name, payload in original.items() if name != path.name)
@@ -101,7 +101,7 @@ def test_titan_migration_target_states(titan_migration: tuple[Path, Path], state
     if state == "missing":
         del database.rows[TARGET]
     elif state == "current":
-        database.rows[TARGET]["_strategy_tags"] = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}
+        database.rows[TARGET]["_strategy_tags"] = {StrategyTag.staff_pick, StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}
     elif state == "wrong_protocol":
         database.rows[TARGET]["Protocol"] = "Other"
     elif state == "malformed_detection":
@@ -131,7 +131,7 @@ def test_titan_export_strategy_tags() -> None:
 
     :return: ``None`` after validating exported and resolved tags.
     """
-    expected = {StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}
+    expected = {StrategyTag.staff_pick, StrategyTag.perpetual_futures, StrategyTag.algorithmic_trading, StrategyTag.high_frequency_high_win_rate}
     for address in (TARGET.vault_address, TARGET.vault_address.upper()):
         _, row = create_hyperliquid_vault_row(HexAddress(address), "Titan Vault", None, 1_000, datetime.datetime(2026, 11, 9))  # noqa: DTZ001 - Repository timestamps use naive UTC.
         assert row["_strategy_tags"] == expected

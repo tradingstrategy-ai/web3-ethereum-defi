@@ -212,7 +212,7 @@ def write_perp_vault_observation_bundle(
     return payload_hash
 
 
-def read_perp_vault_observations(connection: duckdb.DuckDBPyConnection) -> tuple[pd.DataFrame, pd.DataFrame]:
+def read_perp_vault_observations(connection: duckdb.DuckDBPyConnection, *, deployment: str | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Read account and position observations in derivation-ready order.
 
     The column lists are deliberately explicit and checked against the live
@@ -238,6 +238,8 @@ def read_perp_vault_observations(connection: duckdb.DuckDBPyConnection) -> tuple
 
     :param connection:
         Open protocol-owned DuckDB connection.
+    :param deployment:
+        Optional native deployment slug. Limits both tables to its snapshots.
     :return:
         Account and position DataFrames.
     """
@@ -251,9 +253,12 @@ def read_perp_vault_observations(connection: duckdb.DuckDBPyConnection) -> tuple
             raise ValueError(f"Unexpected {table_name} schema: expected {expected_columns}, got {actual_columns}")
 
     account_projection = ", ".join(PERP_VAULT_ACCOUNT_OBSERVATION_COLUMNS)
-    position_projection = ", ".join(PERP_VAULT_POSITION_OBSERVATION_COLUMNS)
+    position_projection = ", ".join(f"p.{column}" for column in PERP_VAULT_POSITION_OBSERVATION_COLUMNS)
     # The only interpolated identifiers are immutable module constants, and
     # the live schema was checked against the same constants immediately above.
-    accounts = connection.execute(f"SELECT {account_projection} FROM perp_vault_account_observations").fetchdf()  # noqa: S608
-    positions = connection.execute(f"SELECT {position_projection} FROM perp_vault_position_observations").fetchdf()  # noqa: S608
+    where = " WHERE deployment_slug = ?" if deployment is not None else ""
+    params = [deployment] if deployment is not None else []
+    accounts = connection.execute(f"SELECT {account_projection} FROM perp_vault_account_observations{where}", params).fetchdf()  # noqa: S608
+    positions_where = " WHERE p.snapshot_id IN (SELECT snapshot_id FROM perp_vault_account_observations WHERE deployment_slug = ?)" if deployment is not None else ""
+    positions = connection.execute(f"SELECT {position_projection} FROM perp_vault_position_observations p{positions_where}", params).fetchdf()  # noqa: S608
     return accounts, positions
