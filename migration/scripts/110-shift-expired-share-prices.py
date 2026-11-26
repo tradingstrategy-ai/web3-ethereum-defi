@@ -6,7 +6,7 @@ Scope: Legacy zero rows for the three reviewed Shift vaults on Base and
     Arbitrum through the fixed 26 November 2026 archive blocks below.
 Branch: investigate-shift-lighter-llp-wrapper-vault
 PR title: fix: retain Shift valuations through oracle expiry
-PR: Pending.
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1832
 Preserves: Genuine zero valuations, existing sample keys, unrelated rows,
     Parquet metadata and price scanner checkpoints.
 Expected: Replace only stale-zero observations with positive archived quotes.
