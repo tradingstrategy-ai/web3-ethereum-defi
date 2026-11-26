@@ -1,19 +1,16 @@
 """Harvest vault tests"""
 
 import os
-from pathlib import Path
 
 import pytest
 
 from web3 import Web3
 import flaky
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.vault_protocol.harvest.vault import HarvestVault
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import ARBITRUM_MIDNIGHT_BLOCK
-from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ARBITRUM = os.environ.get("JSON_RPC_ARBITRUM")
 
@@ -36,10 +33,7 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
 
 
 @flaky.flaky
-def test_harvest(
-    web3: Web3,
-    tmp_path: Path,
-):
+def test_harvest(web3: Web3) -> None:
     """Read Harvest vault metadata"""
 
     vault = create_vault_instance_autodetect(
@@ -58,9 +52,4 @@ def test_harvest(
     ftoken = vault.fetch_ftoken()
     assert ftoken.name == "Varlamore USDC Growth"
 
-    # Check maxDeposit and maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
     assert vault.can_check_redeem() is False

@@ -141,18 +141,11 @@ def test_forty_acres_blackhole(
 
 @pytest.mark.skipif(JSON_RPC_AVALANCHE is None, reason="JSON_RPC_AVALANCHE needed to run this test")
 @pytest.mark.xdist_group("fork:avalanche:midnight")
-def test_pharaoh_refuses_redemption_without_direct_underlying_liquidity(
+def test_pharaoh_redemption_capacity_and_recovery(
     pharaoh_avalanche_web3: Web3,
     pharaoh_avalanche_snapshot: None,
 ) -> None:
-    """Pharaoh refuses a redemption that its direct USDC balance cannot pay.
-
-    1. Fund and deposit USDC into the exact Pharaoh vault at the pinned block.
-    2. Drain direct underlying on Anvil to model loan-deployed capital.
-    3. Prove the measured partial capacity is accepted and one raw share above is refused.
-    4. Verify the 40acres preflight refuses before any redeem transaction exists.
-    """
-    # 1. Fund and deposit USDC into the exact Pharaoh vault at the pinned block.
+    """Check partial-cash preflight, then redeem after a fork-only liquidity increase."""
     assert pharaoh_avalanche_snapshot is None
     vault = create_vault_instance_autodetect(pharaoh_avalanche_web3, vault_address=PHARAOH_USDC_AVALANCHE_ADDRESS)
     assert isinstance(vault, FortyAcresVault)
@@ -198,41 +191,12 @@ def test_pharaoh_refuses_redemption_without_direct_underlying_liquidity(
     assert error.available_raw_amount == available_raw_shares
     assert pharaoh_avalanche_web3.eth.block_number == block_before_refusal
 
-
-@pytest.mark.skipif(JSON_RPC_AVALANCHE is None, reason="JSON_RPC_AVALANCHE needed to run this test")
-@pytest.mark.xdist_group("fork:avalanche:midnight")
-def test_pharaoh_anvil_capacity_increase_preserves_real_redemption(
-    pharaoh_avalanche_web3: Web3,
-    pharaoh_avalanche_snapshot: None,
-) -> None:
-    """Increase only Pharaoh's fork liquidity before redeeming the same shares.
-
-    1. Deposit USDC and remove the vault's direct USDC balance on Anvil.
-    2. Capture the typed direct-liquidity refusal for the received shares.
-    3. Search the smallest fork-only balance increase which validates redeem.
-    4. Broadcast the unchanged real redemption and verify the disclosed result.
-    """
-    # 1. Deposit USDC and remove the vault's direct USDC balance on Anvil.
-    assert pharaoh_avalanche_snapshot is None
-    vault = create_vault_instance_autodetect(pharaoh_avalanche_web3, vault_address=PHARAOH_USDC_AVALANCHE_ADDRESS)
-    assert isinstance(vault, FortyAcresVault)
-    manager = vault.get_deposit_manager()
-    assert isinstance(manager, FortyAcresDepositManager)
-    owner = pharaoh_avalanche_web3.eth.accounts[0]
-    raw_deposit_amount = vault.denomination_token.convert_to_raw(Decimal(1))
-    fund_erc20_on_anvil(pharaoh_avalanche_web3, vault.denomination_token.address, owner, raw_deposit_amount)
-    vault.denomination_token.approve(vault.address, Decimal(1)).transact({"from": owner})
-    manager.create_deposit_request(owner=owner, raw_amount=raw_deposit_amount).broadcast(from_=owner)
-    raw_shares = vault.share_token.fetch_raw_balance_of(owner)
-    fund_erc20_on_anvil(pharaoh_avalanche_web3, vault.denomination_token.address, vault.address, 0)
-
-    # 2. Capture the typed direct-liquidity refusal for the received shares.
+    # Recover the full position using the same deposit and fork state.
     with pytest.raises(VaultFlowUnavailable) as exc_info:
         manager.create_redemption_request(owner=owner, raw_shares=raw_shares)
     failure = exc_info.value
     assert failure.preflight_result == "redemption_capacity_limited"
 
-    # 3. Search the smallest fork-only balance increase which validates redeem.
     intervention = manager.force_redemption_liquidity(owner, raw_shares, failure)
     evidence = intervention.as_dict()
     assert evidence["kind"] == "redemption_capacity_increased"
@@ -241,7 +205,6 @@ def test_pharaoh_anvil_capacity_increase_preserves_real_redemption(
     assert int(evidence["injected_raw_assets"]) > 0
     assert int(evidence["total_assets_after"]) > int(evidence["total_assets_before"])
 
-    # 4. Broadcast the unchanged real redemption and verify the disclosed result.
     balance_before = vault.denomination_token.fetch_raw_balance_of(owner)
     manager.create_redemption_request(owner=owner, raw_shares=raw_shares).broadcast(from_=owner)
     assert vault.denomination_token.fetch_raw_balance_of(owner) > balance_before
