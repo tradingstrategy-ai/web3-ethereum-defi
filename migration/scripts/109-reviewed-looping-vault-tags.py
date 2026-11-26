@@ -5,7 +5,7 @@ Purpose: Publish the documented looping strategy for IPOR Fusion, Upshift and Em
 Scope: Only _strategy_tags on the six Ethereum and Monad deployments listed below.
 Branch: tag-confirmed-looping-vaults
 PR title: fix: tag six confirmed looping vaults
-PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pulls?q=is%3Apr+head%3Atag-confirmed-looping-vaults
+PR: https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1831
 Preserves: Existing classifications, unrelated metadata, prices, leads and reader state.
 Expected: Up to six changed rows and fields. Report missing deployments.
 
