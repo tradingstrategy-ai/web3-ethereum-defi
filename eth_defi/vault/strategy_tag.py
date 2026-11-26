@@ -509,7 +509,7 @@ For example, [HyperNeutral #1](https://tradingstrategy.ai/vaults/hyperneutral-1)
         "description": "Moves capital between lending markets to pursue the best available yield.",
     },
     StrategyTag.lending_looping: {
-        "label": "Lending looping",
+        "label": "Looping",
         "description": "Repeatedly [borrows and resupplies assets](https://tradingstrategy.ai/glossary/recursive-looping) to amplify lending returns and risk.",
     },
     StrategyTag.market_making: {
