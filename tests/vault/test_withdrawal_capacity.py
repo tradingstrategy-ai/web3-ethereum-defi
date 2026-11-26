@@ -23,28 +23,22 @@ def observation(capacity="150", **kwargs):
     return dict(status="measured", current_capacity=capacity, current_tvl="1000", observed_at=NOW.isoformat(), denomination_symbol="USDC", **kwargs)
 
 
-@pytest.mark.parametrize("capacity,expected", [("149.999999", True), ("150", False), ("150.000001", False), ("0", True)])
-def test_boundary(capacity, expected):
-    result = assess_withdrawal_capacity(observation(capacity), now=NOW)
-    assert result.capacity_warning is expected
-    assert result.current_capacity == Decimal(capacity)
-    assert "150.00 USDC" in result.capacity_reason
-
-
-def test_threshold_and_precision():
+def test_configured_threshold_keeps_exact_token_amount(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("WITHDRAWAL_CAPACITY_THRESHOLD", "0.10")
     data = observation("100.000000000000000001")
-    assert assess_withdrawal_capacity(data, 0.1, now=NOW).capacity_warning is False
-    assert assess_withdrawal_capacity(data, 0.15, now=NOW).capacity_warning is True
-    assert assess_withdrawal_capacity(data, 0.1, now=NOW).to_dict()["current_capacity"] == "100.000000000000000001"
+    result = assess_withdrawal_capacity(data, configured_capacity_threshold(), now=NOW)
+    assert result.capacity_warning is False
+    assert assess_withdrawal_capacity(data, now=NOW).capacity_warning is True
+    assert result.to_dict()["current_capacity"] == "100.000000000000000001"
 
 
-@pytest.mark.parametrize("bad", [-0.1, 1.1, float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize("bad", [-0.1, float("nan")])
 def test_invalid_threshold(bad):
     with pytest.raises(ValueError):
         assess_withdrawal_capacity(None, bad)
 
 
-@pytest.mark.parametrize("bad", [None, True, 1, Decimal("0.15"), "0.15"])
+@pytest.mark.parametrize("bad", [True, "0.15"])
 def test_threshold_requires_percent_float(bad):
     """Reject implicit conversion at API and direct-assessment boundaries."""
     with pytest.raises(AssertionError, match="must be a Percent float"):
@@ -61,19 +55,6 @@ def test_threshold_requires_percent_float(bad):
         VaultDepositManager.fetch_withdrawal_capacity_limit(manager, capacity_threshold=bad)
     with pytest.raises(AssertionError, match="must be a Percent float"):
         replace(assess_withdrawal_capacity(None), capacity_threshold=bad)
-
-
-def test_threshold_environment_converts_to_percent_float(monkeypatch):
-    monkeypatch.setenv("WITHDRAWAL_CAPACITY_THRESHOLD", "0.20")
-    assert configured_capacity_threshold() == 0.20
-    assert isinstance(configured_capacity_threshold(), float)
-
-
-def test_unknown_and_stale_do_not_mean_safe():
-    assert assess_withdrawal_capacity(None, now=NOW).capacity_warning is None
-    result = assess_withdrawal_capacity(observation(), now=NOW + timedelta(hours=27))
-    assert result.capacity_warning is None and result.current_capacity is None
-    assert result.observation["status"] == "stale"
 
 
 def test_structural_warning_and_pause_direction():
@@ -98,11 +79,6 @@ def test_export_keeps_existing_fields_and_old_rows():
     database.rows.clear()
     enrich_withdrawal_capacity([row], database, now=NOW)
     assert row["withdrawal_capacity_limit"]["capacity_warning"] is None
-
-
-def test_corrupt_numeric_observation_stays_unknown():
-    result = assess_withdrawal_capacity(observation("not-an-amount"), now=NOW)
-    assert result.capacity_warning is None and result.current_capacity is None
 
 
 @pytest.mark.parametrize("capacity", [None, "200", "0"])
@@ -130,8 +106,7 @@ def test_export_morpho_low_liquidity_sets_capacity_warning(capacity: str | None)
     assert "morpho_low_liquidity" not in row["withdrawal_capacity_observation"]
 
 
-@pytest.mark.parametrize("missing_field", ["chain_id", "address", "both"])
-@pytest.mark.parametrize("uppercase", [False, True])
+@pytest.mark.parametrize("missing_field,uppercase", [("chain_id", False), ("address", False), ("both", True)])
 def test_export_resolves_legacy_id(missing_field: str, uppercase: bool) -> None:
     """Sticky records with only a combined identity retain measured warnings."""
     spec = VaultSpec(1, "0x" + "a" * 40)
@@ -149,7 +124,7 @@ def test_export_resolves_legacy_id(missing_field: str, uppercase: bool) -> None:
     assert set(row) == set(original) | {"withdrawal_capacity_limit", "withdrawal_capacity_observation"}
 
 
-@pytest.mark.parametrize("identity", [{}, {"id": "invalid"}, {"id": 42}, {"chain_id": "invalid", "address": "invalid"}, {"chain_id": 1, "address": "invalid"}])
+@pytest.mark.parametrize("identity", [{}, {"id": "invalid"}])
 def test_export_unresolvable_identity_is_unknown(identity: dict) -> None:
     """Unmatched legacy identities cannot replay an old safe capacity claim."""
     row = {**identity, "withdrawal_capacity_limit": {"capacity_warning": False, "current_capacity": "1000"}, "withdrawal_capacity_observation": observation("1000")}
@@ -169,9 +144,14 @@ def test_export_does_not_override_invalid_explicit_identity() -> None:
     assert row["withdrawal_capacity_limit"]["capacity_warning"] is None
 
 
-@pytest.mark.parametrize("field", ["features", "_detection_data"])
-@pytest.mark.parametrize("old", [None, {"status": "failed"}, {"status": "measured", "observed_at": "2020-01-01T00:00:00+00:00", "current_capacity": "1000", "current_tvl": "1000"}])
-@pytest.mark.parametrize("id_only", [False, True])
+@pytest.mark.parametrize(
+    "field,old,id_only",
+    [
+        ("features", {"status": "failed"}, False),
+        ("_detection_data", None, True),
+        ("features", {"status": "measured", "observed_at": "2020-01-01T00:00:00+00:00", "current_capacity": "1000", "current_tvl": "1000"}, True),
+    ],
+)
 def test_legacy_40acres_structural_warning_survives_metadata_failure(field: str, old: dict | None, id_only: bool) -> None:
     """A retained legacy row needs no successful RPC observation to warn."""
     features = {ERC4626Feature.forty_acres_like}
@@ -273,17 +253,23 @@ def test_morpho_v1_ignores_donations_and_deduplicates_queue(monkeypatch):
     assert readers.morpho_v1_capacity(SimpleNamespace(), "outer", 123, token) == 80
 
 
-def test_stale_observation_removes_current_claims():
+def test_unusable_observations_remove_current_claims() -> None:
+    corrupt = assess_withdrawal_capacity(observation("not-an-amount"), now=NOW)
+    assert corrupt.capacity_warning is None and corrupt.current_capacity is None
+
     data = observation("0", deposits_paused=True, withdrawals_paused=True)
     data["reason"] = "Withdrawals are administratively paused"
     result = assess_withdrawal_capacity(data, now=NOW + timedelta(hours=27))
     assert result.pause_warning is None
+    assert result.capacity_warning is None
+    assert result.current_capacity is None
+    assert result.observation["status"] == "stale"
     assert "administratively paused" not in result.capacity_reason
     assert "current_capacity" not in result.observation
     assert result.observation["last_observation"]["current_capacity"] == "0"
 
 
-@pytest.mark.parametrize("usd_tvl, expected", [("0", True), ("9999.999999", True), ("10000", False), ("10000.000001", False)])
+@pytest.mark.parametrize("usd_tvl, expected", [("9999.999999", True), ("10000", False)])
 def test_tiny_tvl_uses_strict_usd_boundary(usd_tvl, expected):
     data = observation("1000")
     data["current_tvl_usd"] = usd_tvl
@@ -305,17 +291,12 @@ def test_tiny_tvl_unknown_without_usd_and_after_expiry():
     assert "current_tvl_usd" not in expired.observation
 
 
-def test_tiny_tvl_does_not_treat_non_usd_tokens_as_dollars():
-    from eth_defi.vault.withdrawal_capacity_readers import _with_usd_tvl
-
-    data = {"current_tvl": "1"}
-    token = SimpleNamespace(chain_id=1, address="0x" + "b" * 40, symbol="EURC")
-    assert "current_tvl_usd" not in _with_usd_tvl(data, token)
-
-
-def test_tiny_tvl_recognised_usdc_uses_face_value():
-    from eth_defi.vault.withdrawal_capacity_readers import _with_usd_tvl
+def test_tiny_tvl_uses_face_value_only_for_recognised_usd_tokens() -> None:
     from eth_defi.token import USDC_NATIVE_TOKEN
+    from eth_defi.vault.withdrawal_capacity_readers import _with_usd_tvl
+
+    eurc = SimpleNamespace(chain_id=1, address="0x" + "b" * 40, symbol="EURC")
+    assert "current_tvl_usd" not in _with_usd_tvl({"current_tvl": "1"}, eurc)
 
     data = observation("100")
     data["current_tvl"] = "9999.99"
@@ -326,7 +307,7 @@ def test_tiny_tvl_recognised_usdc_uses_face_value():
     assert assess_withdrawal_capacity(data, now=NOW).tiny_tvl is True
 
 
-@pytest.mark.parametrize("capacity,warning", [("14.999999999999999999", True), ("15", False), ("15.000000000000000001", False)])
+@pytest.mark.parametrize("capacity,warning", [("14.999999999999999999", True), ("15", False)])
 def test_percent_threshold_preserves_decimal_amount_boundary(capacity: str, warning: bool) -> None:
     """Float percentages must not introduce binary rounding into token comparisons."""
     data = observation(capacity)

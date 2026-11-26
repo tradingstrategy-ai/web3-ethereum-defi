@@ -7,20 +7,11 @@ Requires network access to the Hyperliquid API.
 
 .. warning::
 
-    These tests query the **live Hyperliquid API** and use rolling recent
-    time windows.  Funding checks use seven days; fill persistence, resume and reconstruction
-    use one day. The underlying data is not pinned to a
-    historical snapshot:
+    These tests query the live Hyperliquid API. Funding checks use seven
+    days. Fill-dependent tests select a single recent day with enough fills to
+    check resume behaviour while keeping reconstruction bounded. If no recent
+    day has enough fills, the fixture fails and the active account needs review.
 
-    - Accounts may stop trading, producing zero fills in the test window.
-    - The API purges old fill data, so widening the window is not a reliable fix.
-    - Fill counts, funding payments, and trade reconstruction results change
-      daily as new activity occurs.
-
-    When these tests break, it is usually because the chosen account has gone
-    inactive.  The fix is to switch ``ACTIVE_ACCOUNT`` to a currently active
-    trader address — **not** to pin to a historical block or mock the API,
-    because the purpose of these tests is to verify the real integration path.
 """
 
 import datetime
@@ -57,18 +48,24 @@ ACTIVE_ACCOUNT = "0x1e37a337ed460039d1b15bd3bc489de789768d5e"
 TEST_END = datetime.datetime.now(datetime.UTC).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None) - datetime.timedelta(days=1)
 TEST_START = TEST_END - datetime.timedelta(days=7)
 
-#: Limit the reconstruction test to a one-day live fill window.  The Growi HF
-#: vault produced enough fills over seven days to time out while DuckDB inserted
-#: rows in CI on 2026-08-24, although the API and reconstruction code worked.
-#: The idempotency check shares this recent interval so it does not rely on one
-#: inactive historical hour containing a fill.
-RECONSTRUCTION_TEST_START = TEST_END - datetime.timedelta(days=1)
-
 
 @pytest.fixture(scope="module")
 def session():
     """Create a shared HTTP session for all tests in this module."""
     return create_hyperliquid_session()
+
+
+@pytest.fixture(scope="module")
+def trade_window(session: HyperliquidSession) -> tuple[datetime.datetime, datetime.datetime, list[int]]:
+    """Select one bounded day with enough real fills to test a persisted watermark."""
+    end = TEST_END
+    while end > TEST_START:
+        start = end - datetime.timedelta(days=1)
+        fill_times = sorted({fill.timestamp_ms for fill in fetch_vault_fills(session, ACTIVE_ACCOUNT, start_time=start, end_time=end) if fill.trade_id is not None})
+        if len(fill_times) > 1:
+            return start, end, fill_times
+        end = start
+    pytest.fail("The active account has no daily window with fills at two distinct timestamps in the past week")
 
 
 # Flaky: Hyperliquid API retries exceeded the 60-second timeout in PR #1313 CI on 2026-07-18; the immediate rerun passed.
@@ -100,18 +97,19 @@ def test_fetch_account_funding(session):
 # the isolated test passed locally and the regular test-suite retry passed.
 @flaky.flaky
 @pytest.mark.timeout(120)
-def test_reconstruct_vault_trade_history(session, tmp_path):
+def test_reconstruct_vault_trade_history(session: HyperliquidSession, tmp_path: Path, trade_window: tuple[datetime.datetime, datetime.datetime, list[int]]) -> None:
     """Reconstruct trade history for an active account and verify fill data."""
+    start, end, _ = trade_window
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
         db.add_account(ACTIVE_ACCOUNT, label="Growi HF vault", is_vault=True)
-        db.sync_account_fills(session, ACTIVE_ACCOUNT, start_time=RECONSTRUCTION_TEST_START, end_time=TEST_END)
+        db.sync_account_fills(session, ACTIVE_ACCOUNT, start_time=start, end_time=end)
 
         history = fetch_account_trade_history(
             session,
             ACTIVE_ACCOUNT,
-            start_time=RECONSTRUCTION_TEST_START,
-            end_time=TEST_END,
+            start_time=start,
+            end_time=end,
         )
 
         assert len(history.fills) > 0
@@ -132,7 +130,7 @@ def test_reconstruct_vault_trade_history(session, tmp_path):
 # 2026-08-24: CI and a focused local run returned zero fills for ACTIVE_ACCOUNT in the live one-hour window.
 @pytest.mark.skipif(CI, reason="Live Hyperliquid account returned zero fills in the idempotency test window")
 @pytest.mark.timeout(60)
-def test_sync_fills_idempotent(session, tmp_path):
+def test_sync_fills_idempotent(session: HyperliquidSession, tmp_path: Path, trade_window: tuple[datetime.datetime, datetime.datetime, list[int]]) -> None:
     """Verify that a persisted fill watermark avoids duplicate rows on a second sync.
 
     Restricting the initial query to one recent day retains coverage of live
@@ -140,6 +138,7 @@ def test_sync_fills_idempotent(session, tmp_path):
     growing seven-day account history.  The follow-up query begins at the
     stored fill watermark instead of downloading the complete range again.
     """
+    start, end, _ = trade_window
     db = HyperliquidTradeHistoryDatabase(tmp_path / "trade-history.duckdb")
     try:
         db.add_account(ACTIVE_ACCOUNT, label="Growi HF vault", is_vault=True)
@@ -148,8 +147,8 @@ def test_sync_fills_idempotent(session, tmp_path):
         first_count = db.sync_account_fills(
             session,
             ACTIVE_ACCOUNT,
-            start_time=RECONSTRUCTION_TEST_START,
-            end_time=TEST_END,
+            start_time=start,
+            end_time=end,
         )
         db.save()
 
@@ -160,7 +159,7 @@ def test_sync_fills_idempotent(session, tmp_path):
         second_count = db.sync_account_fills(
             session,
             ACTIVE_ACCOUNT,
-            end_time=TEST_END,
+            end_time=end,
         )
         db.save()
 
@@ -174,7 +173,7 @@ def test_sync_fills_idempotent(session, tmp_path):
 
 
 @pytest.mark.timeout(120)
-def test_trade_history_sync_resume(session: HyperliquidSession, tmp_path: Path, mocker: MockerFixture) -> None:
+def test_trade_history_sync_resume(session: HyperliquidSession, tmp_path: Path, mocker: MockerFixture, trade_window: tuple[datetime.datetime, datetime.datetime, list[int]]) -> None:
     """Verify sync resumes correctly after interruption.
 
     Choose the partial-sync cutoff from real fills in the bounded daily window,
@@ -185,6 +184,8 @@ def test_trade_history_sync_resume(session: HyperliquidSession, tmp_path: Path, 
         Live Hyperliquid API session.
     :param tmp_path:
         Directory for the file-backed test database.
+    :param trade_window:
+        The bounded day and its observed fill timestamps.
     :param mocker:
         Spy on real API requests without replacing their responses.
     :return:
@@ -199,16 +200,15 @@ def test_trade_history_sync_resume(session: HyperliquidSession, tmp_path: Path, 
         db.add_account(ACTIVE_ACCOUNT, label="Growi HF vault", is_vault=True)
 
         # Select a real timestamp with at least one later fill in this window.
-        fill_times = sorted({fill.timestamp_ms for fill in fetch_vault_fills(session, ACTIVE_ACCOUNT, start_time=RECONSTRUCTION_TEST_START, end_time=TEST_END) if fill.trade_id is not None})
-        assert len(fill_times) > 1, "Resume coverage needs fills at two distinct timestamps"
+        start, end, fill_times = trade_window
         cutoff_ms = fill_times[(len(fill_times) - 1) // 2]
-        cutoff = RECONSTRUCTION_TEST_START + datetime.timedelta(milliseconds=cutoff_ms - int(RECONSTRUCTION_TEST_START.timestamp() * 1000))
+        cutoff = datetime.datetime.fromtimestamp(cutoff_ms / 1000, datetime.UTC).replace(tzinfo=None)
 
         # First sync: stop within the observed fills (partial/interrupted sync).
         db.sync_account_fills(
             session,
             ACTIVE_ACCOUNT,
-            start_time=RECONSTRUCTION_TEST_START,
+            start_time=start,
             end_time=cutoff,
         )
         db.save()
@@ -229,7 +229,7 @@ def test_trade_history_sync_resume(session: HyperliquidSession, tmp_path: Path, 
 
         # Spy delegates to the real provider; verify resume avoids a full rescan.
         request_spy = mocker.spy(session, "post_info")
-        inserted_count = db.sync_account_fills(session, ACTIVE_ACCOUNT, end_time=TEST_END)
+        inserted_count = db.sync_account_fills(session, ACTIVE_ACCOUNT, end_time=end)
         assert request_spy.call_args_list[0].args[0]["startTime"] == first_state["fills"]["newest_ts"]
         db.save()
 
