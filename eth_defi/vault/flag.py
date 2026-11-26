@@ -539,6 +539,10 @@ VAULT_DESCRIPTIVE_FLAGS: dict[str, set[VaultFlag]] = {
     EUTBL_TOKEN_ADDRESS: {VaultFlag.tokenised_fund},
 }
 
+#: Harvest USDC on Base supplies the 40 Acres Aerodrome pool.
+HARVEST_FORTY_ACRES_WITHDRAWAL_NOTE = "**USDC withdrawals depend on available cash.** This vault has no scheduled wait to withdraw. When it lends through 40 Acres and the pool runs short of USDC, larger cash withdrawals may have to wait for borrowers to repay. Harvest can also enable redemptions in 40 Acres pool shares. [40 Acres withdrawal terms](https://docs.40acres.finance/lending)"
+
+
 #: Vault-specific notes which must only apply on the specified EVM chain.
 #:
 #: An address can be deployed on more than one chain. Keep manager-maintained
@@ -550,6 +554,11 @@ CHAIN_SCOPED_VAULT_NOTES: dict[tuple[int, str], str] = {
     for (chain_id, address), metadata in MORINI_CAPITAL_VAULT_METADATA.items()
 } | AXIS_NOTES_BY_CHAIN | {(chain_id, address.lower()): FLYING_TULIP_SSFTUSD_NOTES for chain_id, address in FLYING_TULIP_SSFTUSD_BY_CHAIN.items()} | ACCOUNTABLE_HANDWRITTEN_VAULT_NOTES
 CHAIN_SCOPED_VAULT_NOTES |= {
+    # Harvest USDC on Base. The cash path reached the 40 Acres Aerodrome pool at Base block 62,552,749 on 2026-11-26.
+    # https://tradingstrategy.ai/vaults/harvest-usdc-vault-0xc777
+    # https://basescan.org/block/62552749
+    # https://harvest.finance/usdc-40-acres-base
+    (8453, "0xc777031d50f632083be7080e51e390709062263e"): HARVEST_FORTY_ACRES_WITHDRAWAL_NOTE,
     (42161, "0x58bfc95a864e18e8f3041d2fcd3418f48393fe6a"): PLUTUS_HEDGE_WITHDRAWAL_NOTE,
     (8453, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5"): FORTY_ACRES_AERODROME_NOTE,
     (10, "0x08dcdbf7bade91ccd42cb2a4ea8e5d199d285957"): FORTY_ACRES_VELODROME_NOTE,

@@ -6,18 +6,35 @@ complete verified ABI files; fetch provenance is recorded in the Euler, Fluid
 and IPOR ABI-folder README inventories, never in hand-declared view stubs.
 """
 
+import logging
 from concurrent.futures import Future
 from decimal import Decimal
 from typing import Any
 
+from eth_typing import BlockIdentifier, ChecksumAddress
+from requests.exceptions import RequestException
 from web3 import Web3
-from web3.contract.contract import ContractFunction
-from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError
+from web3.contract.contract import Contract, ContractFunction
+from web3.exceptions import ABIFunctionNotFound, BadFunctionCallOutput, ContractLogicError, Web3Exception
 
 from eth_defi.abi import get_deployed_contract
 from eth_defi.provider.fallback import ExtraValueError
 from eth_defi.token import BRIDGED_USDC_TOKEN, USDC_NATIVE_TOKEN, USDT_NATIVE_TOKEN, WRAPPED_NATIVE_TOKEN, TokenDetails
 from eth_defi.vault.base import VaultBase
+
+logger = logging.getLogger(__name__)
+
+#: The Harvest vault and strategy proxies both use the EIP-1967 implementation slot.
+_HARVEST_IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation")) - 1
+
+#: Runtime code identities checked against Base block 62,552,749.
+_HARVEST_VAULT_PROXY_HASH = "fbc60368b1ab806d8f3620062d3ed319bb66d2ecfe9ee92e3d5c29438fc6ee1f"
+_HARVEST_VAULT_IMPL_HASH = "b58f9758249024b060c49151103446b2aad64a814b23c9c7d8b64f0fb5e8e5ac"
+_HARVEST_STRATEGY = "0x1d59868D7767d703929393bDaB313302840f533c"
+_HARVEST_STRATEGY_PROXY_HASH = "936ab4e26dfce3cfa33ba0cc75ba979985c7758682f996fe8752f64af3882e5c"
+_HARVEST_STRATEGY_IMPL_HASH = "9bef50734fbf017647ac67d6d81fb6845c063a8956973dfc112efb3d0867c1ee"
+_HARVEST_FORTY_ACRES_POOL = "0xB99B6dF96d4d5448cC0a5B3e0ef7896df9507Cf5"
+_HARVEST_FORTY_ACRES_POOL_HASH = "c4e71555e8031fe5cf27f448779deb40893c85f1f27fe9f0873cf0892346adcf"
 
 #: Verified fToken configuration tuple length.
 FLUID_DATA_FIELDS = 9
@@ -39,6 +56,93 @@ def direct_cash_observation(vault: VaultBase, block: int) -> dict[str, Any]:
     """Measure a verified direct-underlying payout, capped by asset entitlement."""
     data = erc4626_observation(vault, block)
     data.update(status="measured", current_capacity=data.pop("idle_assets"), reason="Withdrawals pay directly from the vault denomination-token balance")
+    return data
+
+
+def _reviewed_harvest_proxy(web3: Web3, address: ChecksumAddress, proxy_hash: str, implementation_hash: str, block: int) -> bool:
+    """Match both the Harvest forwarding code and its current implementation."""
+    if Web3.keccak(web3.eth.get_code(address, block)).hex() != proxy_hash:
+        return False
+    slot = web3.eth.get_storage_at(address, _HARVEST_IMPLEMENTATION_SLOT, block)
+    implementation = Web3.to_checksum_address(slot[-20:])
+    return Web3.keccak(web3.eth.get_code(implementation, block)).hex() == implementation_hash
+
+
+def _harvest_route_mismatch(web3: Web3, wrapper: Contract, strategy: Contract, pool: Contract, block: int) -> str | None:
+    """Identify changed code or configuration before using reviewed cash semantics."""
+    if not _reviewed_harvest_proxy(web3, wrapper.address, _HARVEST_VAULT_PROXY_HASH, _HARVEST_VAULT_IMPL_HASH, block):
+        return "Harvest vault code changed"
+    if _read(web3, wrapper.functions.strategy(), block) != strategy.address:
+        return "Harvest active strategy changed"
+    if not _reviewed_harvest_proxy(web3, strategy.address, _HARVEST_STRATEGY_PROXY_HASH, _HARVEST_STRATEGY_IMPL_HASH, block):
+        return "Harvest strategy code changed"
+    # Harvest's 40 Acres strategy inherits the lending integration from Euler.
+    if _read(web3, strategy.functions.eulerVault(), block) != pool.address or _read(web3, strategy.functions.vault(), block) != wrapper.address:
+        return "Harvest strategy parent vault or lending pool changed"
+    if Web3.keccak(web3.eth.get_code(pool.address, block)).hex() != _HARVEST_FORTY_ACRES_POOL_HASH:
+        return "40 Acres pool code changed"
+    usdc = Web3.to_checksum_address(USDC_NATIVE_TOKEN[8453])
+    if any(_read(web3, call, block) != usdc for call in (wrapper.functions.asset(), strategy.functions.underlying(), pool.functions.asset())):
+        return "Harvest route denomination changed"
+    return None
+
+
+def harvest_forty_acres_observation(vault: VaultBase, block_identifier: BlockIdentifier) -> dict[str, Any]:  # ruff: ignore[too-many-locals] - Keep same-block cash and entitlement reads together.
+    """Read the reviewed Harvest Base strategy's gross USDC withdrawal buffer.
+
+    The strategy uses its idle USDC first, then withdraws the shortfall from
+    40 Acres. Cap the pool contribution by both the strategy's share
+    entitlement and the pool's reported assets. Report gross USDC before the
+    holder's share rounding and fee accrual. The in-kind path pays separately
+    in pool shares. Code pinning guards these assumptions against upgrades.
+
+    :param vault: Harvest USDC vault with the reviewed deployment address.
+    :param block_identifier: Block for verifying the route and reading balances.
+    :return: Capacity observation with structural warning for a verified route.
+    """
+    web3 = vault.web3
+    block = block_identifier if isinstance(block_identifier, int) else web3.eth.get_block(block_identifier)["number"]
+    address = Web3.to_checksum_address(vault.address)
+    pool = get_deployed_contract(web3, "forty_acres/Vault.json", _HARVEST_FORTY_ACRES_POOL)
+    wrapper = get_deployed_contract(web3, "harvest/VaultV2InKind.json", address)
+    strategy = get_deployed_contract(web3, "harvest/FortyAcresLendStrategy.json", _HARVEST_STRATEGY)
+    try:
+        mismatch = _harvest_route_mismatch(web3, wrapper, strategy, pool, block)
+    except (Web3Exception, ExtraValueError, RequestException) as error:
+        logger.warning("Harvest 40 Acres route verification inconclusive for %s at block %d (%s)", address, block, type(error).__name__)
+        return {"status": "failed", "reason": "Harvest 40 Acres route could not be verified at the observation block"}
+    if mismatch:
+        logger.warning("Harvest Base withdrawal notice needs review for %s at block %d: %s", address, block, mismatch)
+        return {"status": "unsupported", "structural_warning": False, "reason": mismatch}
+
+    data = {"status": "partial", "structural_warning": True, "reason": "Harvest 40 Acres cash withdrawal capacity is unknown"}
+    try:
+        data.update(erc4626_observation(vault, block))
+        data["redeem_in_kind_enabled"] = _read(web3, wrapper.functions.redeemInKindEnabled(), block)
+        if _read(web3, wrapper.functions.compoundOnWithdraw(), block):
+            data["reason"] = "Harvest compounds before withdrawal, which can change the cash available for redemption"
+            return data
+
+        token = vault.denomination_token
+        balance_of = token.contract.functions.balanceOf
+        pool_cash = _read(web3, balance_of(pool.address), block)
+        pool_assets = _read(web3, pool.functions.totalAssets(), block)
+        pool_shares = _read(web3, pool.functions.balanceOf(strategy.address), block)
+        position = _read(web3, pool.functions.convertToAssets(pool_shares), block)
+        strategy_cash = _read(web3, balance_of(strategy.address), block)
+    except (Web3Exception, ExtraValueError, RequestException) as error:
+        logger.warning("Harvest 40 Acres capacity read failed for %s at block %d (%s)", address, block, type(error).__name__)
+        data["reason"] = "Harvest 40 Acres route verified but cash withdrawal capacity could not be read"
+        return data
+
+    total = token.convert_to_raw(Decimal(data["current_tvl"]))
+    idle = token.convert_to_raw(Decimal(data["idle_assets"]))
+    capacity = min(total, idle + strategy_cash + min(pool_cash, pool_assets, position))
+    data.update(
+        status="measured",
+        current_capacity=str(token.convert_to_decimals(capacity)),
+        reason="Gross USDC before fee accrual and share rounding: Harvest and strategy idle cash plus the share of available 40 Acres cash accessible to the strategy",
+    )
     return data
 
 

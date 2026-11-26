@@ -11,9 +11,13 @@ from eth_defi.chain import get_chain_name
 from eth_defi.erc_4626.core import get_deployed_erc_4626_contract
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.token import TokenDetails, fetch_erc20_details
-from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, VaultTechnicalRisk, WithdrawalPeriod
+from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
+from eth_defi.vault.withdrawal_capacity_readers import harvest_forty_acres_observation
 
 logger = logging.getLogger(__name__)
+
+#: Reviewed Base Harvest deployment that lends through the 40 Acres USDC pool.
+HARVEST_FORTY_ACRES_VAULT = (8453, "0xc777031d50f632083be7080e51e390709062263e")
 
 
 class HarvestVault(ERC4626Vault):
@@ -114,6 +118,19 @@ class HarvestVault(ERC4626Vault):
     @cached_property
     def strategy(self) -> Contract:
         return self.fetch_strategy()
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Measure the reviewed Base route's immediate USDC liquidity.
+
+        :param block_identifier:
+            Resolved block for verifying the active route and reading balances.
+
+        :return:
+            Gross cash capacity and the route's structural warning when verified.
+        """
+        if (self.chain_id, self.address.lower()) == HARVEST_FORTY_ACRES_VAULT:
+            return harvest_forty_acres_observation(self, block_identifier)
+        return super().fetch_withdrawal_capacity_observation(block_identifier)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float:
         return 0.0
