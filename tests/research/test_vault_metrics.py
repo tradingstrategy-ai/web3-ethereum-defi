@@ -22,7 +22,6 @@ from plotly.graph_objects import Figure
 from eth_defi.erc_4626 import scan as scan_module
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.d2.vault import D2_PROTOCOL_NAME, D2Vault, format_d2_vault_note
-from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_VAULT_PRODUCTS, ShiftVaultProduct
 from eth_defi.erc_4626.vault_protocol.shift.vault import ShiftVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS, VERANTA_VAULT_MANAGER_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
@@ -1741,42 +1740,6 @@ def test_calculate_lifetime_metrics_exports_deposit_permission(
     assert stored_manager == {"can_deposit": True, "can_redeem": True, "deposit_flow": "synchronous", "redemption_flow": "synchronous"}
 
 
-@pytest.mark.parametrize("product", SHIFT_VAULT_PRODUCTS.values(), ids=lambda product: product.product_name)
-def test_calculate_lifetime_metrics_exports_corrected_shift_classification(vault_db: VaultDatabase, price_df: pd.DataFrame, product: ShiftVaultProduct) -> None:
-    """Export Shift admission independently of unsupported transaction automation."""
-
-    source_id = "43111-0x05c2e246156d37b39a825a25dd08d5589e3fd883"
-    spec = VaultSpec(product.chain_id, product.vault_address)
-    row = dict(vault_db.rows[VaultSpec.parse_string(source_id)])
-    row.update(
-        {
-            "Protocol": "Shift",
-            "Address": product.vault_address,
-            "Name": product.product_name,
-            "features": {ERC4626Feature.shift_like},
-            "_flags": set(),
-            "_deposit_permission": "permissionless",
-            "_whitelist_notes": ShiftVault.whitelist_notes,
-            "_deposit_manager": {"can_deposit": False, "can_redeem": False},
-            "_deposit_closed_reason": None,
-            "_redemption_closed_reason": None,
-            "_deposits_open": None,
-        }
-    )
-    prices = price_df.loc[price_df["id"] == source_id].copy()
-    prices["id"] = spec.as_string_id()
-    prices["chain"] = spec.chain_id
-    prices["address"] = spec.vault_address
-    metrics = calculate_lifetime_metrics(prices, {spec: row})
-    exported = export_lifetime_row(metrics.iloc[0])
-    assert "tokenised_fund" not in exported["flags"]
-    assert exported["deposit_permission"] == "permissionless"
-    assert exported["whitelist"] == {"status": "permissionless", "notes": ShiftVault.whitelist_notes}
-    assert exported["deposit_manager"] == {"can_deposit": False, "can_redeem": False, "deposit_permission": "permissionless"}
-    assert exported["deposit_closed_reason"] is None
-    assert exported["redemption_closed_reason"] is None
-
-
 def test_calculate_lifetime_metrics_exports_withdrawal_period(
     vault_db: VaultDatabase,
     price_df: pd.DataFrame,
@@ -3288,3 +3251,51 @@ def test_export_redemption_request_observation(vault_db: VaultDatabase, price_df
     display = vault_metrics.format_lifetime_table(metrics, drop_blacklisted=False).iloc[0]
     assert display["Redemption request status"] == "closed (2026-11-13T00:00:00Z)"
     assert display["Withdrawal unlock epochs"] == "1–3"
+
+
+@pytest.mark.parametrize(("age", "stale"), [(4200, False), (4201, True)], ids=["freshness-boundary", "expired"])
+def test_shift_metrics_export_classification_and_quote_age(vault_db: VaultDatabase, price_df: pd.DataFrame, monkeypatch: pytest.MonkeyPatch, *, age: int, stale: bool) -> None:
+    """Export Shift availability and publication age without suppressing returns."""
+    source = VaultSpec.parse_string("43111-0x614eb485de3c6c49701b40806ac1b985ad6f0a2f")
+    spec = VaultSpec(42161, "0x956bdd9c18b786b082fd50c52722d254f0cb6964")
+    metadata = dict(vault_db.rows[source])
+    metadata.update(
+        {
+            "Protocol": "Shift",
+            "Address": spec.vault_address,
+            "Name": "Shift ltLLP",
+            "_detection_data": replace(metadata["_detection_data"], chain=spec.chain_id, address=spec.vault_address, features={ERC4626Feature.shift_like}),
+            "_flags": set(),
+            "_shift_nav_freshness_seconds": 4200,
+            "_deposit_permission": "permissionless",
+            "_whitelist_notes": ShiftVault.whitelist_notes,
+            "_deposit_manager": {"can_deposit": False, "can_redeem": False},
+            "_deposit_closed_reason": None,
+            "_redemption_closed_reason": None,
+            "_deposits_open": None,
+        }
+    )
+    frame = price_df.loc[price_df["id"] == source.as_string_id()].iloc[::24].copy()
+    frame["id"] = spec.as_string_id()
+    frame["chain"] = spec.chain_id
+    frame["address"] = spec.vault_address
+    frame["timestamp"] = frame.index
+    horizon = frame.index[-1]
+    publication = horizon - pd.Timedelta(seconds=age)
+    frame["nav_timestamp"] = np.minimum(frame.index.to_numpy(), publication.to_datetime64())
+
+    cleaned = process_raw_vault_scan_data({spec: metadata}, frame, logger=lambda _: None)
+    filled = forward_fill_vault(cleaned)
+    monkeypatch.setattr(vault_metrics, "native_datetime_utc_now", lambda: horizon.to_pydatetime())
+    record = calculate_lifetime_metrics(filled, {spec: metadata}).iloc[0]
+    exported = export_lifetime_row(record)
+    assert record["nav_stale"] == stale
+    assert record["nav_age_seconds"] == age
+    assert pd.Timestamp(exported["nav_timestamp"]) == publication
+    assert record["cagr"] is not None
+    assert "tokenised_fund" not in exported["flags"]
+    assert exported["deposit_permission"] == "permissionless"
+    assert exported["whitelist"] == {"status": "permissionless", "notes": ShiftVault.whitelist_notes}
+    assert exported["deposit_manager"] == {"can_deposit": False, "can_redeem": False, "deposit_permission": "permissionless"}
+    assert exported["deposit_closed_reason"] is None
+    assert exported["redemption_closed_reason"] is None

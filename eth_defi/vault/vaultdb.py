@@ -96,6 +96,9 @@ class VaultRow(TypedDict):
     #: Last published onchain NAV time, independent of metadata scan time.
     _nav_timestamp: NotRequired[datetime.datetime | None]
 
+    #: Maximum age in seconds accepted by the Shift vault contract.
+    _shift_nav_freshness_seconds: NotRequired[int | None]
+
     #: Block-tagged evidence of whether the vault accepts new redemption requests.
     _redemption_request_observation: NotRequired[dict[str, object] | None]
 

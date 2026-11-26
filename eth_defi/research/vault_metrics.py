@@ -3868,6 +3868,15 @@ def _calculate_vault_record_from_arrays(
         if nav_stale:
             for period_metric in period_results:
                 period_metric.error_reason = "Published NAV is stale or its publication time is unknown"
+    elif ERC4626Feature.shift_like in detection.features:
+        raw_nav_at = observation_vault.sorted_value("nav_timestamp", valid_rows[-1]) if observation_vault.has_column("nav_timestamp") else None
+        freshness = vault_metadata.get("_shift_nav_freshness_seconds")
+        if pd.notna(raw_nav_at):
+            nav_timestamp = pd.Timestamp(raw_nav_at)
+            publication_horizon = pd.Timestamp(native_datetime_utc_now())
+            nav_age_seconds = (publication_horizon - nav_timestamp).total_seconds()
+            if freshness is not None:
+                nav_stale = nav_age_seconds < 0 or nav_age_seconds > freshness
 
     flow_current_day_is_provisional = vault_metadata.get("_daily_flow_current_day_is_provisional", False)
     _attach_period_flow_metrics(
@@ -4009,7 +4018,7 @@ def _calculate_vault_record_from_arrays(
 
     # First and last rows with a usable share price. Block numbers are read
     # from the source column so they keep their exported integer type.
-    if nav_stale:
+    if nav_stale and ERC4626Feature.buoy_like in detection.features:
         one_month_returns = one_month_returns_net = one_month_cagr = one_month_cagr_net = None
         one_month_start = one_month_end = one_month_samples = None
 
