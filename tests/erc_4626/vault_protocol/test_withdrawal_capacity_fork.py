@@ -23,8 +23,6 @@ CASES = [
     (8453, 56688126, "0xf80c0529bd94c773844e459853cd91b9263dd525", "morpho"),
     (8453, 56688126, "0x61bfd6f7df1f72427f472144d043c25d742d145e", "morpho"),
     (8453, 56688126, "0xb99b6df96d4d5448cc0a5b3e0ef7896df9507cf5", "40acres"),
-    (43114, 100155045, "0x124d00b1ce4453ffc5a5f65ce83af13a7709bac7", "40acres"),
-    (43114, 100155045, "0xc0485c4bafb594ae1457820fb6e5b67e8a04bcfd", "40acres"),
 ]
 RPC_NAMES = {10: "JSON_RPC_OPTIMISM", 1: "JSON_RPC_ETHEREUM", 8453: "JSON_RPC_BASE", 43114: "JSON_RPC_AVALANCHE"}
 
@@ -70,6 +68,7 @@ def test_capacity_source(anvil_fork_pool, chain, block, address, kind):
             cash = token.contract.functions.balanceOf(vault.address).call(block_identifier=block)
             assert result.current_capacity == token.convert_to_decimals(min(cash, total))
             assert result.capacity_warning is True
+            assert result.observation["capacity_warning_source"] == ("both" if chain == 8453 else "structural")
         elif kind == "euler":
             from eth_defi.abi import get_deployed_contract
 

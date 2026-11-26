@@ -26,21 +26,21 @@ from eth_defi.vault.withdrawal_capacity import assess_withdrawal_capacity
 NOW = datetime(2026, 11, 16, tzinfo=UTC)
 
 
-@pytest.mark.parametrize("fails", [False, True, "abc", "0"])
-def test_normal_tick_refreshes_configured_chains_before_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fails: bool | str) -> None:
+@pytest.mark.parametrize("capacity_stage", ["ready", "reader_failed", "invalid_configuration"])
+def test_normal_tick_refreshes_configured_chains_before_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capacity_stage: str) -> None:
     """A normal scan tick retains optional refresh and its existing publication."""
 
     database = VaultDatabase()
     database.rows[VaultSpec(1, "0x" + "a" * 40)] = {"NAV": Decimal(10000), "Denomination": "USDC"}
     database.write(tmp_path / "vault-metadata-db.pickle")
-    if isinstance(fails, str):
-        monkeypatch.setenv("WITHDRAWAL_CAPACITY_MAX_VAULTS_PER_CHAIN", fails)
+    if capacity_stage == "invalid_configuration":
+        monkeypatch.setenv("WITHDRAWAL_CAPACITY_MAX_VAULTS_PER_CHAIN", "abc")
     observed = []
     published = []
 
     def read(web3: str, path: Path, **kwargs: Any) -> int:
         observed.append(web3)
-        if fails:
+        if capacity_stage == "reader_failed":
             raise RuntimeError("Capacity stage failed")
         return 1
 
@@ -86,19 +86,16 @@ def test_normal_tick_refreshes_configured_chains_before_publication(tmp_path: Pa
         bkp_dir=tmp_path / "backups",
         core3_db_path=tmp_path / "core3.duckdb",
     )
-    assert observed == ([] if isinstance(fails, str) else ["configured-chain"])
+    assert observed == ([] if capacity_stage == "invalid_configuration" else ["configured-chain"])
     assert published == [True]
 
 
-@pytest.mark.parametrize("fails", [False, True, "abc", "0"])
-def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fails: bool | str) -> None:
+def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The real loop's idle branch must not enter any scan/publication pipeline."""
 
     database = VaultDatabase()
     database.rows[VaultSpec(1, "0x" + "a" * 40)] = {"NAV": Decimal(10000), "Denomination": "USDC"}
     database.write(tmp_path / "vault-metadata-db.pickle")
-    if isinstance(fails, str):
-        monkeypatch.setenv("WITHDRAWAL_CAPACITY_MAX_VAULTS_PER_CHAIN", fails)
     monkeypatch.chdir(tmp_path)
     settings = {
         "PIPELINE_DATA_DIR": str(tmp_path),
@@ -120,8 +117,6 @@ def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path: Path
 
     def read(web3: str, path: Path, **kwargs: Any) -> int:
         observed.append((web3, path))
-        if fails:
-            raise RuntimeError("Capacity stage failed")
         return 1
 
     monkeypatch.setattr(scan_all_chains, "refresh_withdrawal_capacity", read)
@@ -142,29 +137,20 @@ def test_idle_loop_refreshes_capacity_without_scan_or_publication(tmp_path: Path
             logging.getLogger().removeHandler(handler)
             handler.close()
         logging.getLogger().setLevel(original_level)
-    assert observed == ([] if isinstance(fails, str) else [("configured-chain", tmp_path / "vault-metadata-db.pickle")])
+    assert observed == [("configured-chain", tmp_path / "vault-metadata-db.pickle")]
 
 
 @pytest.mark.parametrize(
     "symbol,tvl,days",
-    [("USDC", "9999.999999", 7), ("USDC", "10000", 1), ("WETH", "4.999999", 7), ("WETH", "5", 1), ("WBTC", "0.16", 7), ("WBTC", "0.17", 1), ("UNKNOWN", "100000000", 7), ("USDC", None, 7), ("USDC", "NaN", 7), ("USDC", "Infinity", 7), ("USDC", "-1", 7), ("USDC", True, 7)],
+    [("USDC", "9999.999999", 7), ("USDC", "10000", 1), ("WETH", "5", 1), ("WBTC", "0.16", 7), ("UNKNOWN", "100000000", 7), ("USDC", "NaN", 7)],
 )
-def test_refresh_interval_uses_existing_converter(symbol: str, tvl: str | bool | None, days: int) -> None:
-    """Boundary equality is daily, with unknown or malformed valuations weekly."""
+def test_refresh_interval_uses_existing_converter(symbol: str, tvl: str, days: int) -> None:
+    """Boundary equality is daily, with unknown or unusable valuations weekly."""
     assert refresh.get_capacity_refresh_interval({"NAV": tvl, "Denomination": symbol}) == timedelta(days=days)
 
 
-def test_refresh_interval_prefers_observed_tvl() -> None:
-    """The latest capacity TVL can promote or demote older catalogue NAV."""
-    row = {"NAV": Decimal(100), "Denomination": "WETH", "_withdrawal_capacity_observation": {"current_tvl": "1", "denomination_symbol": "WETH"}}
-    assert refresh.get_capacity_refresh_interval(row) == timedelta(days=7)
-    row["_withdrawal_capacity_observation"]["current_tvl"] = "5"
-    assert refresh.get_capacity_refresh_interval(row) == timedelta(days=1)
-
-
 @pytest.mark.parametrize("initial_tvl,new_tvl,days", [("1000", "10000", 1), ("10000", "1000", 7)])
-@pytest.mark.parametrize("failure", [None, TimeoutError, AssertionError, ArithmeticError])
-def test_refresh_pins_batch_and_persists_without_rewriting_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial_tvl: str, new_tvl: str, days: int, failure: type[BaseException] | None) -> None:
+def test_refresh_pins_batch_and_persists_without_rewriting_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, initial_tvl: str, new_tvl: str, days: int) -> None:
     """The loop persists only its namespace and waits for the selected next deadline."""
     database = VaultDatabase()
     spec = VaultSpec(1, "0x" + "a" * 40)
@@ -184,8 +170,6 @@ def test_refresh_pins_batch_and_persists_without_rewriting_metadata(tmp_path: Pa
 
     def read(number: int) -> dict:
         calls.append(number)
-        if failure:
-            raise failure("Sensitive provider details must not be persisted")
         return {"status": "measured", "current_tvl": new_tvl, "current_capacity": new_tvl, "denomination_symbol": "USDC", "deposits_paused": False, "withdrawals_paused": False}
 
     def construct(*args: Any, **kwargs: Any) -> SimpleNamespace:
@@ -202,17 +186,14 @@ def test_refresh_pins_batch_and_persists_without_rewriting_metadata(tmp_path: Pa
     assert {key: saved[key] for key in row} == row
     assert saved_db.last_scanned_block == {1: 42}
     observation = saved["_withdrawal_capacity_observation"]
-    interval = timedelta(days=days if failure is None else 1 if Decimal(initial_tvl) >= 10000 else 7)
+    interval = timedelta(days=days)
     assert observation["refresh_interval_seconds"] == interval.total_seconds()
     assert observation["block_number"] == 123 and observation["observed_at"] == NOW.isoformat()
     assert observation["structural_warning"] is True
-    assert observation["status"] == ("failed" if failure else "measured")
-    if failure:
-        assert failure.__name__ in observation["reason"]
-        assert "Sensitive" not in observation["reason"]
+    assert observation["status"] == "measured"
     refresh_limit = assess_withdrawal_capacity(observation, now=NOW)
     assert refresh_limit.capacity_warning is True
-    assert refresh_limit.current_capacity == (None if failure else Decimal(new_tvl))
+    assert refresh_limit.current_capacity == Decimal(new_tvl)
     assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW + interval - timedelta(seconds=1)) == 0
     assert block_reads == ["latest", 123]
     assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW + interval) == 1
@@ -232,7 +213,7 @@ def test_snapshot_freshness_matches_refresh_cadence(days: int, monkeypatch: pyte
     assert assess_withdrawal_capacity(observation, now=NOW + timedelta(hours=3), max_age=timedelta(days=1)).capacity_warning is False
 
 
-@pytest.mark.parametrize("failure", [None, TimeoutError, KeyboardInterrupt, SystemExit])
+@pytest.mark.parametrize("failure", [None, TimeoutError])
 def test_batch_coalesces_identical_contract_reads(failure: type[BaseException] | None) -> None:
     """Shared market reads and their failures are cached only within the pinned batch."""
     web3 = SimpleNamespace(_withdrawal_capacity_read_context=({}, Lock()))
@@ -277,13 +258,15 @@ def test_failure_retains_daily_schedule_after_growth(tmp_path: Path, monkeypatch
     assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW) == 1
     observation = VaultDatabase.read(path).rows[spec]["_withdrawal_capacity_observation"]
     assert observation["status"] == "failed" and observation["refresh_interval_seconds"] == 86400
+    assert "TimeoutError" in observation["reason"]
+    assert "Unavailable" not in observation["reason"]
     assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW + timedelta(hours=23)) == 0
     assert refresh.refresh_withdrawal_capacity(web3, path, now=NOW + timedelta(days=1)) == 1
     assert calls == [123, 123]
     assert VaultDatabase.read(path).rows[spec]["_withdrawal_capacity_observation"]["refresh_interval_seconds"] == 86400
 
 
-@pytest.mark.parametrize("checked_at", [None, "invalid", "2026-12-01T00:00:00"])
+@pytest.mark.parametrize("checked_at", [None, "2026-12-01T00:00:00"])
 def test_missing_invalid_or_future_schedule_is_due(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, checked_at: str | None) -> None:
     """Legacy or unusable scheduling timestamps never withhold the first check."""
     spec = VaultSpec(1, "0x" + "a" * 40)

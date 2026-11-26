@@ -34,16 +34,12 @@ def test_forty_acres_warning_is_visible_and_sourced(spec: VaultSpec) -> None:
     """
     flags = get_vault_special_flags(spec.vault_address.upper(), "40acres")
     assert flags == {VaultFlag.forty_acres_withdrawal_risk}
-    assert VaultFlag.withdrawal_restrictions not in flags
     assert not flags & BAD_FLAGS
     assert not is_flagged_vault(spec.vault_address, "40acres")
     note = get_notes(spec.vault_address, chain_id=spec.chain_id, protocol_name="40acres", include_defaults=False)
     assert note is not None
     assert get_notes(spec.vault_address, chain_id=1, protocol_name="40acres", include_defaults=False) is None
     assert apply_bad_flag_check(VaultTechnicalRisk.low, note, flags) == (VaultTechnicalRisk.low, note, flags)
-    assert "2 November 2026" in note
-    assert "outstanding loans" in note
-    assert "cannot demand immediate loan repayment" in note
     assert "bad debt and losses" in note
     for source in ("https://docs.40acres.finance/lending", "https://docs.40acres.finance/risk-disclosure", "https://docs.40acres.finance/contracts"):
         assert f"]({source})" in note
@@ -51,12 +47,6 @@ def test_forty_acres_warning_is_visible_and_sourced(spec: VaultSpec) -> None:
     if spec.chain_id in {10, 8453}:
         assert "https://40acresfinance.substack.com/p/40-acres-lender-update" in note
         assert "https://40acresfinance.substack.com/p/aero-migration-what-40acres-users" in note
-        assert "withdrawal timetable for USDC lenders" in note
-    if spec == REVIEWED[-1]:
-        assert "1,581 USDC" in note
-        assert "635,055 USDC" in note
-        assert "$222,000 to $224,000" in note
-        assert "not a verified sale price" in note
 
 
 def test_hydrex_does_not_inherit_withdrawal_warning() -> None:

@@ -13,6 +13,15 @@ finance ecosystem and helps you keep track of important performance metrics. Ove
 for ETH, WBTC, USDC, USDT, and more are available across Ethereum Mainnet, Arbitrum, Base, Polygon
 and zkSync Era.
 
+USDC withdrawal liquidity
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Base USDC vault using 40 Acres pays cash withdrawals from idle USDC and
+cash available in the underlying lending pool. Borrower repayments can
+replenish the pool when cash is scarce. Harvest can also enable redemption
+into pool shares. The capacity reader measures the immediate gross USDC exit
+for the verified 40 Acres route at the observation block.
+
 Links
 ~~~~~
 

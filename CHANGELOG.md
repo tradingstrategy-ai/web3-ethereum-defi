@@ -1,5 +1,7 @@
 # 1.2
 
+- feat: Publish a withdrawal notice and measure immediate USDC capacity for the Harvest 40 Acres vault on Base (2026-11-26).
+
 - feat: Pin GMX to the v2.2.1 contracts and vendored ABIs, read Reader results by field name, decode v2.2.1 custom errors, refuse orders when the resolved ExchangeRouter is not whitelisted on the vault guard, and run GMX fork tests at a fixed post-deployment Arbitrum block (2026-11-17, [#1789](https://github.com/tradingstrategy-ai/web3-ethereum-defi/pull/1789)).
 
 - fix: Install the sparkline PNG encoder and Pillow with core eth-defi so vault metadata loading works without the data extra (2026-11-24).

@@ -27,6 +27,15 @@ as an exit restriction. Both SingularV and LiquityV2 have deposit-pause fixtures
 40acres has an explicit structural warning even with an adequate numerical
 buffer: outstanding loans are in TVL but cannot be recalled by lenders. Its
 capacity measurement uses direct cash, capped by total asset entitlement.
+The Harvest USDC wrapper on Base (`0xC777…263E`) applies the same structural
+warning and caps access to that shared cash by its strategy's pool position.
+The reader verifies the vault, strategy and pool code and the active route at
+the observation block. A route mismatch clears the warning and logs that the
+catalogue note needs review. The amount measures the gross USDC exit. Harvest
+can also enable redemption into pool shares. The scheduled refresh fills the
+new observation and the manual note resolves on export, so existing catalogue
+rows require no migration.
+
 Morpho V1 reads the withdrawal queue, supplied market positions and available
 market cash, with stored-interest conservative rounding. Morpho V2 includes only
 the configured ordinary withdrawal route; optional paid recovery is excluded.
