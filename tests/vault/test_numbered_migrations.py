@@ -392,6 +392,7 @@ def test_complete_batch_preview_apply_and_scanner_semantics(batch_database: Path
                 "block_number": [12345],
                 "timestamp": pa.array([datetime.datetime(2026, 11, 20)], type=pa.timestamp("ms")),
                 "share_price": [1.25],
+                "total_assets": [125.0],
                 "available_liquidity": [123.0],
             }
         ),
