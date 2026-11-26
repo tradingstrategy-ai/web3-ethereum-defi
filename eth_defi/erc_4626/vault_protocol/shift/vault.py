@@ -18,15 +18,21 @@ Sources:
 # ruff: noqa: FBT001, FBT002, PLR0904, PLR0917, PLR6301
 
 import datetime
+import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from functools import cached_property
 
 from eth_typing import BlockIdentifier, HexAddress
+from requests.exceptions import RequestException
 from web3 import Web3
 from web3.contract import Contract
+from web3.exceptions import Web3Exception
 
+from eth_defi.abi import get_abi_by_filename, get_deployed_contract
+from eth_defi.compat import native_datetime_utc_fromtimestamp
 from eth_defi.erc_4626.core import ERC4626Feature
-from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_HOMEPAGE, SHIFT_VAULT_PRODUCTS, ShiftVaultProduct
+from eth_defi.erc_4626.vault_protocol.shift.constants import SHIFT_HOMEPAGE, SHIFT_LEGACY_TVL_FEED, SHIFT_VAULT_PRODUCTS, ShiftVaultProduct
 from eth_defi.erc_4626.vault_protocol.shift.descriptions import get_shift_vault_description
 from eth_defi.erc_4626.vault_protocol.shift.historical import ShiftVaultHistoricalReader
 from eth_defi.token import TokenDetails, fetch_erc20_details
@@ -36,23 +42,31 @@ from eth_defi.vault.deposit_redeem import VaultDepositManager, VaultDepositManag
 from eth_defi.vault.fee import FeeData, VaultFeeMode
 from eth_defi.vault.lower_case_dict import LowercaseDict
 
-#: Minimal stable, no-argument ShiftVault read ABI. The selectors are defined
-#: by Shift's published Solidity source and avoid embedding the full contract ABI.
-SHIFT_VAULT_READ_ABI = [
-    {"inputs": [], "name": "baseToken", "outputs": [{"internalType": "contract ERC20", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "tvlFeed", "outputs": [{"internalType": "contract IShiftTvlFeed", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "getSharePrice", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "maintenanceFeePerSecond18pt", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "performanceFee18pt", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "timelock", "outputs": [{"internalType": "uint32", "name": "", "type": "uint32"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "whitelistEnabled", "outputs": [{"internalType": "bool", "name": "", "type": "bool"}], "stateMutability": "view", "type": "function"},
-    {"inputs": [], "name": "paused", "outputs": [{"internalType": "bool", "name": "", "type": "bool"}], "stateMutability": "view", "type": "function"},
-]
+#: ABI export retained for integrations importing the former inline interface.
+SHIFT_VAULT_READ_ABI = get_abi_by_filename("shift/ShiftVault.json")
 
-#: Minimal Shift TVL feed interface used for its immutable valuation scale.
-SHIFT_TVL_FEED_READ_ABI = [
-    {"inputs": [], "name": "decimals", "outputs": [{"internalType": "uint8", "name": "", "type": "uint8"}], "stateMutability": "view", "type": "function"},
-]
+#: ABI export retained for legacy Shift feed bindings.
+SHIFT_TVL_FEED_READ_ABI = get_abi_by_filename("shift/ShiftTvlFeed.json")
+
+
+logger = logging.getLogger(__name__)
+
+# One stale warning per publication and reviewed deployment in this process.
+_last_warned_publication: dict[tuple[int, HexAddress], datetime.datetime] = {}
+
+
+@dataclass(frozen=True, slots=True)
+class ShiftValuation:
+    """A valuation published by the Shift oracle."""
+
+    #: Total value in the vault denomination at publication.
+    total_assets: Decimal
+
+    #: Denomination units per share, rounded down at feed precision.
+    share_price: Decimal
+
+    #: Naive UTC time when the oracle published the valuation.
+    published_at: datetime.datetime
 
 
 class ShiftVaultInfo(VaultInfo, total=False):
@@ -79,6 +93,8 @@ class ShiftVault(VaultBase):
     """
 
     whitelist_notes = "Shift can enable a contract-level investor allow-list; individual membership is not publicly readable."
+
+    preserve_unavailable_price_history = True
 
     def is_whitelisted_deposit(self) -> bool:
         """Read the contract's account-admission policy.
@@ -181,24 +197,61 @@ class ShiftVault(VaultBase):
 
     @cached_property
     def shift_contract(self) -> Contract:
-        """Return the minimal ShiftVault read interface bound to this vault."""
+        """Bind the verified ShiftVault interface for public read methods."""
+        return get_deployed_contract(self.web3, "shift/ShiftVault.json", self.address)
 
-        return self.web3.eth.contract(address=self.address, abi=SHIFT_VAULT_READ_ABI)
+    @cached_property
+    def tvl_feed(self) -> Contract:
+        """Bind the immutable feed used by the source-reviewed vault deployment."""
+        address = self.shift_contract.functions.tvlFeed().call()
+        abi_name = "ShiftTvlFeedLegacy.json" if address.lower() == SHIFT_LEGACY_TVL_FEED else "ShiftTvlFeed.json"
+        return get_deployed_contract(self.web3, f"shift/{abi_name}", address)
 
     @cached_property
     def tvl_feed_decimals(self) -> int:
-        """Read the immutable TVL feed's decimal precision.
+        """Return the immutable denomination scale exposed by the feed."""
+        return self.tvl_feed.functions.decimals().call()
 
-        ShiftVault's ``getSharePrice()`` result is scaled to this precision,
-        which need not equal the deposit token's decimals.
+    def decode_valuation(self, fields: tuple[int, int, int], sampled_at: datetime.datetime) -> ShiftValuation:
+        """Calculate Shift's price from the valuation and its paired supply.
 
-        :return:
-            Decimal places used by ``getSharePrice()``.
+        The 25 November 2026 ltLLP sample at block 527445008 still had a
+        positive NAV published at 13:00:11 UTC. The paired supply and that
+        publication time belong to the same quote even if shares later move.
+
+        :param fields: Raw denomination amount, Unix seconds and raw supply snapshot.
+        :param sampled_at: Naive UTC time of the read block.
+        :return: Published NAV and price, in denomination units.
+        :raises ValueError: If the quote is unpublished or temporally invalid.
         """
+        value, timestamp, supply_snapshot = fields
+        published_at = native_datetime_utc_fromtimestamp(timestamp)
+        # Only an initialised feed can publish. Its oracle takes the supply
+        # snapshot from this vault, so a quote cannot predate the vault itself.
+        if not supply_snapshot or not timestamp or not self.product.first_seen_at <= published_at <= sampled_at:
+            message = "Shift valuation has no usable publication or supply snapshot"
+            raise ValueError(message)
+        scale = Decimal(10**self.tvl_feed_decimals)
+        raw_price = value * 10**self.share_token.decimals // supply_snapshot
+        return ShiftValuation(Decimal(value) / scale, Decimal(raw_price) / scale, published_at)
 
-        feed_address = self.shift_contract.functions.tvlFeed().call()
-        feed = self.web3.eth.contract(address=feed_address, abi=SHIFT_TVL_FEED_READ_ABI)
-        return int(feed.functions.decimals().call())
+    def fetch_valuation(self, block_identifier: BlockIdentifier = "latest") -> ShiftValuation:
+        """Read the last published valuation at a single block.
+
+        On 25 November 2026, ltLLP's 70-minute quote expired from 14:10 to
+        16:00 UTC. At block 527445008 getSharePrice() returned zero while the
+        oracle still held a positive quote. Trading Strategy displayed a
+        false 100% drawdown. getLastTvl() retains the published value and time.
+
+        See docs/claude-plans/2026-11-26-shift-stale-share-prices.md.
+
+        :param block_identifier: Observation block or RPC block tag.
+        :return: Last published valuation, which may be stale.
+        :raises ValueError: If the feed has no usable publication.
+        """
+        block = self.web3.eth.get_block(block_identifier)
+        fields = self.tvl_feed.functions.getLastTvl().call(block_identifier=block["number"])
+        return self.decode_valuation(fields, native_datetime_utc_fromtimestamp(block["timestamp"]))
 
     @property
     def name(self) -> str:
@@ -275,19 +328,13 @@ class ShiftVault(VaultBase):
         return fetch_erc20_details(self.web3, address, chain_id=self.chain_id, raise_on_error=False, cache=self.token_cache, cause_diagnostics_message=f"ShiftVault base token for {self.address}")
 
     def fetch_share_price(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
-        """Read the latest TVL-feed share price in base-token units.
+        """Read the last published price even when the quote has expired.
 
-        Shift returns zero when the TVL feed is stale. The value otherwise uses
-        the TVL feed's decimal precision, as documented in ``ShiftVault``.
-
-        :param block_identifier:
-            Block number or tag at which to read the share price.
-        :return:
-            Base-token amount represented by one human-readable share.
+        :param block_identifier: Observation block or RPC block tag.
+        :return: Vault denomination units per whole share.
+        :raises ValueError: If the feed has no usable publication.
         """
-
-        raw_price = int(self.shift_contract.functions.getSharePrice().call(block_identifier=block_identifier))
-        return Decimal(raw_price) / Decimal(10**self.tvl_feed_decimals)
+        return self.fetch_valuation(block_identifier).share_price
 
     def fetch_total_supply(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Read the outstanding ERC-20 share supply.
@@ -302,7 +349,7 @@ class ShiftVault(VaultBase):
         return self.share_token.convert_to_decimals(raw_supply)
 
     def fetch_total_assets(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
-        """Calculate TVL from the TVL-feed share price and ERC-20 supply.
+        """Read the last TVL published by the Shift oracle.
 
         :param block_identifier:
             Block number or tag at which to calculate TVL.
@@ -310,7 +357,7 @@ class ShiftVault(VaultBase):
             Total assets in base-token units.
         """
 
-        return self.fetch_share_price(block_identifier) * self.fetch_total_supply(block_identifier)
+        return self.fetch_valuation(block_identifier).total_assets
 
     def fetch_nav(self, block_identifier: BlockIdentifier = "latest") -> Decimal:
         """Return the ShiftVault TVL in base-token units.
@@ -343,11 +390,37 @@ class ShiftVault(VaultBase):
             Private scanner fields for the TVL-feed valuation and unsupported flow.
         """
 
+        block_identifier = self.default_block_identifier if self.default_block_identifier is not None else "latest"
+        block = None
+        freshness = None
+        published_at = None
+        try:
+            block = self.web3.eth.get_block(block_identifier)
+            freshness = self.shift_contract.functions.freshness().call(block_identifier=block["number"])
+        except (OSError, RequestException, Web3Exception) as error:
+            logger.warning("Shift quote freshness is unavailable for %s:%s (%s)", self.chain_id, self.address, type(error).__name__)
+
+        if block is not None:
+            sampled_at = native_datetime_utc_fromtimestamp(block["timestamp"])
+            try:
+                fields = self.tvl_feed.functions.getLastTvl().call(block_identifier=block["number"])
+                published_at = self.decode_valuation(fields, sampled_at).published_at
+            except (ValueError, OverflowError, OSError, RequestException, Web3Exception):
+                # Keep unrelated metadata when the publication is unavailable.
+                pass
+            if published_at is not None and freshness is not None:
+                age = int((sampled_at - published_at).total_seconds())
+                key = self.chain_id, self.address
+                if age > freshness and _last_warned_publication.get(key) != published_at:
+                    _last_warned_publication[key] = published_at
+                    logger.warning("Stale Shift quote for %s:%s, published at %s UTC, age %d seconds", *key, published_at, age)
         return {
+            "_nav_timestamp": published_at,
+            "_shift_nav_freshness_seconds": freshness,
             "_notes": self.get_notes(),
             "_deposit_closed_reason": self.fetch_deposit_closed_reason(),
             "_redemption_closed_reason": self.fetch_redemption_closed_reason(),
-            "_nav_source": "shift_getSharePrice",
+            "_nav_source": "shift_getLastTvl",
             "_nav_estimated": False,
         }
 
@@ -432,7 +505,7 @@ class ShiftVault(VaultBase):
         :param stateful:
             Whether adaptive reader state should be retained.
         :return:
-            ShiftVault reader using ``getSharePrice()`` and ``totalSupply()``.
+            ShiftVault reader using ``getLastTvl()`` and ``totalSupply()``.
         """
 
         return ShiftVaultHistoricalReader(self, stateful=stateful)

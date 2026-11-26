@@ -33,6 +33,10 @@ class ShiftVaultProduct:
     first_seen_at: datetime.datetime
 
 
+#: The reviewed legacy TVL feed used by Base ltPARA.
+SHIFT_LEGACY_TVL_FEED = HexAddress("0x6196810be8e6a1d0fb0ec10c789966c88340f19b")
+
+
 #: Shift's public app and published address registry.
 SHIFT_HOMEPAGE = "https://app.shiftprotocol.xyz/"
 

@@ -45,7 +45,7 @@ def test_shift_extusd_vault_reads_public_tvl_feed(web3: Web3) -> None:
     assert vault.denomination_token.symbol == "USDC"
     assert vault.fetch_share_price() == Decimal("1.026897")
     assert vault.fetch_total_supply() == Decimal("268424.523928582999214656")
-    assert vault.fetch_total_assets() == Decimal("275644.3383486900961445326024")
+    assert vault.fetch_total_assets() == Decimal("275644.410752")
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == 0.0
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
@@ -61,14 +61,14 @@ def test_shift_extusd_vault_reads_public_tvl_feed(web3: Web3) -> None:
 
 
 def test_shift_ltpara_fee_and_stale_price_semantics(web3: Web3) -> None:
-    """Retain a stale feed's zero price instead of inventing a share valuation."""
+    """Retain the last published price after the quote expires."""
 
     vault = create_vault_instance_autodetect(web3, SHIFT_LTPARA_BASE)
 
     assert isinstance(vault, ShiftVault)
     assert vault.symbol == "ltPARA"
-    assert vault.fetch_share_price() == Decimal(0)
-    assert vault.fetch_total_assets() == Decimal("0E-18")
+    assert vault.fetch_share_price() == Decimal("1.061222")
+    assert vault.fetch_total_assets() == Decimal("47393.663005")
     assert vault.get_management_fee("latest") == 0.0
     assert vault.get_performance_fee("latest") == SHIFT_LTPARA_PERFORMANCE_FEE
     assert vault.get_estimated_lock_up() == datetime.timedelta(days=7)
