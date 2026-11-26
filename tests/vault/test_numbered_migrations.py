@@ -19,18 +19,22 @@ from eth_defi.erc_4626.core import ERC4262VaultDetection, ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.arcadia import offchain_metadata as arcadia
 from eth_defi.erc_4626.vault_protocol.buoy.deployments import BUOY_REVIEW_BLOCK, BUOY_REVIEWED_LEADS
 from eth_defi.erc_4626.vault_protocol.buoy.vault import BuoyVault
+from eth_defi.erc_4626.vault_protocol.ember.vault import EmberVault
 from eth_defi.erc_4626.vault_protocol.flying_tulip.constants import FLYING_TULIP_SSFTUSD_DESCRIPTION, FLYING_TULIP_SSFTUSD_NOTES, FLYING_TULIP_SSFTUSD_SHORT_DESCRIPTION
 from eth_defi.erc_4626.vault_protocol.gains.metadata import REVIEWED_GAINS_VAULTS
 from eth_defi.erc_4626.vault_protocol.gains.vault import GainsHistoricalReader
+from eth_defi.erc_4626.vault_protocol.ipor.vault import IPORVault
 from eth_defi.erc_4626.vault_protocol.nova_markets.constants import NOVA_POOL_ADDRESS
 from eth_defi.erc_4626.vault_protocol.nova_markets.vault import NovaMarketsVault
+from eth_defi.erc_4626.vault_protocol.upshift.vault import UpshiftVault
 from eth_defi.erc_4626.vault_protocol.veranta.constants import VERANTA_VAULT_ADDRESS
 from eth_defi.erc_4626.vault_protocol.veranta.vault import VerantaVault
 from eth_defi.hyperliquid import tags as hyperliquid_tags
 from eth_defi.lighter import tags as lighter_tags
 from eth_defi.neutral_trade import metrics as neutral_trade_metrics
 from eth_defi.neutral_trade.api import parse_vault
-from eth_defi.provider import env as provider_env, multi_provider
+from eth_defi.provider import env as provider_env
+from eth_defi.provider import multi_provider
 from eth_defi.vault import post_processing
 from eth_defi.vault.base import VaultSpec, normalise_vault_description, normalise_vault_short_description
 from eth_defi.vault.flag import BAD_FLAGS, VaultFlag, get_notes
@@ -662,3 +666,54 @@ def test_podcast_available_migration_preserves_saved_tags(tmp_path: Path) -> Non
     repeated = runner.MigrationContext(tmp_path, False, script_name=migration.name)
     runner._execute(migration, repeated)
     assert repeated.other_data["updated_fields"] == 0
+
+
+def test_reviewed_looping_tag_refresh(tmp_path: Path) -> None:
+    """Preview and apply the looping tag through the numbered migration runner.
+
+    Verify that the same six deployments receive the tag through the public
+    adapters. The persisted refresh preserves existing tags and unrelated rows.
+
+    :param tmp_path: Isolated pipeline and migration inventory directory.
+    :return: None after verifying preview, persistence and repeat execution.
+    """
+    targets = (
+        (VaultSpec(1, "0xf373a4d4d200d709aa73d4e0be49b822b0cc866d"), "IPOR Fusion", IPORVault, ERC4626Feature.ipor_like),
+        (VaultSpec(1, "0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8"), "IPOR Fusion", IPORVault, ERC4626Feature.ipor_like),
+        (VaultSpec(143, "0x42b3b62a6685e3a3f93483715ef4300f5e7336cc"), "Upshift", UpshiftVault, ERC4626Feature.upshift_like),
+        (VaultSpec(1, "0xd000e6bcad5457e8f4de67eddefe50bcc4b3d743"), "Upshift", UpshiftVault, ERC4626Feature.upshift_like),
+        (VaultSpec(1, "0xda89af5bf2eb0b225d787abfa9095610f2e79e7d"), "Upshift", UpshiftVault, ERC4626Feature.upshift_like),
+        (VaultSpec(1, "0x373152feef81cc59502da2c8de877b3d5ae2e342"), "Ember", EmberVault, ERC4626Feature.ember_like),
+    )
+    looping_tags = {StrategyTag.lending_looping}
+    unspecified = VaultSpec(1, "0x0000000000000000000000000000000000000001")
+    web3 = Web3()
+    for spec, _, adapter, feature in targets:
+        assert adapter(web3, spec, features={feature}).get_strategy_tags() == looping_tags
+        assert adapter(web3, unspecified, features={feature}).get_strategy_tags() is None
+
+    rows = {spec: {"Protocol": protocol, "_detection_data": detection(spec, feature), "_strategy_tags": None, "_notes": "Preserve this note"} for spec, protocol, _, feature in targets}
+    first = targets[0][0]
+    rows[first]["_strategy_tags"] = {StrategyTag.carry_trade}
+    other_chain = VaultSpec(8453, first.vault_address)
+    rows[other_chain] = {"Protocol": "IPOR Fusion", "_detection_data": detection(other_chain, ERC4626Feature.ipor_like), "_strategy_tags": None}
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    path = data_dir / "vault-metadata-db.pickle"
+    VaultDatabase(rows=rows).write(path)
+    original = path.read_bytes()
+
+    migration = next(spec for spec in runner.discover_migrations() if spec.name == "109-reviewed-looping-vault-tags.py")
+    scripts_dir = tmp_path / "scripts"
+    scripts_dir.mkdir()
+    (scripts_dir / migration.name).write_bytes(migration.source)
+
+    assert runner.run_pending_migrations(dry_run=True, data_dir=data_dir, scripts_dir=scripts_dir) == [migration.name]
+    assert path.read_bytes() == original
+    assert runner.run_pending_migrations(dry_run=False, data_dir=data_dir, scripts_dir=scripts_dir) == [migration.name]
+    updated = VaultDatabase.read(path).rows
+    for spec, _, _, _ in targets:
+        assert updated[spec] == rows[spec] | {"_strategy_tags": (rows[spec]["_strategy_tags"] or set()) | looping_tags}
+    assert updated[other_chain] == rows[other_chain]
+    assert runner.run_pending_migrations(dry_run=False, data_dir=data_dir, scripts_dir=scripts_dir) == []
