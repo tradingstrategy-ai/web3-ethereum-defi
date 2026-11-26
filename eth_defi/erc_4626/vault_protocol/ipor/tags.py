@@ -33,4 +33,20 @@ STRATEGY_TAGS: dict[str, set[StrategyTag]] = {
         StrategyTag.algorithmic_trading,
         StrategyTag.lending_optimisation,
     },
+    #: Vault: Origin Protocol wOUSD Leverage Loop (Ethereum).
+    #: Added: 2026-11-26.
+    #: Decision material: The vault posts wOUSD on Morpho, borrows USDC,
+    #: converts the proceeds to wOUSD and supplies it again.
+    #: Sources:
+    #: - https://tradingstrategy.ai/vaults/origin-protocol-wousd-leverage-loop
+    #: - https://www.originprotocol.com/blog/june-2026-token-holder-update
+    "0xf373a4d4d200d709aa73d4e0be49b822b0cc866d": {StrategyTag.lending_looping},
+    #: Vault: Bitcoin Dollar USDC (Ethereum).
+    #: Added: 2026-11-26.
+    #: Decision material: IPOR classifies the deployment as leveraged looping.
+    #: Its description says the vault borrows wBTC to reach 2x sBTCD exposure.
+    #: Sources:
+    #: - https://tradingstrategy.ai/vaults/bitcoin-dollar-usdc
+    #: - https://app.ipor.io/fusion/ethereum/0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8
+    "0xf8f226da66244f89e70c5b5d1a5c5b0d505eb1d8": {StrategyTag.lending_looping},
 }
