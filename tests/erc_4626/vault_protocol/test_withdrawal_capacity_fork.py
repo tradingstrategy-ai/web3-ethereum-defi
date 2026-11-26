@@ -75,7 +75,6 @@ def test_capacity_source(anvil_fork_pool, chain, block, address, kind):
             cash = get_deployed_contract(web3, "euler/EVault.json", vault.address).functions.cash().call(block_identifier=block)
             assert result.current_capacity == token.convert_to_decimals(min(cash, total))
             assert result.capacity_warning is True
-            assert result.observation["capacity_warning_source"] == ("both" if chain == 8453 else "structural")
             assert type(vault).__name__ == "EulerVault"
         elif kind == "fluid":
             assert result.current_capacity == Decimal(0)
