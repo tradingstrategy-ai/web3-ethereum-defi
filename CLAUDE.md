@@ -36,6 +36,7 @@
 
 ## Tests
 
+- Use [remove-slop-tests](.claude/skills/remove-slop-tests/SKILL.md) only when the user explicitly requests it for a component or subarea.
 - Run only the relevant tests with `source .local-test.env && poetry run pytest <test-path-or-node-id>`. Allow at least 180 seconds. Add `--log-cli-level=info` for diagnostics.
 - Use pytest functions and fixtures. Put shared helpers under `eth_defi/testing/`. Avoid test classes, stdout prints and imports from `tests`. Use `pytest.approx()` for float comparisons. Close DuckDB connections with a fixture or `finally`.
 - Test repository behaviour with representative raw inputs and explicit expected results. Cover calculations, fees, NAV, filtering, pagination, resume, persistence, exports and permissions. Exercise public dispatch contracts when callers rely on them.
