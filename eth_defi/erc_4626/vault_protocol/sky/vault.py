@@ -6,13 +6,12 @@ staking USDS in Sky savings vaults.
 
 Sky offers ERC-4626 compliant tokenised vaults:
 
-- **stUSDS** (Staked USDS): The original Sky savings vault for USDS
-- **sUSDS** (Savings USDS): An additional savings vault with the same mechanics
+- **stUSDS** (Staked USDS): USDS lending against staked SKY collateral
+- **sUSDS** (Savings USDS): The Sky Savings Rate vault for USDS
 - **sDAI** (Savings DAI): The original MakerDAO DAI Savings Rate vault
 
-The USDS vaults allow users to stake USDS and earn the Sky Savings Rate (SSR). The
-vaults accumulate yield through the ``drip()`` mechanism which accrues interest
-based on the ``chi`` rate accumulator.
+The vaults accumulate yield through the ``drip()`` mechanism. Staked USDS
+withdrawals depend on USDS available after outstanding loans and auctions.
 
 The sDAI vault allows users to deposit DAI and earn the DAI Savings Rate (DSR)
 through MakerDAO's Pot contract.
@@ -20,8 +19,7 @@ through MakerDAO's Pot contract.
 Key features:
 
 - No deposit/withdrawal fees at the smart contract level
-- Yield accrues through the Sky Savings Rate (SSR) or DAI Savings Rate (DSR)
-- Instant deposits and withdrawals
+- No scheduled withdrawal lock-up
 - Fully decentralised and battle-tested infrastructure
 
 - Homepage: https://sky.money/
@@ -40,6 +38,7 @@ from eth_typing import BlockIdentifier
 
 from eth_defi.erc_4626.vault import ERC4626Vault
 from eth_defi.vault.base import INSTANT_WITHDRAWAL_PERIOD, WithdrawalPeriod
+from eth_defi.vault.withdrawal_capacity_readers import STAKED_USDS_ADDRESS, fetch_staked_usds_observation
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +46,8 @@ logger = logging.getLogger(__name__)
 class SkyVault(ERC4626Vault):
     """Sky protocol vault support.
 
-    Sky savings vaults (stUSDS, sUSDS, and sDAI) allow users to stake stablecoins
-    and earn yield. The USDS vaults earn the Sky Savings Rate while sDAI earns the
-    DAI Savings Rate. The vaults accumulate yield through rate accumulators which
-    are updated via the ``drip()`` function.
+    stUSDS earns yield from SKY-backed lending, sUSDS earns the Sky Savings
+    Rate and sDAI earns the DAI Savings Rate.
 
     - Homepage: https://sky.money/
     - Documentation: https://developers.sky.money/
@@ -67,6 +64,20 @@ class SkyVault(ERC4626Vault):
         Sky stUSDS vault does not charge deposit/withdrawal fees.
         """
         return False
+
+    def fetch_withdrawal_capacity_observation(self, block_identifier: BlockIdentifier) -> dict:
+        """Read the capacity of the reviewed Ethereum Staked USDS deployment.
+
+        The Sky adapter serves several products. Only stUSDS uses the
+        SKY-backed lending and auction accounting in this reader.
+
+        :param block_identifier: Numeric observation block or block tag.
+        :return: The measured USDS capacity observation, or an unknown result.
+        """
+        if self.chain_id == 1 and self.address.lower() == STAKED_USDS_ADDRESS:
+            block = block_identifier if isinstance(block_identifier, int) else self.web3.eth.get_block(block_identifier)["number"]
+            return fetch_staked_usds_observation(self, block)
+        return super().fetch_withdrawal_capacity_observation(block_identifier)
 
     def get_management_fee(self, block_identifier: BlockIdentifier) -> float | None:
         """Get the current management fee as a percent.
@@ -92,7 +103,8 @@ class SkyVault(ERC4626Vault):
     def get_estimated_lock_up(self) -> datetime.timedelta | None:
         """Get estimated lock-up period if any.
 
-        Sky stUSDS vault has no lock-up period. Withdrawals are instant.
+        Sky vaults have no scheduled lock-up. stUSDS exits still depend on
+        available USDS liquidity.
         """
         return datetime.timedelta(days=0)
 

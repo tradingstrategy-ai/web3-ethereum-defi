@@ -36,6 +36,15 @@ can also enable redemption into pool shares. The scheduled refresh fills the
 new observation and the manual note resolves on export, so existing catalogue
 rows require no migration.
 
+Sky's [Staked USDS vault on Ethereum](https://tradingstrategy.ai/vaults/staked-usds)
+uses its [onchain withdrawal accounting](https://github.com/sky-ecosystem/stusds/blob/master/src/StUsds.sol).
+The reader deducts accrued SKY-backed debt and USDS due from active collateral
+auctions, then caps the result at the USDS the vault can pay after accruing
+yield. The existing capacity threshold controls the warning, so it clears
+after a fresh reading with sufficient liquidity. An unreviewed implementation
+or a failed read leaves capacity unknown. Scheduled refresh populates existing
+rows without a migration.
+
 Morpho V1 reads the withdrawal queue, supplied market positions and available
 market cash, with stored-interest conservative rounding. Morpho V2 includes only
 the configured ordinary withdrawal route; optional paid recovery is excluded.

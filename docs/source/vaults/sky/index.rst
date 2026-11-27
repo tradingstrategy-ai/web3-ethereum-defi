@@ -3,19 +3,19 @@ Sky API
 
 `Sky <https://sky.money/>`__ integration.
 
-Sky (formerly MakerDAO) is one of the oldest and most established DeFi protocols.
-The protocol provides the USDS stablecoin and allows users to earn yield through
-staking USDS in the stUSDS vault.
+Sky, formerly MakerDAO, issues the USDS stablecoin. Its Staked USDS
+(stUSDS) vault lends USDS against staked SKY, Sky's governance token.
 
-The stUSDS vault is an ERC-4626 compliant tokenised vault that allows users to
-stake USDS and earn the Sky Savings Rate (SSR). 
+Staked USDS withdrawal liquidity
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Key features:
+The `Staked USDS vault on Ethereum <https://tradingstrategy.ai/vaults/staked-usds>`__
+has no scheduled lock-up. Withdrawals depend on the USDS available after
+outstanding loans and active collateral auctions.
 
-- No deposit/withdrawal fees at the smart contract level
-- Yield accrues through the Sky Savings Rate (SSR)
-- Instant deposits and withdrawals
-- Fully decentralised and battle-tested infrastructure
+The withdrawal-capacity reader measures how much USDS is available at a fixed
+block. The catalogue warns when fresh capacity falls below the configured share
+of total assets.
 
 Links
 ~~~~~

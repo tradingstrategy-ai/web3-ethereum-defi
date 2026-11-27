@@ -2,8 +2,8 @@
 
 Exporters do not select protocols: adapters opt into these readers only when
 their verified withdrawal path matches the measurement. Contract bindings use
-complete verified ABI files; fetch provenance is recorded in the Euler, Fluid
-and IPOR ABI-folder README inventories, never in hand-declared view stubs.
+complete verified ABI files with provenance in the corresponding ABI-folder
+README inventories.
 """
 
 import logging
@@ -11,7 +11,7 @@ from concurrent.futures import Future
 from decimal import Decimal
 from typing import Any
 
-from eth_typing import BlockIdentifier, ChecksumAddress
+from eth_typing import BlockIdentifier, ChecksumAddress, HexAddress
 from requests.exceptions import RequestException
 from web3 import Web3
 from web3.contract.contract import Contract, ContractFunction
@@ -24,8 +24,20 @@ from eth_defi.vault.base import VaultBase
 
 logger = logging.getLogger(__name__)
 
-#: The Harvest vault and strategy proxies both use the EIP-1967 implementation slot.
-_HARVEST_IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation")) - 1
+#: Storage slot used by the reviewed Harvest and Staked USDS proxies.
+_EIP1967_IMPLEMENTATION_SLOT = int.from_bytes(Web3.keccak(text="eip1967.proxy.implementation")) - 1
+
+#: Staked USDS proxy on Ethereum.
+STAKED_USDS_ADDRESS: HexAddress = "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9"
+
+#: Reviewed implementation and its immutable accounting dependencies.
+_STAKED_USDS_IMPLEMENTATION = "0x7A61B7adCFD493f7CF0F86dFCECB94b72c227F22"
+_STAKED_USDS_VAT = "0x35D1b3F3D7966A1DFe207aa4514C12a259A0492B"
+_STAKED_USDS_JUG = "0x19c0976f590D67707E62397C87829d896Dc0f1F1"
+_STAKED_USDS_CLIPPER = "0x836F56750517b1528B5078Cba4Ac4B94fBE4A399"
+
+#: Maker/Sky rate scale. Multiplying a raw asset amount by this scale gives the debt accounting unit.
+_SKY_RAY = 10**27
 
 #: Runtime code identities checked against Base block 62,552,749.
 _HARVEST_VAULT_PROXY_HASH = "fbc60368b1ab806d8f3620062d3ed319bb66d2ecfe9ee92e3d5c29438fc6ee1f"
@@ -63,7 +75,7 @@ def _reviewed_harvest_proxy(web3: Web3, address: ChecksumAddress, proxy_hash: st
     """Match both the Harvest forwarding code and its current implementation."""
     if Web3.keccak(web3.eth.get_code(address, block)).hex() != proxy_hash:
         return False
-    slot = web3.eth.get_storage_at(address, _HARVEST_IMPLEMENTATION_SLOT, block)
+    slot = web3.eth.get_storage_at(address, _EIP1967_IMPLEMENTATION_SLOT, block)
     implementation = Web3.to_checksum_address(slot[-20:])
     return Web3.keccak(web3.eth.get_code(implementation, block)).hex() == implementation_hash
 
@@ -144,6 +156,61 @@ def harvest_forty_acres_observation(vault: VaultBase, block_identifier: BlockIde
         reason="Gross USDC before fee accrual and share rounding: Harvest and strategy idle cash plus the share of available 40 Acres cash accessible to the strategy",
     )
     return data
+
+
+def fetch_staked_usds_observation(vault: VaultBase, block: int) -> dict[str, Any]:  # ruff: ignore[too-many-locals] - Keep the same-block accounting and cash values named.
+    """Measure immediate USDS withdrawals from the reviewed Sky deployment.
+
+    Reuse the accounting from the contract's withdrawal path, which deducts
+    accrued SKY-backed debt and USDS still due from collateral auctions.
+    Simulate the borrow interest update at the observation block using
+    `eth_call` and limit the result to the USDS payable after yield accrual.
+    See the `stUSDS contract <https://github.com/sky-ecosystem/stusds/blob/master/src/StUsds.sol>`__.
+
+    :param vault: The Ethereum Staked USDS vault.
+    :param block: Numeric block for the implementation check and all contract reads.
+    :return: Capacity and TVL in USDS, or an unknown observation if the route changed or a read failed.
+    """
+    web3 = vault.web3
+    address = Web3.to_checksum_address(vault.address)
+    try:
+        slot = web3.eth.get_storage_at(address, _EIP1967_IMPLEMENTATION_SLOT, block)
+        if Web3.to_checksum_address(slot[-20:]) != _STAKED_USDS_IMPLEMENTATION:
+            logger.warning("Staked USDS withdrawal-capacity reader needs review after an implementation change at block %d", block)
+            return {"status": "unsupported", "reason": "Staked USDS implementation differs from the reviewed withdrawal route"}
+
+        stusds = get_deployed_contract(web3, "sky/StUsds.json", address).functions
+        vat = get_deployed_contract(web3, "sky/Vat.json", _STAKED_USDS_VAT).functions
+        jug = get_deployed_contract(web3, "sky/Jug.json", _STAKED_USDS_JUG).functions
+        clipper = get_deployed_contract(web3, "sky/LockstakeClipper.json", _STAKED_USDS_CLIPPER).functions
+        token = vault.denomination_token
+
+        # Passing exactly one rate-scale unit to convertToAssets reads the
+        # accrued share rate without truncating it to asset precision.
+        supply = _read(web3, stusds.totalSupply(), block)
+        total = supply * _read(web3, stusds.convertToAssets(_SKY_RAY), block)
+        ilk = _read(web3, stusds.ilk(), block)
+        normalised_debt = _read(web3, vat.ilks(ilk), block)[0]
+        debt = normalised_debt * _read(web3, jug.drip(ilk), block)
+        auction_due = _read(web3, clipper.Due(), block)
+
+        # Withdrawal accrues new USDS into the vault before paying the holder.
+        tvl = total // _SKY_RAY
+        stored_tvl = supply * _read(web3, stusds.chi(), block) // _SKY_RAY
+        cash = _read(web3, token.contract.functions.balanceOf(address), block) + tvl - stored_tvl
+    except (Web3Exception, ExtraValueError, RequestException) as error:
+        logger.warning("Staked USDS withdrawal-capacity read failed at block %d (%s)", block, type(error).__name__)
+        return {"status": "failed", "reason": "Staked USDS withdrawal capacity could not be read"}
+
+    capacity = min(max(0, total - debt - auction_due) // _SKY_RAY, cash)
+    return {
+        "status": "measured",
+        "current_tvl": str(token.convert_to_decimals(tvl)),
+        "current_capacity": str(token.convert_to_decimals(capacity)),
+        "denomination_symbol": token.symbol,
+        "denomination_address": token.address,
+        "reason": "Staked USDS withdrawal liquidity after outstanding SKY-backed debt and active auctions",
+    }
 
 
 def morpho_v1_capacity(web3: Web3, address: str, block: int, token: TokenDetails) -> int:
