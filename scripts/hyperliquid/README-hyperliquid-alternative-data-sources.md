@@ -63,6 +63,7 @@ weekly `allTime` snapshots to produce flow-aware daily interpolation.
 | ASXN dashboard | Visual only | `hyperliquid.asxn.xyz/vault_metrics` — 22+ vault metrics but no public API |
 | Arkham Intelligence | No | Bridge-level entity tracking only. Paid API |
 | `thunderhead-labs/hyperliquid-stats` | Possible | Open-source, powers `stats.hyperliquid.xyz`. Caches ledger into PostgreSQL. Would require running own instance |
+| Hydromancer Reservoir | Yes (daily TVL, no PnL) | Free Parquet archive in `s3://hydromancer-reservoir` (requester-pays, `ap-northeast-1`: needs AWS credentials, and AWS bills requests, plus transfer beyond the 100 GB a month every account gets free). `global/snapshots/account_values/date=YYYY-MM-DD/` holds `account_value` per address per dex since July 2025, from one on-chain state per UTC day (time varies; the file name has the timestamp). On 19 Oct 2026 every vault in it was a standard account with one `hyperliquid` row. No `cum_ledger` or `is_vault`, so netflow still needs `userNonFundingLedgerUpdates`. Some days are missing, including late Oct to mid Dec 2025. [Schema](https://docs.hydromancer.xyz/reservoir/schema-reference/snapshots) |
 
 ## Hyperliquid S3 archive (requester-pays)
 
