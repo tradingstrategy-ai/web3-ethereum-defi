@@ -12,6 +12,8 @@ import pytest
 
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.fluid.vault import FluidVault
+from eth_defi.erc_4626.vault_protocol.sky.vault import SkyVault
+from eth_defi.vault import withdrawal_capacity_readers
 from eth_defi.vault.base import VaultBase, VaultSpec
 from eth_defi.vault.deposit_redeem import VaultDepositManager
 from eth_defi.vault.withdrawal_capacity import assess_withdrawal_capacity, configured_capacity_threshold, enrich_withdrawal_capacity, fetch_withdrawal_capacity_limit
@@ -79,6 +81,69 @@ def test_export_keeps_existing_fields_and_old_rows():
     database.rows.clear()
     enrich_withdrawal_capacity([row], database, now=NOW)
     assert row["withdrawal_capacity_limit"]["capacity_warning"] is None
+
+
+@pytest.mark.parametrize(
+    "borrowed,cash,capacity,warning",
+    [(920, 1000, "0", True), (700, 1000, "229", False), (700, 30, "40", True)],
+)
+def test_staked_usds_export_measures_withdrawal_buffer(monkeypatch: pytest.MonkeyPatch, borrowed: int, cash: int, capacity: str, *, warning: bool) -> None:
+    """Export the amount left after interest and auctions, bounded by payable USDS."""
+    wad, ray = 10**18, 10**27
+    block = 123
+    ilk = b"LSEV2-SKY-A".ljust(32, b"\0")
+    address = "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9"
+    web3 = SimpleNamespace(
+        eth=SimpleNamespace(
+            get_block=Mock(return_value={"number": block, "timestamp": int(NOW.timestamp()), "hash": bytes(32)}),
+            get_storage_at=Mock(return_value=bytes(12) + bytes.fromhex("7a61b7adcfd493f7cf0f86dfcecb94b72c227f22")),
+        ),
+    )
+    vault = SkyVault(web3, VaultSpec(1, address))
+
+    def read(value: int | bytes | tuple[int, ...]) -> Mock:
+        """Serve the fixture state only at the requested observation block."""
+
+        def call(*, block_identifier: int) -> int | bytes | tuple[int, ...]:
+            assert block_identifier == block
+            return value
+
+        return Mock(return_value=SimpleNamespace(call=call))
+
+    stusds = SimpleNamespace(totalSupply=read(1000 * wad), convertToAssets=read(101 * ray // 100), chi=read(ray), ilk=read(ilk))
+    vat = SimpleNamespace(ilks=read((borrowed * wad, ray, 0, 0, 0)))
+    jug = SimpleNamespace(drip=read(11 * ray // 10))
+    clipper = SimpleNamespace(Due=read(11 * wad * ray))
+    usds = SimpleNamespace(balanceOf=read(cash * wad))
+    contracts = {"sky/StUsds.json": stusds, "sky/Vat.json": vat, "sky/Jug.json": jug, "sky/LockstakeClipper.json": clipper}
+    monkeypatch.setattr(withdrawal_capacity_readers, "get_deployed_contract", lambda _web3, abi, _address: SimpleNamespace(functions=contracts[abi]))
+    vault.denomination_token = SimpleNamespace(
+        symbol="USDS",
+        address="0xdc035d45d973e3ec169d2276ddab16f1e407384f",
+        contract=SimpleNamespace(functions=usds),
+        convert_to_decimals=lambda raw: Decimal(raw) / wad,
+    )
+
+    database = SimpleNamespace(rows={vault.spec: {"_withdrawal_capacity_observation": vault.fetch_withdrawal_capacity_limit(block).observation}})
+    row = {"chain_id": 1, "address": address}
+    enrich_withdrawal_capacity([row], database, now=NOW)
+    assert row["withdrawal_capacity_limit"]["current_capacity"] == capacity
+    assert row["withdrawal_capacity_limit"]["current_tvl"] == "1010"
+    assert row["withdrawal_capacity_limit"]["capacity_warning"] is warning
+    assert row["withdrawal_capacity_observation"]["capacity_warning_source"] == ("measured" if warning else None)
+    enrich_withdrawal_capacity([row], database, now=NOW + timedelta(hours=27))
+    assert row["withdrawal_capacity_limit"]["capacity_warning"] is None
+
+
+def test_staked_usds_unreviewed_implementation_is_unknown() -> None:
+    """An implementation change prevents the reader from using old accounting rules."""
+    web3 = SimpleNamespace(eth=SimpleNamespace(get_storage_at=Mock(return_value=bytes(32))))
+    vault = SkyVault(web3, VaultSpec(1, "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9"))
+    assert vault.fetch_withdrawal_capacity_observation(123)["status"] == "unsupported"
+
+    savings = SkyVault(web3, VaultSpec(1, "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd"))
+    assert savings.fetch_withdrawal_capacity_observation(123)["status"] == "unsupported"
+    web3.eth.get_storage_at.assert_called_once()
 
 
 @pytest.mark.parametrize("capacity", [None, "200", "0"])

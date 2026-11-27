@@ -1,20 +1,17 @@
-"""Test Sky vault metadata."""
+"""Sky vault detection and withdrawal capacity on the shared Ethereum fork."""
 
 import os
-from pathlib import Path
+from decimal import Decimal
 
-import flaky
 import pytest
 from web3 import Web3
 
-from eth_defi.abi import ZERO_ADDRESS_STR
 from eth_defi.erc_4626.classification import create_vault_instance_autodetect
 from eth_defi.erc_4626.core import ERC4626Feature
 from eth_defi.erc_4626.vault_protocol.sky.vault import SkyVault
-from eth_defi.vault.base import VaultTechnicalRisk
-
 from eth_defi.testing.anvil_fork_pool import AnvilForkPool
 from eth_defi.testing.fork_blocks import ETHEREUM_MIDNIGHT_BLOCK
+from eth_defi.vault.base import VaultTechnicalRisk
 
 JSON_RPC_ETHEREUM = os.environ.get("JSON_RPC_ETHEREUM")
 
@@ -36,103 +33,32 @@ def web3(anvil_fork_pool: AnvilForkPool) -> Web3:
     return anvil_fork_pool.get_web3(JSON_RPC_ETHEREUM, ETHEREUM_MIDNIGHT_BLOCK)
 
 
-@flaky.flaky
-def test_sky_stusds(
-    web3: Web3,
-    tmp_path: Path,
-):
-    """Read Sky stUSDS vault metadata."""
+def test_sky_vault_dispatch_and_withdrawal_capacity(web3: Web3) -> None:
+    """Detect all three Sky products and measure the lending vault at the fork block."""
+    staked, savings_usds, savings_dai = [
+        create_vault_instance_autodetect(web3, vault_address=address)
+        for address in (
+            "0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9",
+            "0xa3931d71877c0e7a3148cb7eb4463524fec27fbd",
+            "0x83f20f44975d03b1b09e64809b757c47f942beea",
+        )
+    ]
+    for vault in (staked, savings_usds, savings_dai):
+        assert isinstance(vault, SkyVault)
+        assert vault.features == {ERC4626Feature.sky_like}
+        assert vault.can_check_redeem() is False
 
-    vault = create_vault_instance_autodetect(
-        web3,
-        vault_address="0x99cd4ec3f88a45940936f469e4bb72a2a701eeb9",
-    )
+    assert staked.get_protocol_name() == "Sky"
+    assert staked.get_management_fee(ETHEREUM_MIDNIGHT_BLOCK) == 0.0
+    assert staked.get_performance_fee(ETHEREUM_MIDNIGHT_BLOCK) == 0.0
+    assert staked.has_custom_fees() is False
+    assert staked.get_link() == "https://sky.money/"
+    assert staked.get_risk() == VaultTechnicalRisk.negligible
 
-    assert isinstance(vault, SkyVault)
-    assert vault.get_protocol_name() == "Sky"
-    assert vault.features == {ERC4626Feature.sky_like}
+    limit = staked.fetch_withdrawal_capacity_limit(ETHEREUM_MIDNIGHT_BLOCK)
+    assert limit.current_capacity == Decimal("30167514.520225529430700657")
+    assert limit.current_tvl == Decimal("186574082.241036731261725321")
+    assert limit.capacity_warning is False
 
-    # Sky does not charge fees
-    assert vault.get_management_fee("latest") == 0.0
-    assert vault.get_performance_fee("latest") == 0.0
-    assert vault.has_custom_fees() is False
-
-    # Check vault link
-    assert vault.get_link() == "https://sky.money/"
-
-    # Check risk level
-    assert vault.get_risk() == VaultTechnicalRisk.negligible
-
-    # stUSDS doesn't implement standard maxDeposit/maxRedeem (returns empty data)
-    # so we cannot use address(0) checks for this vault
-    assert vault.can_check_redeem() is False
-
-
-@flaky.flaky
-def test_sky_susds(
-    web3: Web3,
-    tmp_path: Path,
-):
-    """Read Sky sUSDS vault metadata."""
-
-    vault = create_vault_instance_autodetect(
-        web3,
-        vault_address="0xa3931d71877c0e7a3148cb7eb4463524fec27fbd",
-    )
-
-    assert isinstance(vault, SkyVault)
-    assert vault.get_protocol_name() == "Sky"
-    assert vault.features == {ERC4626Feature.sky_like}
-
-    # Sky does not charge fees
-    assert vault.get_management_fee("latest") == 0.0
-    assert vault.get_performance_fee("latest") == 0.0
-    assert vault.has_custom_fees() is False
-
-    # Check vault link
-    assert vault.get_link() == "https://sky.money/"
-
-    # Check risk level
-    assert vault.get_risk() == VaultTechnicalRisk.negligible
-
-    # Check maxDeposit and maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-    assert vault.can_check_redeem() is False
-
-
-@flaky.flaky
-def test_sky_sdai(
-    web3: Web3,
-    tmp_path: Path,
-):
-    """Read Sky sDAI (Savings DAI) vault metadata."""
-
-    vault = create_vault_instance_autodetect(
-        web3,
-        vault_address="0x83f20f44975d03b1b09e64809b757c47f942beea",
-    )
-
-    assert isinstance(vault, SkyVault)
-    assert vault.get_protocol_name() == "Sky"
-    assert vault.features == {ERC4626Feature.sky_like}
-
-    # Sky does not charge fees
-    assert vault.get_management_fee("latest") == 0.0
-    assert vault.get_performance_fee("latest") == 0.0
-    assert vault.has_custom_fees() is False
-
-    # Check vault link
-    assert vault.get_link() == "https://sky.money/"
-
-    # Check risk level
-    assert vault.get_risk() == VaultTechnicalRisk.negligible
-
-    # Check maxDeposit and maxRedeem with address(0)
-    max_deposit = vault.vault_contract.functions.maxDeposit(ZERO_ADDRESS_STR).call()
-    max_redeem = vault.vault_contract.functions.maxRedeem(ZERO_ADDRESS_STR).call()
-    assert max_deposit >= 0
-    assert max_redeem >= 0
-    assert vault.can_check_redeem() is False
+    for savings in (savings_usds, savings_dai):
+        assert savings.fetch_withdrawal_capacity_observation(ETHEREUM_MIDNIGHT_BLOCK)["status"] == "unsupported"
